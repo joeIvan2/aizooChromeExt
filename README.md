@@ -19,7 +19,7 @@ Chrome Extension 擴充功能，可同時與 4 個 AI 平台聊天：Grok、Gemi
 2. 進入 `chrome://extensions/`
 3. 啟用右上角的「開發者模式」
 4. 點擊「載入未封裝項目」
-5. 選擇 `/mnt/c/py/aiLLM/aiLLM2/chrome-extension/` 資料夾
+5. 選擇此資料夾
 6. 完成！擴充功能已安裝
 
 ### 方法 2：打包成 .crx 檔案
@@ -253,11 +253,6 @@ A:
 
 MIT License
 
-## 相關專案
-
-- [React Native App](../): 原始的 React Native 手機版本
-- [platformConfig.ts](../src/config/platformConfig.ts): 平台配置來源
-
 ## 貢獻
 
 歡迎提交 Issue 和 Pull Request！
@@ -268,3 +263,271 @@ MIT License
 1. Console 錯誤訊息
 2. 本 README 的常見問題
 3. 提交 GitHub Issue
+
+---
+
+# AI Multi-Chat Assistant (English)
+
+A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok, Gemini, Claude, and ChatGPT.
+
+## Features
+
+- ✅ **4 AIs Displayed Simultaneously**: Grok, Gemini, Claude, ChatGPT side by side
+- ✅ **Unified Input Box**: Type once, send to all AIs with one click
+- ✅ **Real-time Status Updates**: Each AI's status at a glance
+- ✅ **Automatic Bypass**: Automatically removes X-Frame-Options to allow iframe loading
+- ✅ **Code Reuse**: 90% of code from React Native App
+- ✅ **Keyboard Shortcut**: Ctrl+Enter to quickly send questions
+
+## Installation
+
+### Method 1: Developer Mode (Recommended)
+
+1. Open Chrome browser
+2. Navigate to `chrome://extensions/`
+3. Enable "Developer mode" in the top right corner
+4. Click "Load unpacked"
+5. Select this folder
+6. Done! Extension installed
+
+### Method 2: Pack as .crx File
+
+```bash
+# In chrome://extensions/, click "Pack extension"
+# Select chrome-extension folder
+# Generate .crx file
+```
+
+## Usage
+
+1. Click the extension icon in the browser toolbar
+2. A page will open showing 4 AI iframes
+3. Enter your question in the top input box
+4. Click "Send to All AIs" or press `Ctrl+Enter`
+5. Watch all 4 AIs respond simultaneously
+
+## Status Indicators
+
+Each AI displays status in the top right corner:
+
+- ⏳ **Loading**: iframe is loading
+- ✅ **Ready**: AI is ready to receive questions
+- 🔄 **Processing**: Sending question or waiting for response
+- 🔐 **Login Required**: OAuth authentication needed (see below)
+- ❌ **Error**: An error occurred (click for details)
+
+## AI Platform Login Handling
+
+Some AI platforms (like Grok, ChatGPT) use OAuth for login. Due to security restrictions, OAuth flows cannot complete within iframes. This extension provides different login handling for different platforms.
+
+### Supported Platforms
+
+- **Grok**: Uses Google OAuth (`accounts.x.ai`) - Manual guided login
+- **ChatGPT**: Uses OpenAI Auth (`auth.openai.com`) - Automatic popup window
+- **Gemini**: User handles login directly
+- **Claude**: User handles login directly
+
+### Grok Manual Login
+
+1. **Detection**: When Grok iframe requires login, a login prompt appears
+2. **Click Login**: Click "Login to Grok in New Tab" button
+3. **New Tab Login**: Opens `https://accounts.x.ai/sign-in?redirect=grok-com` in new tab
+4. **Complete Login**: Sign in with Google account
+5. **Reload**: Return to AI Multi-Chat and click "Login Complete, Reload" button
+6. **Start Using**: Grok iframe reloads showing logged-in state
+
+### ChatGPT Automatic Login
+
+1. **Auto-Detection**: Automatically detects when ChatGPT iframe needs login
+2. **Auto-Open Window**: Automatically opens popup window (500x700) to `https://auth.openai.com/log-in`
+3. **Complete Login**: Sign in with OpenAI account in popup window
+4. **Close Window**: Close window after login completes
+5. **Auto-Reload**: ChatGPT iframe automatically reloads (2 second delay)
+6. **Start Using**: Ready to use immediately, no manual action needed
+
+**Features**:
+- ✨ Fully automated, no button clicks needed
+- 🪟 Small popup window, doesn't disturb main window
+- 🔄 Auto-reload after closing login window
+- ⚡ Fast and convenient login experience
+
+### Login Prompt Interface (Grok Only)
+
+When Grok needs login, iframe displays:
+- 🔐 Icon
+- **Grok Login Required** title
+- **Login to Grok in New Tab** button (primary action)
+- **Login Complete, Reload** button (after login)
+- 💡 Operation hints
+- Purple gradient theme (#667eea → #764ba2)
+
+### Status Indicators
+
+**Grok**:
+- 🔐 **Login Required**: Detected login needed, showing login interface
+- 🔐 **Please Complete Login in New Tab**: Login tab opened
+- 🔄 **Reloading...**: Reloading Grok
+- ✅ **Ready**: Login complete, ready to use
+
+**ChatGPT**:
+- 🔐 **Login Required**: Detected login needed, auto-opening window
+- 🔐 **Login Window Opened**: Login window popped up
+- 🔄 **Reloading...**: Auto-reload after login window closed
+- ✅ **Ready**: Auto-completed, ready to use
+
+**Other Platforms (Gemini, Claude)**:
+- User handles login directly in iframe
+- No automatic login detection or guidance
+- Ready to use after login
+
+## Icon Generation
+
+Extension requires 3 icon sizes:
+
+- `icons/icon16.png` - 16x16 pixels
+- `icons/icon48.png` - 48x48 pixels
+- `icons/icon128.png` - 128x128 pixels
+
+### Auto-Generate Icons (Recommended)
+
+Use online tools:
+
+1. Visit https://www.favicon-generator.org/
+2. Upload your logo or image
+3. Select "Chrome Extension" format
+4. Download and extract to `icons/` folder
+
+### Manual Creation
+
+```bash
+# Using ImageMagick
+convert -size 128x128 xc:#4285f4 -gravity center \
+  -pointsize 60 -fill white -annotate +0+0 "AI" \
+  icons/icon128.png
+
+convert icons/icon128.png -resize 48x48 icons/icon48.png
+convert icons/icon128.png -resize 16x16 icons/icon16.png
+```
+
+### Temporary Placeholder
+
+If icons are temporarily unavailable, use any PNG image:
+
+```bash
+# Copy any image as temporary icon
+cp /path/to/any-image.png icons/icon128.png
+cp /path/to/any-image.png icons/icon48.png
+cp /path/to/any-image.png icons/icon16.png
+```
+
+## Technical Architecture
+
+### File Structure
+
+```
+chrome-extension/
+├── manifest.json                 # Extension configuration
+├── background.js                 # HTTP header interception
+├── popup.html                    # Main page
+├── popup.css                     # Styles
+├── popup.js                      # Control logic
+├── content-scripts/
+│   ├── platforms-config.js       # Platform configuration
+│   ├── injection-core.js         # Core injection logic
+│   ├── grok-script.js           # Grok-specific script
+│   ├── gemini-script.js         # Gemini-specific script
+│   ├── claude-script.js         # Claude-specific script
+│   └── chatgpt-script.js        # ChatGPT-specific script
+├── icons/
+│   ├── icon16.png
+│   ├── icon48.png
+│   └── icon128.png
+└── README.md
+```
+
+### Core Features
+
+1. **background.js**
+   - Intercepts HTTP response headers
+   - Removes `X-Frame-Options` and `Content-Security-Policy`
+   - Allows AI websites to load in iframes
+
+2. **content-scripts/**
+   - Auto-injected into each AI platform
+   - Monitors network requests (Fetch/XHR)
+   - Auto-fills questions and clicks send buttons
+   - Captures and parses AI responses
+
+3. **popup.html/css/js**
+   - Main page UI
+   - 4 iframe layout
+   - Unified input control
+   - Message handling and status updates
+
+### Communication Flow
+
+```
+popup.js
+  ↓ postMessage (AI_SUBMIT_QUESTION)
+iframe (grok.com)
+  ↓ content-script (grok-script.js)
+injection-core.js
+  ↓ Fill question, click button
+AI Website
+  ↓ Network request interception
+injection-core.js
+  ↓ postMessage (AI_RESPONSE_RECEIVED)
+popup.js
+  ↓ Update status
+UI Display
+```
+
+## FAQ
+
+### Q: iframe shows blank?
+A: Please check:
+1. `background.js` is running (check console)
+2. Extension has correct permissions
+3. Try reloading the extension
+
+### Q: Question cannot be sent?
+A: Possible reasons:
+1. AI website updated DOM structure (need to update content-script)
+2. Cloudflare verification in progress (wait for completion)
+3. Check iframe console for error messages
+
+### Q: Response cannot be captured?
+A: Check:
+1. Network monitoring is working (check console)
+2. API endpoint has changed
+3. Response format has been updated
+
+### Q: How to debug?
+A:
+1. Right-click extension icon → "Inspect popup"
+2. In popup page, right-click iframe → "Inspect"
+3. Check Console for log messages
+
+## Changelog
+
+### v1.0.0 (2025-12-19)
+- ✅ Initial release
+- ✅ Support for 4 AI platforms
+- ✅ Unified input and sending
+- ✅ Real-time status updates
+- ✅ Automatic iframe restriction bypass
+
+## License
+
+MIT License
+
+## Contributing
+
+Issues and Pull Requests are welcome!
+
+## Support
+
+If you have questions:
+1. Check Console error messages
+2. Review FAQ in this README
+3. Submit a GitHub Issue
