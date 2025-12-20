@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>AI Multi-Chat</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <!-- 統一問題輸入區 -->
+    <div class="input-section">
+      <textarea id="question-input" placeholder="輸入問題，一次發送到所有 AI... (Ctrl+Enter 發送)"></textarea>
+      <button id="send-all-btn">發送到所有 AI</button>
+      <button id="new-chat-btn">新對話 ＋</button>
+    </div>
+
+    <!-- 4 個 AI iframe -->
+    <div class="iframes-container">
+      <div class="iframe-wrapper">
+        <div class="iframe-header" style="background-color: #e74c3c;">
+          <span>Grok</span>
+          <span class="status" id="grok-status" title="載入中...">⏳</span>
+        </div>
+        <iframe id="grok-iframe" src="https://grok.com/"></iframe>
+      </div>
+
+      <div class="iframe-wrapper">
+        <div class="iframe-header" style="background-color: #8e44ad;">
+          <span>Gemini</span>
+          <span class="status" id="gemini-status" title="載入中...">⏳</span>
+        </div>
+        <iframe id="gemini-iframe" src="https://gemini.google.com/app"></iframe>
+      </div>
+
+      <div class="iframe-wrapper">
+        <div class="iframe-header" style="background-color: #CC785C;">
+          <span>Claude</span>
+          <span class="status" id="claude-status" title="載入中...">⏳</span>
+        </div>
+        <iframe id="claude-iframe" src="https://claude.ai/new"></iframe>
+      </div>
+
+      <div class="iframe-wrapper">
+        <div class="iframe-header" style="background-color: #27ae60;">
+          <span>ChatGPT</span>
+          <span class="status" id="chatgpt-status" title="載入中...">⏳</span>
+        </div>
+        <iframe id="chatgpt-iframe" src="https://chatgpt.com/"></iframe>
+      </div>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

@@ -1,0 +1,113 @@
+{
+  "manifest_version": 3,
+  "name": "AI Multi-Chat Assistant",
+  "version": "1.0.0",
+  "description": "同時與 4 個 AI 聊天：Grok、Gemini、Claude、ChatGPT",
+  "permissions": [
+    "storage",
+    "declarativeNetRequest",
+    "cookies"
+  ],
+  "host_permissions": [
+    "*://grok.com/*",
+    "*://gemini.google.com/*",
+    "*://claude.ai/*",
+    "*://chat.openai.com/*",
+    "*://chatgpt.com/*",
+    "*://auth.openai.com/*",
+    "*://accounts.x.ai/*",
+    "*://accounts.google.com/*",
+    "*://www.googleapis.com/*"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "declarative_net_request": {
+    "rule_resources": [
+      {
+        "id": "ruleset_1",
+        "enabled": true,
+        "path": "rules.json"
+      }
+    ]
+  },
+  "content_scripts": [
+    {
+      "matches": ["*://grok.com/*"],
+      "js": [
+        "content-scripts/platforms-config.js",
+        "content-scripts/injection-core.js",
+        "content-scripts/grok-script.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://gemini.google.com/*"],
+      "js": [
+        "content-scripts/platforms-config.js",
+        "content-scripts/injection-core.js",
+        "content-scripts/gemini-script.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://claude.ai/*"],
+      "js": [
+        "content-scripts/platforms-config.js",
+        "content-scripts/injection-core.js",
+        "content-scripts/claude-script.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://chat.openai.com/*", "*://chatgpt.com/*", "*://auth.openai.com/*"],
+      "js": [
+        "content-scripts/platforms-config.js",
+        "content-scripts/injection-core.js",
+        "content-scripts/chatgpt-script.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://accounts.google.com/*"],
+      "js": [
+        "content-scripts/google-oauth-handler.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://accounts.x.ai/*"],
+      "js": [
+        "content-scripts/google-oauth-handler.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": ["*://auth.openai.com/*"],
+      "js": [
+        "content-scripts/google-oauth-handler.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    }
+  ],
+  "action": {
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    },
+    "default_title": "AI Multi-Chat Assistant - 點擊開啟"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  }
+}
