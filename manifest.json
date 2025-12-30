@@ -13,7 +13,8 @@
     "*://gemini.google.com/*",
     "*://claude.ai/*",
     "*://chatgpt.com/*",
-    "*://auth.openai.com/*"
+    "*://auth.openai.com/*",
+    "*://accounts.x.ai/*"
   ],
   "background": {
     "service_worker": "background.js"
