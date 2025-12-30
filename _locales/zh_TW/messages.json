@@ -1,14 +1,14 @@
 {
   "extensionName": {
-    "message": "AI 多平台聊天助手",
+    "message": "AI Zoo",
     "description": "擴充功能名稱"
   },
   "extensionDescription": {
-    "message": "同時與 4 個 AI 平台聊天：Grok、Gemini、Claude、ChatGPT",
+    "message": "並排比較多個 AI 聊天機器人：Grok、Gemini、Claude、ChatGPT",
     "description": "擴充功能描述"
   },
   "extensionActionTitle": {
-    "message": "AI 多平台聊天助手 - 點擊開啟",
+    "message": "AI Zoo - 點擊開啟",
     "description": "滑鼠移到擴充功能圖示時的提示文字"
   },
   "inputPlaceholder": {

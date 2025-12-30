@@ -1,14 +1,14 @@
 {
   "extensionName": {
-    "message": "AI Multi-Chat Assistant",
+    "message": "AI Zoo",
     "description": "Name of the extension"
   },
   "extensionDescription": {
-    "message": "Chat with 4 AI platforms simultaneously: Grok, Gemini, Claude, ChatGPT",
+    "message": "Compare multiple AI chatbots side-by-side: Grok, Gemini, Claude, ChatGPT",
     "description": "Description of the extension"
   },
   "extensionActionTitle": {
-    "message": "AI Multi-Chat Assistant - Click to Open",
+    "message": "AI Zoo - Click to Open",
     "description": "Tooltip when hovering over extension icon"
   },
   "inputPlaceholder": {
