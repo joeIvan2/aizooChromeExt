@@ -1,0 +1,86 @@
+{
+  "extensionName": {
+    "message": "AI Multi-Chat Assistant",
+    "description": "Name of the extension"
+  },
+  "extensionDescription": {
+    "message": "Chat with 4 AI platforms simultaneously: Grok, Gemini, Claude, ChatGPT",
+    "description": "Description of the extension"
+  },
+  "extensionActionTitle": {
+    "message": "AI Multi-Chat Assistant - Click to Open",
+    "description": "Tooltip when hovering over extension icon"
+  },
+  "inputPlaceholder": {
+    "message": "Enter your question, send to all AI at once... (Ctrl+Enter to send)",
+    "description": "Placeholder text for input textarea"
+  },
+  "sendToAllButton": {
+    "message": "Send to All AI",
+    "description": "Send button text"
+  },
+  "newChatButton": {
+    "message": "New Chat +",
+    "description": "New chat button text"
+  },
+  "refreshTitle": {
+    "message": "Refresh",
+    "description": "Refresh button tooltip"
+  },
+  "maximizeTitle": {
+    "message": "Maximize",
+    "description": "Maximize button tooltip"
+  },
+  "loadingTitle": {
+    "message": "Loading...",
+    "description": "Loading status tooltip"
+  },
+  "statusReady": {
+    "message": "Ready",
+    "description": "Status: Ready"
+  },
+  "statusSending": {
+    "message": "Sending...",
+    "description": "Status: Sending question"
+  },
+  "statusWaiting": {
+    "message": "Waiting for response...",
+    "description": "Status: Waiting for AI response"
+  },
+  "statusReceived": {
+    "message": "Response received",
+    "description": "Status: Response received"
+  },
+  "statusError": {
+    "message": "Error",
+    "description": "Status: Error occurred"
+  },
+  "errorTextareaNotFound": {
+    "message": "❌ Textarea not found (timeout)",
+    "description": "Error: Cannot find input textarea"
+  },
+  "errorFillFailed": {
+    "message": "❌ Failed to fill question",
+    "description": "Error: Cannot fill question into textarea"
+  },
+  "errorVerifyFailed": {
+    "message": "❌ Content verification failed, text not properly filled",
+    "description": "Error: Content verification failed"
+  },
+  "errorButtonClickFailed": {
+    "message": "❌ Button click failed (timeout)",
+    "description": "Error: Cannot click submit button"
+  },
+  "infoWaitingTextarea": {
+    "message": "Waiting for textarea to be ready...",
+    "description": "Info: Waiting for textarea"
+  },
+  "infoWaitingButton": {
+    "message": "Waiting for send button to be ready...",
+    "description": "Info: Waiting for button"
+  },
+  "infoWaitingButtonEnabled": {
+    "message": "Waiting for button to be enabled...",
+    "description": "Info: Waiting for button to be enabled"
+  }
+}

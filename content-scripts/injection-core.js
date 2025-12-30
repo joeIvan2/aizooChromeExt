@@ -234,7 +234,7 @@ const InjectionCore = {
         sendMessageToPopup({
           type: 'AI_INFO',
           platform: config.id,
-          message: '等待 textarea 準備好...'
+          message: chrome.i18n.getMessage('infoWaitingTextarea') || '等待 textarea 準備好...'
         });
       }
 
@@ -246,7 +246,7 @@ const InjectionCore = {
       sendMessageToPopup({
         type: 'AI_ERROR',
         platform: config.id,
-        message: '❌ Textarea 未找到（超時）'
+        message: chrome.i18n.getMessage('errorTextareaNotFound') || '❌ Textarea 未找到（超時）'
       });
       return;
     }
@@ -259,7 +259,7 @@ const InjectionCore = {
         sendMessageToPopup({
           type: 'AI_ERROR',
           platform: config.id,
-          message: '❌ 填充問題失敗'
+          message: chrome.i18n.getMessage('errorFillFailed') || '❌ 填充問題失敗'
         });
         return;
       }
@@ -270,7 +270,45 @@ const InjectionCore = {
       sendMessageToPopup({
         type: 'AI_ERROR',
         platform: config.id,
-        message: '❌ 填充問題異常: ' + error.message
+        message: (chrome.i18n.getMessage('errorFillFailed') || '❌ 填充問題異常') + ': ' + error.message
+      });
+      return;
+    }
+
+    // Step 2.5: 驗證內容是否真的被覆蓋（等待最多 5 秒）
+    let verifyRetries = 0;
+    const maxVerifyRetries = 5;
+    let contentVerified = false;
+
+    while (verifyRetries < maxVerifyRetries) {
+      try {
+        // 等待一小段時間讓 DOM 更新
+        await new Promise(resolve => setTimeout(resolve, 200));
+
+        const currentContent = config.getContent ? config.getContent() : '';
+        const trimmedQuestion = question.trim();
+        const trimmedContent = currentContent.trim();
+
+        console.log(`[${config.id}] Verify attempt ${verifyRetries + 1}: expected="${trimmedQuestion.substring(0, 50)}...", actual="${trimmedContent.substring(0, 50)}..."`);
+
+        if (trimmedContent === trimmedQuestion) {
+          console.log(`[${config.id}] Content verified successfully`);
+          contentVerified = true;
+          break;
+        }
+
+        verifyRetries++;
+      } catch (error) {
+        console.error(`[${config.id}] Content verification error:`, error);
+        verifyRetries++;
+      }
+    }
+
+    if (!contentVerified) {
+      sendMessageToPopup({
+        type: 'AI_ERROR',
+        platform: config.id,
+        message: chrome.i18n.getMessage('errorVerifyFailed') || '❌ 內容覆蓋驗證失敗，文字未正確填入'
       });
       return;
     }
@@ -287,7 +325,7 @@ const InjectionCore = {
             sendMessageToPopup({
               type: 'AI_INFO',
               platform: config.id,
-              message: '等待發送按鈕準備好...'
+              message: chrome.i18n.getMessage('infoWaitingButton') || '等待發送按鈕準備好...'
             });
             hasShownWaitingMessage = true;
           }
@@ -312,7 +350,7 @@ const InjectionCore = {
           sendMessageToPopup({
             type: 'AI_INFO',
             platform: config.id,
-            message: '等待按鈕啟用...'
+            message: chrome.i18n.getMessage('infoWaitingButtonEnabled') || '等待按鈕啟用...'
           });
           hasShownWaitingMessage = true;
         }
@@ -329,7 +367,7 @@ const InjectionCore = {
     sendMessageToPopup({
       type: 'AI_ERROR',
       platform: config.id,
-      message: '❌ 按鈕點擊失敗（超時）'
+      message: chrome.i18n.getMessage('errorButtonClickFailed') || '❌ 按鈕點擊失敗（超時）'
     });
   }
 };

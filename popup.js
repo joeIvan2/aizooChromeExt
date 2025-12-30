@@ -14,9 +14,44 @@ const defaultUrls = {
   chatgpt: 'https://chatgpt.com/'
 };
 
+// i18n 初始化函數
+function initI18n() {
+  // 處理 data-i18n 屬性（設置 textContent）
+  document.querySelectorAll('[data-i18n]').forEach(element => {
+    const key = element.getAttribute('data-i18n');
+    const message = chrome.i18n.getMessage(key);
+    if (message) {
+      element.textContent = message;
+    }
+  });
+
+  // 處理 data-i18n-placeholder 屬性（設置 placeholder）
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
+    const key = element.getAttribute('data-i18n-placeholder');
+    const message = chrome.i18n.getMessage(key);
+    if (message) {
+      element.placeholder = message;
+    }
+  });
+
+  // 處理 data-i18n-title 屬性（設置 title）
+  document.querySelectorAll('[data-i18n-title]').forEach(element => {
+    const key = element.getAttribute('data-i18n-title');
+    const message = chrome.i18n.getMessage(key);
+    if (message) {
+      element.title = message;
+    }
+  });
+
+  console.log('[AI Multi-Chat] i18n initialized');
+}
+
 // 初始化
 document.addEventListener('DOMContentLoaded', () => {
   console.log('[AI Multi-Chat] DOM loaded, initializing...');
+
+  // 首先初始化 i18n
+  initI18n();
 
   // 獲取所有 iframe 和狀態元素
   platforms.forEach(platform => {
@@ -123,6 +158,42 @@ document.addEventListener('DOMContentLoaded', () => {
     const newPlatform = platforms[newIndex];
     console.log(`[AI Multi-Chat] Switching maximized iframe from ${currentMaximizedPlatform} to ${newPlatform}`);
     toggleMaximize(newPlatform);
+  }
+
+  // --- Refresh iframe Logic ---
+  // 為所有刷新按鈕添加事件監聽器
+  document.querySelectorAll('.refresh-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const platform = btn.dataset.platform;
+      refreshIframe(platform);
+    });
+  });
+
+  function refreshIframe(platform) {
+    const iframe = iframes[platform];
+    const btn = document.querySelector(`.refresh-btn[data-platform="${platform}"]`);
+
+    if (!iframe) return;
+
+    // 添加旋轉動畫
+    if (btn) {
+      btn.classList.add('refreshing');
+      setTimeout(() => {
+        btn.classList.remove('refreshing');
+      }, 600);
+    }
+
+    // 刷新 iframe
+    const currentSrc = iframe.src;
+    iframe.src = '';
+    setTimeout(() => {
+      iframe.src = currentSrc;
+      console.log(`[${platform}] iframe refreshed`);
+
+      // 更新狀態為載入中
+      updateStatus(platform, '⏳', chrome.i18n.getMessage('loadingTitle') || '載入中...');
+    }, 50);
   }
 
   // --- Maximize/Minimize iframe Logic ---

@@ -153,6 +153,7 @@ button:active {
   user-select: none;
 }
 
+.refresh-btn,
 .maximize-btn {
   padding: 2px 6px;
   background: rgba(255, 255, 255, 0.2);
@@ -167,15 +168,22 @@ button:active {
   font-weight: normal;
 }
 
+.refresh-btn:hover,
 .maximize-btn:hover {
   background: rgba(255, 255, 255, 0.3);
   transform: none;
   box-shadow: none;
 }
 
+.refresh-btn:active,
 .maximize-btn:active {
   background: rgba(255, 255, 255, 0.4);
   transform: none;
+}
+
+/* 刷新按鈕旋轉動畫 */
+.refresh-btn.refreshing {
+  animation: spin 0.6s linear;
 }
 
 .status {

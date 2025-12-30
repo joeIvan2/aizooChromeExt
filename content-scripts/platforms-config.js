@@ -24,12 +24,17 @@ const PLATFORM_CONFIGS = {
       // 2. 檢測提交按鈕是否可用
       // 匹配英文 "Send", "Submit" 和中文 "提交", "發送" 以及 type="submit"
       const submitBtn = document.querySelector('button[aria-label*="Send"], button[aria-label*="send"], button[aria-label*="提交"], button[aria-label*="發送"], button[type="submit"]');
-      
+
       if (submitBtn && !submitBtn.disabled) {
         return true;
       }
-      
+
       return false;
+    },
+    getContent: function() {
+      var editor = document.querySelector('.tiptap[contenteditable="true"]');
+      if (!editor) return '';
+      return editor.textContent || '';
     },
     fillQuestion: function(q) {
       var editor = document.querySelector('.tiptap[contenteditable="true"]');
@@ -42,7 +47,7 @@ const PLATFORM_CONFIGS = {
     clickButton: function() {
       // 嘗試點擊有效的提交按鈕
       const submitBtn = document.querySelector('button[aria-label*="Send"], button[aria-label*="send"], button[aria-label*="提交"], button[aria-label*="發送"], button[type="submit"]');
-      
+
       if (submitBtn && !submitBtn.disabled) {
         // Double check: 確保這個按鈕不是停止按鈕（雖然 detectButton 已經擋了一層，但多一層保護）
         const label = (submitBtn.getAttribute('aria-label') || '').toLowerCase();
@@ -103,6 +108,11 @@ const PLATFORM_CONFIGS = {
       const btn = document.querySelector('button.submit');
       return !!btn;
     },
+    getContent: function() {
+      var editor = document.querySelector('.ql-editor[contenteditable="true"]');
+      if (!editor) return '';
+      return editor.textContent || '';
+    },
     fillQuestion: function(q) {
       var editor = document.querySelector('.ql-editor[contenteditable="true"]');
       if (!editor) return false;
@@ -162,6 +172,11 @@ const PLATFORM_CONFIGS = {
     },
     detectButton: function() {
       return !!document.querySelector('button[aria-label="Send message"]');
+    },
+    getContent: function() {
+      var inputArea = document.querySelector('div[contenteditable="true"][data-testid="chat-input"]');
+      if (!inputArea) return '';
+      return inputArea.textContent || '';
     },
     fillQuestion: function(q) {
       var inputArea = document.querySelector('div[contenteditable="true"][data-testid="chat-input"]');
@@ -228,6 +243,11 @@ const PLATFORM_CONFIGS = {
     },
     detectButton: function() {
       return !!document.querySelector('button[data-testid="send-button"]');
+    },
+    getContent: function() {
+      var textarea = document.querySelector('#prompt-textarea');
+      if (!textarea) return '';
+      return textarea.value || textarea.textContent || '';
     },
     fillQuestion: function(q) {
       var textarea = document.querySelector('#prompt-textarea');
