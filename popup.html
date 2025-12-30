@@ -16,33 +16,45 @@
 
     <!-- 4 個 AI iframe -->
     <div class="iframes-container">
-      <div class="iframe-wrapper">
+      <div class="iframe-wrapper" data-platform="grok">
         <div class="iframe-header" style="background-color: #e74c3c;">
-          <span>Grok</span>
+          <div class="header-left">
+            <span class="platform-name">Grok</span>
+            <button class="maximize-btn" data-platform="grok" title="放大">⤢</button>
+          </div>
           <span class="status" id="grok-status" title="載入中...">⏳</span>
         </div>
         <iframe id="grok-iframe" src="https://grok.com/"></iframe>
       </div>
 
-      <div class="iframe-wrapper">
+      <div class="iframe-wrapper" data-platform="gemini">
         <div class="iframe-header" style="background-color: #8e44ad;">
-          <span>Gemini</span>
+          <div class="header-left">
+            <span class="platform-name">Gemini</span>
+            <button class="maximize-btn" data-platform="gemini" title="放大">⤢</button>
+          </div>
           <span class="status" id="gemini-status" title="載入中...">⏳</span>
         </div>
         <iframe id="gemini-iframe" src="https://gemini.google.com/app"></iframe>
       </div>
 
-      <div class="iframe-wrapper">
+      <div class="iframe-wrapper" data-platform="claude">
         <div class="iframe-header" style="background-color: #CC785C;">
-          <span>Claude</span>
+          <div class="header-left">
+            <span class="platform-name">Claude</span>
+            <button class="maximize-btn" data-platform="claude" title="放大">⤢</button>
+          </div>
           <span class="status" id="claude-status" title="載入中...">⏳</span>
         </div>
         <iframe id="claude-iframe" src="https://claude.ai/new"></iframe>
       </div>
 
-      <div class="iframe-wrapper">
+      <div class="iframe-wrapper" data-platform="chatgpt">
         <div class="iframe-header" style="background-color: #27ae60;">
-          <span>ChatGPT</span>
+          <div class="header-left">
+            <span class="platform-name">ChatGPT</span>
+            <button class="maximize-btn" data-platform="chatgpt" title="放大">⤢</button>
+          </div>
           <span class="status" id="chatgpt-status" title="載入中...">⏳</span>
         </div>
         <iframe id="chatgpt-iframe" src="https://chatgpt.com/"></iframe>

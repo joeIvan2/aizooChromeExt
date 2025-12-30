@@ -5,8 +5,7 @@
   "description": "同時與 4 個 AI 聊天：Grok、Gemini、Claude、ChatGPT",
   "permissions": [
     "storage",
-    "declarativeNetRequest",
-    "cookies"
+    "declarativeNetRequest"
   ],
   "host_permissions": [
     "*://grok.com/*",

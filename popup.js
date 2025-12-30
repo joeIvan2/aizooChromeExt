@@ -5,6 +5,7 @@ console.log('[AI Multi-Chat] Popup initializing...');
 const platforms = ['grok', 'gemini', 'claude', 'chatgpt'];
 const iframes = {};
 const statusElements = {};
+let currentMaximizedPlatform = null; // 當前放大的平台
 
 const defaultUrls = {
   grok: 'https://grok.com/',
@@ -34,6 +35,15 @@ document.addEventListener('DOMContentLoaded', () => {
       iframes[platform].addEventListener('load', () => {
         console.log(`[${platform}] iframe loaded`);
         updateStatus(platform, '⏳', '等待準備...');
+
+        // iframe 載入後重新聚焦到主輸入框（防止焦點被 iframe 內部搶走）
+        setTimeout(() => {
+          const mainInput = document.getElementById('question-input');
+          if (mainInput && document.activeElement !== mainInput) {
+            mainInput.focus();
+            console.log(`[${platform}] Refocused main input after iframe load`);
+          }
+        }, 100);
       });
     }
   });
@@ -57,6 +67,121 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 聚焦到輸入框
   document.getElementById('question-input').focus();
+
+  // 全局焦點管理：防止 iframe 自動搶走焦點（僅在非放大狀態下）
+  let userInteractedWithIframe = false;
+
+  // 監聽用戶是否主動點擊 iframe
+  document.querySelectorAll('.iframe-wrapper').forEach(wrapper => {
+    wrapper.addEventListener('mousedown', () => {
+      userInteractedWithIframe = true;
+    });
+  });
+
+  // 監聽焦點變化
+  document.addEventListener('focusin', (e) => {
+    const mainInput = document.getElementById('question-input');
+
+    // 如果焦點跳到 iframe，且沒有放大任何 iframe，且用戶沒有主動點擊 iframe
+    if (e.target.tagName === 'IFRAME' && !currentMaximizedPlatform && !userInteractedWithIframe) {
+      console.log('[AI Multi-Chat] Focus stolen by iframe, refocusing main input');
+      setTimeout(() => {
+        if (mainInput) mainInput.focus();
+      }, 50);
+    }
+  });
+
+  // 當用戶開始在主輸入框輸入時，重置互動標記
+  document.getElementById('question-input').addEventListener('focus', () => {
+    userInteractedWithIframe = false;
+  });
+
+  // 全局鍵盤事件（用於切換放大的 iframe）
+  document.addEventListener('keydown', (e) => {
+    // Ctrl + 左/右箭頭切換放大的 iframe
+    if (e.ctrlKey && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) {
+      if (currentMaximizedPlatform) {
+        e.preventDefault();
+        switchMaximizedIframe(e.key === 'ArrowLeft' ? -1 : 1);
+      }
+    }
+  });
+
+  function switchMaximizedIframe(direction) {
+    if (!currentMaximizedPlatform) return;
+
+    const currentIndex = platforms.indexOf(currentMaximizedPlatform);
+    let newIndex = currentIndex + direction;
+
+    // 循環切換
+    if (newIndex < 0) {
+      newIndex = platforms.length - 1;
+    } else if (newIndex >= platforms.length) {
+      newIndex = 0;
+    }
+
+    const newPlatform = platforms[newIndex];
+    console.log(`[AI Multi-Chat] Switching maximized iframe from ${currentMaximizedPlatform} to ${newPlatform}`);
+    toggleMaximize(newPlatform);
+  }
+
+  // --- Maximize/Minimize iframe Logic ---
+  // 為所有放大按鈕添加事件監聽器
+  document.querySelectorAll('.maximize-btn').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const platform = btn.dataset.platform;
+      toggleMaximize(platform);
+    });
+  });
+
+  function toggleMaximize(platform) {
+    const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
+    const btn = document.querySelector(`.maximize-btn[data-platform="${platform}"]`);
+
+    if (!wrapper || !btn) return;
+
+    if (currentMaximizedPlatform === platform) {
+      // 縮小：恢復所有 iframe 到原始狀態
+      document.querySelectorAll('.iframe-wrapper').forEach(w => {
+        w.classList.remove('maximized', 'dimmed');
+      });
+
+      // 更新按鈕圖標和提示
+      btn.textContent = '⤢';
+      btn.title = '放大';
+
+      currentMaximizedPlatform = null;
+    } else {
+      // 如果已經有其他 iframe 被放大，先恢復
+      if (currentMaximizedPlatform) {
+        const prevWrapper = document.querySelector(`.iframe-wrapper[data-platform="${currentMaximizedPlatform}"]`);
+        const prevBtn = document.querySelector(`.maximize-btn[data-platform="${currentMaximizedPlatform}"]`);
+        if (prevWrapper) prevWrapper.classList.remove('maximized');
+        if (prevBtn) {
+          prevBtn.textContent = '⤢';
+          prevBtn.title = '放大';
+        }
+      }
+
+      // 放大當前 iframe
+      document.querySelectorAll('.iframe-wrapper').forEach(w => {
+        if (w.dataset.platform === platform) {
+          w.classList.add('maximized');
+          w.classList.remove('dimmed');
+        } else {
+          w.classList.add('dimmed');
+          w.classList.remove('maximized');
+        }
+      });
+
+      // 更新按鈕圖標和提示
+      btn.textContent = '⤡';
+      btn.title = '縮小';
+
+      currentMaximizedPlatform = platform;
+    }
+  }
 
   // --- Draggable Input Section Logic ---
   const inputSection = document.querySelector('.input-section');
