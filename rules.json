@@ -161,5 +161,56 @@
       "urlFilter": "*://gemini.google.com/*",
       "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest"]
     }
+  },
+  {
+    "id": 9,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        {
+          "header": "Referer",
+          "operation": "set",
+          "value": "https://accounts.google.com/"
+        },
+        {
+          "header": "Origin",
+          "operation": "set",
+          "value": "https://accounts.google.com/"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "*://accounts.google.com/*",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest"]
+    }
+  },
+  {
+    "id": 10,
+    "priority": 1,
+    "action": {
+      "type": "modifyHeaders",
+      "requestHeaders": [
+        {
+          "header": "Sec-Fetch-Site",
+          "operation": "set",
+          "value": "same-origin"
+        },
+        {
+          "header": "Sec-Fetch-Mode",
+          "operation": "set",
+          "value": "navigate"
+        },
+        {
+          "header": "Sec-Fetch-Dest",
+          "operation": "set",
+          "value": "document"
+        }
+      ]
+    },
+    "condition": {
+      "urlFilter": "*://accounts.google.com/v3/signin/*",
+      "resourceTypes": ["main_frame", "sub_frame"]
+    }
   }
 ]
