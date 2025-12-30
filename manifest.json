@@ -12,12 +12,8 @@
     "*://grok.com/*",
     "*://gemini.google.com/*",
     "*://claude.ai/*",
-    "*://chat.openai.com/*",
     "*://chatgpt.com/*",
-    "*://auth.openai.com/*",
-    "*://accounts.x.ai/*",
-    "*://accounts.google.com/*",
-    "*://www.googleapis.com/*"
+    "*://auth.openai.com/*"
   ],
   "background": {
     "service_worker": "background.js"
@@ -63,35 +59,11 @@
       "all_frames": true
     },
     {
-      "matches": ["*://chat.openai.com/*", "*://chatgpt.com/*", "*://auth.openai.com/*"],
+      "matches": ["*://chatgpt.com/*", "*://auth.openai.com/*"],
       "js": [
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
         "content-scripts/chatgpt-script.js"
-      ],
-      "run_at": "document_start",
-      "all_frames": true
-    },
-    {
-      "matches": ["*://accounts.google.com/*"],
-      "js": [
-        "content-scripts/google-oauth-handler.js"
-      ],
-      "run_at": "document_start",
-      "all_frames": true
-    },
-    {
-      "matches": ["*://accounts.x.ai/*"],
-      "js": [
-        "content-scripts/google-oauth-handler.js"
-      ],
-      "run_at": "document_start",
-      "all_frames": true
-    },
-    {
-      "matches": ["*://auth.openai.com/*"],
-      "js": [
-        "content-scripts/google-oauth-handler.js"
       ],
       "run_at": "document_start",
       "all_frames": true

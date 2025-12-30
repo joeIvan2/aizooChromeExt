@@ -75,7 +75,7 @@
       ]
     },
     "condition": {
-      "urlFilter": "*://chat.openai.com/*",
+      "urlFilter": "*://chatgpt.com/*",
       "resourceTypes": ["main_frame", "sub_frame"]
     }
   },
@@ -95,72 +95,12 @@
       ]
     },
     "condition": {
-      "urlFilter": "*://chatgpt.com/*",
-      "resourceTypes": ["main_frame", "sub_frame"]
-    }
-  },
-  {
-    "id": 6,
-    "priority": 1,
-    "action": {
-      "type": "modifyHeaders",
-      "responseHeaders": [
-        { "header": "x-frame-options", "operation": "remove" },
-        { "header": "content-security-policy", "operation": "remove" },
-        { "header": "content-security-policy-report-only", "operation": "remove" },
-        { "header": "permissions-policy", "operation": "remove" },
-        { "header": "cross-origin-opener-policy", "operation": "remove" },
-        { "header": "cross-origin-embedder-policy", "operation": "remove" },
-        { "header": "cross-origin-resource-policy", "operation": "remove" }
-      ]
-    },
-    "condition": {
       "urlFilter": "*://auth.openai.com/*",
       "resourceTypes": ["main_frame", "sub_frame"]
     }
   },
   {
-    "id": 7,
-    "priority": 1,
-    "action": {
-      "type": "modifyHeaders",
-      "responseHeaders": [
-        { "header": "x-frame-options", "operation": "remove" },
-        { "header": "content-security-policy", "operation": "remove" },
-        { "header": "content-security-policy-report-only", "operation": "remove" },
-        { "header": "permissions-policy", "operation": "remove" },
-        { "header": "cross-origin-opener-policy", "operation": "remove" },
-        { "header": "cross-origin-embedder-policy", "operation": "remove" },
-        { "header": "cross-origin-resource-policy", "operation": "remove" }
-      ]
-    },
-    "condition": {
-      "urlFilter": "*://accounts.x.ai/*",
-      "resourceTypes": ["main_frame", "sub_frame"]
-    }
-  },
-  {
-    "id": 8,
-    "priority": 1,
-    "action": {
-      "type": "modifyHeaders",
-      "responseHeaders": [
-        { "header": "x-frame-options", "operation": "remove" },
-        { "header": "content-security-policy", "operation": "remove" },
-        { "header": "content-security-policy-report-only", "operation": "remove" },
-        { "header": "permissions-policy", "operation": "remove" },
-        { "header": "cross-origin-opener-policy", "operation": "remove" },
-        { "header": "cross-origin-embedder-policy", "operation": "remove" },
-        { "header": "cross-origin-resource-policy", "operation": "remove" }
-      ]
-    },
-    "condition": {
-      "urlFilter": "*://accounts.google.com/*",
-      "resourceTypes": ["main_frame", "sub_frame"]
-    }
-  },
-  {
-    "id": 9,
+    "id": 6,
     "priority": 1,
     "action": {
       "type": "modifyHeaders",
@@ -180,57 +120,6 @@
     "condition": {
       "urlFilter": "*://gemini.google.com/*",
       "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest"]
-    }
-  },
-  {
-    "id": 10,
-    "priority": 1,
-    "action": {
-      "type": "modifyHeaders",
-      "requestHeaders": [
-        {
-          "header": "Referer",
-          "operation": "set",
-          "value": "https://accounts.google.com/"
-        },
-        {
-          "header": "Origin",
-          "operation": "set",
-          "value": "https://accounts.google.com/"
-        }
-      ]
-    },
-    "condition": {
-      "urlFilter": "*://accounts.google.com/*",
-      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest"]
-    }
-  },
-  {
-    "id": 11,
-    "priority": 1,
-    "action": {
-      "type": "modifyHeaders",
-      "requestHeaders": [
-        {
-          "header": "Sec-Fetch-Site",
-          "operation": "set",
-          "value": "same-origin"
-        },
-        {
-          "header": "Sec-Fetch-Mode",
-          "operation": "set",
-          "value": "navigate"
-        },
-        {
-          "header": "Sec-Fetch-Dest",
-          "operation": "set",
-          "value": "document"
-        }
-      ]
-    },
-    "condition": {
-      "urlFilter": "*://accounts.google.com/v3/signin/*",
-      "resourceTypes": ["main_frame", "sub_frame"]
     }
   }
 ]
