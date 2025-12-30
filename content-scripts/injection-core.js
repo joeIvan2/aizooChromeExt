@@ -280,21 +280,63 @@ const InjectionCore = {
     const maxVerifyRetries = 5;
     let contentVerified = false;
 
+    // 輔助函數：規範化文本以便比較（處理換行符、多餘空格等）
+    function normalizeText(text) {
+      return text
+        .trim()
+        .replace(/\r\n/g, '\n')  // 統一換行符
+        .replace(/\n+/g, ' ')     // 將換行符轉為空格（因為 contenteditable 會這樣做）
+        .replace(/\s+/g, ' ')     // 將多個空格合併為一個
+        .trim();
+    }
+
+    // 輔助函數：找出兩個字串的差異位置
+    function findDifference(str1, str2) {
+      const maxLen = Math.max(str1.length, str2.length);
+      for (let i = 0; i < maxLen; i++) {
+        if (str1[i] !== str2[i]) {
+          const start = Math.max(0, i - 20);
+          const end = Math.min(maxLen, i + 20);
+          return {
+            position: i,
+            context: {
+              expected: str1.substring(start, end),
+              actual: str2.substring(start, end),
+              char_expected: str1[i] ? `'${str1[i]}' (U+${str1.charCodeAt(i).toString(16).toUpperCase().padStart(4, '0')})` : 'EOF',
+              char_actual: str2[i] ? `'${str2[i]}' (U+${str2.charCodeAt(i).toString(16).toUpperCase().padStart(4, '0')})` : 'EOF'
+            }
+          };
+        }
+      }
+      return null;
+    }
+
     while (verifyRetries < maxVerifyRetries) {
       try {
         // 等待一小段時間讓 DOM 更新
         await new Promise(resolve => setTimeout(resolve, 200));
 
         const currentContent = config.getContent ? config.getContent() : '';
-        const trimmedQuestion = question.trim();
-        const trimmedContent = currentContent.trim();
+        const normalizedQuestion = normalizeText(question);
+        const normalizedContent = normalizeText(currentContent);
 
-        console.log(`[${config.id}] Verify attempt ${verifyRetries + 1}: expected="${trimmedQuestion.substring(0, 50)}...", actual="${trimmedContent.substring(0, 50)}..."`);
+        console.log(`[${config.id}] Verify attempt ${verifyRetries + 1}:`);
+        console.log(`  Expected (${normalizedQuestion.length} chars): "${normalizedQuestion.substring(0, 80)}..."`);
+        console.log(`  Actual   (${normalizedContent.length} chars): "${normalizedContent.substring(0, 80)}..."`);
 
-        if (trimmedContent === trimmedQuestion) {
-          console.log(`[${config.id}] Content verified successfully`);
+        if (normalizedContent === normalizedQuestion) {
+          console.log(`[${config.id}] ✅ Content verified successfully`);
           contentVerified = true;
           break;
+        } else {
+          // 顯示詳細差異
+          const diff = findDifference(normalizedQuestion, normalizedContent);
+          if (diff) {
+            console.log(`[${config.id}] ❌ Difference at position ${diff.position}:`);
+            console.log(`  Expected: "${diff.context.expected}"`);
+            console.log(`  Actual:   "${diff.context.actual}"`);
+            console.log(`  Char diff: ${diff.context.char_expected} vs ${diff.context.char_actual}`);
+          }
         }
 
         verifyRetries++;
