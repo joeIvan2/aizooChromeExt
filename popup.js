@@ -166,35 +166,9 @@ document.addEventListener('DOMContentLoaded', () => {
     btn.addEventListener('click', (e) => {
       e.stopPropagation();
       const platform = btn.dataset.platform;
-      refreshIframe(platform);
+      refreshIframe(platform); // 調用全局函數
     });
   });
-
-  function refreshIframe(platform) {
-    const iframe = iframes[platform];
-    const btn = document.querySelector(`.refresh-btn[data-platform="${platform}"]`);
-
-    if (!iframe) return;
-
-    // 添加旋轉動畫
-    if (btn) {
-      btn.classList.add('refreshing');
-      setTimeout(() => {
-        btn.classList.remove('refreshing');
-      }, 600);
-    }
-
-    // 刷新 iframe
-    const currentSrc = iframe.src;
-    iframe.src = '';
-    setTimeout(() => {
-      iframe.src = currentSrc;
-      console.log(`[${platform}] iframe refreshed`);
-
-      // 更新狀態為載入中
-      updateStatus(platform, '⏳', chrome.i18n.getMessage('loadingTitle') || '載入中...');
-    }, 50);
-  }
 
   // --- Maximize/Minimize iframe Logic ---
   // 為所有放大按鈕添加事件監聽器
@@ -497,6 +471,11 @@ function handleMessage(event) {
       localStorage.setItem(`ai-chat-url-${platform}`, data.url);
       break;
 
+    case 'AI_REFRESH_IFRAME':
+      console.log(`[${platform}] Refreshing iframe...`);
+      refreshIframe(platform);
+      break;
+
     default:
       // 忽略其他類型的消息
       break;
@@ -517,6 +496,33 @@ function updateStatus(platform, emoji, title) {
       statusEl.classList.remove('loading');
     }
   }
+}
+
+// 刷新 iframe（全局函數，可被多處調用）
+function refreshIframe(platform) {
+  const iframe = iframes[platform];
+  const btn = document.querySelector(`.refresh-btn[data-platform="${platform}"]`);
+
+  if (!iframe) return;
+
+  // 添加旋轉動畫
+  if (btn) {
+    btn.classList.add('refreshing');
+    setTimeout(() => {
+      btn.classList.remove('refreshing');
+    }, 600);
+  }
+
+  // 刷新 iframe：完整重新載入（包括 cookies）
+  const currentSrc = iframe.src;
+  iframe.src = '';
+  setTimeout(() => {
+    iframe.src = currentSrc;
+    console.log(`[${platform}] iframe refreshed`);
+
+    // 更新狀態為載入中
+    updateStatus(platform, '⏳', chrome.i18n.getMessage('loadingTitle') || '載入中...');
+  }, 50);
 }
 
 // 處理 AI 平台登入相關消息
