@@ -124,8 +124,10 @@
     if (window.chatgptLoginCheckDisabled) return;
 
     // 1. Detect if we are on the auth page inside an iframe
-    const isAuthPage = location.hostname === 'auth.openai.com' || location.pathname.includes('/auth/login') || location.pathname.includes('/log-in-or-create-account');
-    
+    const isAuthPage = location.hostname === 'auth.openai.com' ||
+                       location.pathname.includes('/auth/login') ||
+                       location.pathname.includes('/log-in-or-create-account');
+
     if (isAuthPage) {
       if (!document.getElementById(LOGIN_OVERLAY_ID)) {
          console.log('[ChatGPT] Auth page detected in iframe, showing overlay...');
@@ -133,21 +135,23 @@
       }
       return;
     }
-    
-    // ... rest of the function (textarea check)
 
+    // 2. Detect login form by OAuth buttons (>= 3 buttons means login page)
+    const oauthButtons = document.querySelectorAll('button.btn-secondary');
+    const hasLoginForm = oauthButtons.length >= 3;
 
-    // 2. Regular check for textarea on main chat page
-    const textarea = document.querySelector('#prompt-textarea');
-    if (textarea) {
+    if (hasLoginForm) {
+      // Login page detected: show overlay
+      if (!document.getElementById(LOGIN_OVERLAY_ID)) {
+        console.log('[ChatGPT] Login form detected (OAuth buttons:', oauthButtons.length, '), showing overlay...');
+        createLoginOverlay();
+      }
+    } else {
       // Logged in: remove overlay if it exists
       const overlay = document.getElementById(LOGIN_OVERLAY_ID);
-      if (overlay) overlay.remove();
-    } else {
-      // Not logged in: ensure overlay exists
-      if (!document.getElementById(LOGIN_OVERLAY_ID)) {
-          console.log('[ChatGPT] Login overlay missing, restoring...');
-          createLoginOverlay();
+      if (overlay) {
+        console.log('[ChatGPT] Logged in (no login form), removing overlay...');
+        overlay.remove();
       }
     }
   }
