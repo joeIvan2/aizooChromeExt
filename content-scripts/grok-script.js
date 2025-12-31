@@ -98,7 +98,7 @@
     document.body.appendChild(overlay);
 
     document.getElementById('ai-login-btn').addEventListener('click', () => {
-      window.open('https://grok.com/', '_blank', 'width=500,height=700');
+      window.open('https://accounts.x.ai/sign-in?redirect=grok-com', '_blank', 'width=500,height=700');
     });
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {
