@@ -69,7 +69,7 @@
     overlay.innerHTML = `
       <div style="background: #2d3748; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px;">
         <h2 style="margin-bottom: 20px; font-size: 24px;">需登入 Grok</h2>
-        <p style="margin-bottom: 20px; color: #cbd5e0;">由於安全限制，請點擊下方按鈕在新視窗中登入，完成後關閉視窗並重整此頁面。</p>
+        <p style="margin-bottom: 20px; color: #cbd5e0;">由於安全限制，請點擊下方按鈕在新視窗中登入，登入完成後點擊「我已登入」。</p>
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
           <button id="ai-login-btn" style="
             background: #e74c3c;
@@ -81,16 +81,6 @@
             cursor: pointer;
             transition: background 0.3s;
           ">在新視窗登入</button>
-          <button id="ai-refresh-btn" style="
-            background: #4a5568;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-          ">重整頁面</button>
           <button id="ai-close-btn" style="
             background: #27ae60;
             color: white;
@@ -111,26 +101,17 @@
       window.open('https://grok.com/', '_blank', 'width=500,height=700');
     });
 
-    document.getElementById('ai-refresh-btn').addEventListener('click', () => {
-      console.log('[Grok] User clicked refresh, navigating to chat page...');
-      // Directly navigate to chat page instead of refreshing iframe
+    document.getElementById('ai-close-btn').addEventListener('click', () => {
+      console.log('[Grok] User clicked "I am logged in", navigating to chat page...');
+      // Navigate to chat page
       window.location.href = 'https://grok.com/';
-      // Also remove the overlay immediately
+      // Remove overlay
       overlay.remove();
+      // Disable auto-check for 5 seconds to prevent re-showing during navigation
       window.grokLoginCheckDisabled = true;
       setTimeout(() => {
         window.grokLoginCheckDisabled = false;
       }, 5000);
-    });
-
-    document.getElementById('ai-close-btn').addEventListener('click', () => {
-      console.log('[Grok] User manually closed login overlay');
-      overlay.remove();
-      // Disable auto-check for 30 seconds to prevent re-showing
-      window.grokLoginCheckDisabled = true;
-      setTimeout(() => {
-        window.grokLoginCheckDisabled = false;
-      }, 30000);
     });
   }
 
@@ -141,12 +122,12 @@
     // Skip check if manually disabled
     if (window.grokLoginCheckDisabled) return;
 
-    // Detect if we are on X.ai auth/sign-in page
-    const isAuthPage = location.href.includes('accounts.x.ai/sign-in');
+    // Detect if we are on X.ai auth/sign-in page (any sign-in URL)
+    const isAuthPage = location.hostname === 'accounts.x.ai' && location.pathname.startsWith('/sign-in');
 
     if (isAuthPage) {
       if (!document.getElementById(LOGIN_OVERLAY_ID)) {
-        console.log('[Grok] Auth/Sign-in page detected in iframe, showing overlay...');
+        console.log('[Grok] Sign-in page detected in iframe:', location.href);
         createLoginOverlay();
       }
       return;
