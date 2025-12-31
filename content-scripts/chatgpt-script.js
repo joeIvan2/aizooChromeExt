@@ -112,15 +112,15 @@
     });
     
     document.getElementById('ai-refresh-btn').addEventListener('click', () => {
-      // 通知 popup.js 刷新整個 iframe（這樣可以完整重新載入包括 cookies）
-      console.log('[ChatGPT] Requesting parent to refresh iframe...');
-      if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'AI_REFRESH_IFRAME',
-          platform: 'chatgpt',
-          source: 'content-script'
-        }, '*');
-      }
+      console.log('[ChatGPT] User clicked refresh, navigating to chat page...');
+      // Directly navigate to chat page instead of refreshing iframe
+      window.location.href = 'https://chatgpt.com/';
+      // Also remove the overlay immediately
+      overlay.remove();
+      window.chatgptLoginCheckDisabled = true;
+      setTimeout(() => {
+        window.chatgptLoginCheckDisabled = false;
+      }, 5000);
     });
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {

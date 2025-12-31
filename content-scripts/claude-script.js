@@ -112,14 +112,15 @@
     });
 
     document.getElementById('ai-refresh-btn').addEventListener('click', () => {
-      console.log('[Claude] Requesting parent to refresh iframe...');
-      if (window.parent !== window) {
-        window.parent.postMessage({
-          type: 'AI_REFRESH_IFRAME',
-          platform: 'claude',
-          source: 'content-script'
-        }, '*');
-      }
+      console.log('[Claude] User clicked refresh, navigating to chat page...');
+      // Directly navigate to chat page instead of refreshing iframe
+      window.location.href = 'https://claude.ai/new';
+      // Also remove the overlay immediately
+      overlay.remove();
+      window.claudeLoginCheckDisabled = true;
+      setTimeout(() => {
+        window.claudeLoginCheckDisabled = false;
+      }, 5000);
     });
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {
@@ -141,20 +142,20 @@
     if (window.claudeLoginCheckDisabled) return;
 
     // Detect if we are on the login page
-    const isLoginPage = location.pathname.includes('/login') || location.pathname === '/';
+    const isLoginPage = location.href.includes('claude.ai/login');
 
-    // Check for Claude's main chat interface elements
-    const hasChatInterface = document.querySelector('[contenteditable="true"]') ||
-                            document.querySelector('textarea') ||
-                            document.querySelector('[data-testid="chat-input"]');
-
-    if (isLoginPage && !hasChatInterface) {
+    if (isLoginPage) {
       if (!document.getElementById(LOGIN_OVERLAY_ID)) {
         console.log('[Claude] Login page detected in iframe, showing overlay...');
         createLoginOverlay();
       }
       return;
     }
+
+    // Check for Claude's main chat interface elements
+    const hasChatInterface = document.querySelector('[contenteditable="true"]') ||
+                            document.querySelector('textarea') ||
+                            document.querySelector('[data-testid="chat-input"]');
 
     if (hasChatInterface) {
       // Logged in: remove overlay if it exists
