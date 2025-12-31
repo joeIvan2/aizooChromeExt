@@ -70,27 +70,37 @@
       <div style="background: #2d3748; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px;">
         <h2 style="margin-bottom: 20px; font-size: 24px;">需登入 ChatGPT</h2>
         <p style="margin-bottom: 20px; color: #cbd5e0;">由於安全限制，請點擊下方按鈕在新視窗中登入，完成後關閉視窗並重整此頁面。</p>
-        <div style="display: flex; gap: 10px; justify-content: center;">
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
           <button id="ai-login-btn" style="
-            background: #10a37f; 
-            color: white; 
-            border: none; 
-            padding: 12px 24px; 
-            border-radius: 6px; 
-            font-size: 16px; 
-            cursor: pointer; 
+            background: #10a37f;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
             transition: background 0.3s;
           ">在新視窗登入</button>
           <button id="ai-refresh-btn" style="
-            background: #4a5568; 
-            color: white; 
-            border: none; 
-            padding: 12px 24px; 
-            border-radius: 6px; 
-            font-size: 16px; 
-            cursor: pointer; 
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
             transition: background 0.3s;
           ">重整頁面</button>
+          <button id="ai-close-btn" style="
+            background: #27ae60;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+          ">我已登入</button>
         </div>
       </div>
     `;
@@ -112,12 +122,25 @@
         }, '*');
       }
     });
+
+    document.getElementById('ai-close-btn').addEventListener('click', () => {
+      console.log('[ChatGPT] User manually closed login overlay');
+      overlay.remove();
+      // Disable auto-check for 30 seconds to prevent re-showing
+      window.chatgptLoginCheckDisabled = true;
+      setTimeout(() => {
+        window.chatgptLoginCheckDisabled = false;
+      }, 30000);
+    });
   }
 
   function checkLoginState() {
     // 0. IMPORTANT: Only run this logic if we are inside an iframe
     // If we are in a top-level window (like the login popup), do NOTHING.
     if (window.self === window.top) return;
+
+    // Skip check if manually disabled
+    if (window.chatgptLoginCheckDisabled) return;
 
     // 1. Detect if we are on the auth page inside an iframe
     const isAuthPage = location.hostname === 'auth.openai.com' || location.pathname.includes('/auth/login') || location.pathname.includes('/log-in-or-create-account');
