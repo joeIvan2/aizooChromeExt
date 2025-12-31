@@ -56,7 +56,7 @@
       width: 100%;
       height: 100%;
       background: rgba(0, 0, 0, 0.85);
-      z-index: 999999;
+      z-index: 2147483647;
       display: flex;
       flex-direction: column;
       align-items: center;
@@ -64,10 +64,11 @@
       color: white;
       font-family: sans-serif;
       text-align: center;
+      pointer-events: auto;
     `;
 
     overlay.innerHTML = `
-      <div style="background: #2d3748; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px;">
+      <div style="background: #2d3748; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; position: relative; z-index: 1;">
         <h2 style="margin-bottom: 20px; font-size: 24px;">需登入 Grok</h2>
         <p style="margin-bottom: 20px; color: #cbd5e0;">由於安全限制，請點擊下方按鈕在新視窗中登入，登入完成後點擊「我已登入」。</p>
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
@@ -80,6 +81,9 @@
             font-size: 16px;
             cursor: pointer;
             transition: background 0.3s;
+            position: relative;
+            z-index: 2;
+            pointer-events: auto;
           ">在新視窗登入</button>
           <button id="ai-close-btn" style="
             background: #27ae60;
@@ -90,6 +94,9 @@
             font-size: 16px;
             cursor: pointer;
             transition: background 0.3s;
+            position: relative;
+            z-index: 2;
+            pointer-events: auto;
           ">我已登入</button>
         </div>
       </div>
@@ -97,14 +104,15 @@
 
     document.body.appendChild(overlay);
 
-    document.getElementById('ai-login-btn').addEventListener('click', () => {
+    document.getElementById('ai-login-btn').addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      console.log('[Grok] Login button clicked, opening new window...');
       window.open('https://accounts.x.ai/sign-in?redirect=grok-com', '_blank', 'width=500,height=700');
-    });
+    }, { capture: true });
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {
-      console.log('[Grok] User clicked "I am logged in", navigating to chat page...');
-      // Navigate to chat page
-      window.location.href = 'https://grok.com/';
+      console.log('[Grok] User clicked "I am logged in", reloading page...');
       // Remove overlay
       overlay.remove();
       // Disable auto-check for 5 seconds to prevent re-showing during navigation
@@ -112,6 +120,8 @@
       setTimeout(() => {
         window.grokLoginCheckDisabled = false;
       }, 5000);
+      // Force full page reload to detect login state
+      window.location.reload();
     });
   }
 
