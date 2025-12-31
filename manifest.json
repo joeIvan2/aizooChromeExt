@@ -14,8 +14,7 @@
     "*://claude.ai/*",
     "*://chatgpt.com/*",
     "*://auth.openai.com/*",
-    "*://accounts.x.ai/*",
-    "*://accounts.google.com/*"
+    "*://accounts.x.ai/*"
   ],
   "background": {
     "service_worker": "background.js"
