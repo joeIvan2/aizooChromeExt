@@ -55,8 +55,8 @@
       ]
     },
     "condition": {
-      "urlFilter": "*://claude.ai/*",
-      "resourceTypes": ["main_frame", "sub_frame"]
+      "urlFilter": "||claude.ai",
+      "resourceTypes": ["main_frame", "sub_frame", "xmlhttprequest"]
     }
   },
   {
