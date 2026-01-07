@@ -11,35 +11,19 @@ AI Zoo is committed to protecting your privacy. This privacy policy explains how
 **AI Zoo does NOT collect, store, or transmit any personal information to external servers.**
 
 ## Local Storage
+The extension uses the browser's `localStorage` API solely to save:
+- The current URL of each AI platform (to maintain your conversation state when you switch between them).
+- The position of the input box on the screen.
 
-The extension uses Chrome's local storage API solely to save:
-- Conversation URLs for each AI platform (to restore your chat sessions)
-- User interface preferences (e.g., input box position)
+No data is synchronized to any cloud or shared with third parties.
 
-All data is stored locally on your device and is never transmitted to any third-party servers operated by AI Zoo.
-
-## AI Platform Interactions
-
-AI Zoo facilitates communication between you and the following AI platforms:
-- Grok (X.AI)
-- Gemini (Google)
-- Claude (Anthropic)
-- ChatGPT (OpenAI)
-
-**Important:** All conversations occur directly between your browser and these AI platforms. AI Zoo does not intercept, store, analyze, or transmit the content of your conversations.
-
-## Permissions Explanation
-
-The extension requires the following permissions:
-
-### storage
-To save conversation URLs and user preferences locally on your device.
+## Permissions
 
 ### declarativeNetRequest
-To modify HTTP response headers from AI platform websites, which is necessary to display these platforms in iframes within the extension.
+Used to modify HTTP headers (like removing Content Security Policy or X-Frame-Options) to allow AI platforms to be displayed in iframes.
 
-### host_permissions
-To access AI platform websites (grok.com, gemini.google.com, claude.ai, chatgpt.com) and their authentication services (accounts.x.ai, auth.openai.com, accounts.google.com) within iframes.
+### Host Permissions
+Used to inject functionality into AI platforms and to apply header modifications.
 
 ## Third-Party Services
 
