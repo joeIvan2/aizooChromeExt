@@ -152,17 +152,18 @@
       // Logged in: remove overlay if it exists
       const overlay = document.getElementById(LOGIN_OVERLAY_ID);
       if (overlay) overlay.remove();
-    } else {
-      // Not logged in: ensure overlay exists
-      if (!document.getElementById(LOGIN_OVERLAY_ID)) {
-        console.log('[Claude] Login overlay missing, restoring...');
-        createLoginOverlay();
-      }
-    }
+    } 
+    
+    // NOTE: We do NOT inject the overlay on non-login pages just because the chat interface is missing.
+    // The page might still be loading (causing React Hydration Mismatch if we touch DOM), 
+    // or Claude might be in a state that doesn't look like the standard chat.
+    // We rely on Claude redirecting to /login for the overlay to appear.
   }
 
-  // Run check every 1 second
-  setInterval(checkLoginState, 1000);
+  // Run check every 1 second, but wait 2 seconds before starting to avoid interfering with initial load
+  setTimeout(() => {
+    setInterval(checkLoginState, 1000);
+  }, 2000);
   // --- End Login Monitoring ---
 
   console.log('[Claude] Content script loaded');
