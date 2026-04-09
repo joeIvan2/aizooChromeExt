@@ -30,6 +30,7 @@
       console.log('[Grok] Starting new chat...');
       window.location.href = 'https://grok.com/';
     }
+
   });
 
   // 通知準備就緒（發送給 parent window，即 popup.html）
@@ -39,6 +40,75 @@
       platform: 'grok',
       source: 'content-script'
     }, '*');
+  }
+
+  // --- Cookie Banner Suppression ---
+  const COOKIE_BANNER_STYLE_ID = 'ai-multichat-hide-grok-cookie-banner';
+  const COOKIE_BANNER_SELECTORS = [
+    '#onetrust-banner-sdk',
+    '#onetrust-consent-sdk',
+    '.onetrust-pc-dark-filter',
+    '.onetrust-close-btn-handler',
+    '[id^="onetrust-banner-sdk"]',
+    '[id^="onetrust-consent-sdk"]'
+  ];
+
+  function ensureCookieBannerHidden() {
+    if (location.hostname !== 'grok.com') return;
+
+    if (!document.getElementById(COOKIE_BANNER_STYLE_ID) && document.head) {
+      const style = document.createElement('style');
+      style.id = COOKIE_BANNER_STYLE_ID;
+      style.textContent = `
+        ${COOKIE_BANNER_SELECTORS.join(',\n')} {
+          display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
+      `;
+      document.head.appendChild(style);
+    }
+
+    let hiddenAny = false;
+    for (const selector of COOKIE_BANNER_SELECTORS) {
+      document.querySelectorAll(selector).forEach((node) => {
+        node.style.setProperty('display', 'none', 'important');
+        node.style.setProperty('visibility', 'hidden', 'important');
+        node.style.setProperty('pointer-events', 'none', 'important');
+        hiddenAny = true;
+      });
+    }
+
+    if (hiddenAny) {
+      document.documentElement.style.removeProperty('overflow');
+      document.body?.style?.removeProperty('overflow');
+    }
+  }
+
+  if (location.hostname === 'grok.com') {
+    ensureCookieBannerHidden();
+
+    const cookieBannerObserver = new MutationObserver(() => {
+      ensureCookieBannerHidden();
+    });
+
+    const startCookieBannerObserver = () => {
+      if (!document.documentElement) return;
+      cookieBannerObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['style', 'class']
+      });
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startCookieBannerObserver, { once: true });
+    } else {
+      startCookieBannerObserver();
+    }
+
+    setInterval(ensureCookieBannerHidden, 1500);
   }
 
   // --- Login Monitoring & Overlay Logic ---
