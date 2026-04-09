@@ -154,6 +154,8 @@
 
   let claudeSidebarExpandedOnce = false;
   const CLAUDE_IFRAME_SIDEBAR_STYLE_ID = 'ai-multichat-claude-sidebar-style';
+  const CLAUDE_LIVE_REOPEN_BUTTON_ID = 'ai-multichat-claude-live-reopen-btn';
+  const CLAUDE_CLOSE_HITAREA_ID = 'ai-multichat-claude-close-hitarea';
 
   function nodeMatchesClaudeSidebar(node) {
     if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
@@ -261,6 +263,9 @@
     const style = document.createElement('style');
     style.id = CLAUDE_IFRAME_SIDEBAR_STYLE_ID;
     style.textContent = `
+      #${CLAUDE_LIVE_REOPEN_BUTTON_ID}:hover {
+        background: rgba(39, 39, 42, 0.92) !important;
+      }
       div.shrink-0:has(> div.fixed.lg\\:sticky.z-sidebar),
       div.shrink-0:has(nav[aria-label="Sidebar"]) {
         width: 18rem !important;
@@ -291,11 +296,163 @@
     document.head.appendChild(style);
   }
 
+  function getClaudeSidebarElements() {
+    const nav = document.querySelector('nav[aria-label="Sidebar"]');
+    const sticky = document.querySelector('div.fixed.lg\\:sticky.z-sidebar');
+    const wrapper = Array.from(document.querySelectorAll('div.shrink-0')).find((element) => {
+      try {
+        return !!element.querySelector('nav[aria-label="Sidebar"]');
+      } catch (error) {
+        return false;
+      }
+    }) || null;
+
+    return { nav, sticky, wrapper };
+  }
+
+  function ensureClaudeReopenButton() {
+    if (window.self === window.top) return;
+    if (location.hostname !== 'claude.ai') return;
+
+    let button = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
+    if (!button) {
+      button = document.createElement('button');
+      button.id = CLAUDE_LIVE_REOPEN_BUTTON_ID;
+      button.type = 'button';
+      button.title = 'Open sidebar';
+      button.style.cssText = `
+        position: fixed;
+        left: 12px;
+        top: 16px;
+        z-index: 2147483646;
+        width: 36px;
+        height: 36px;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        border: none;
+        border-radius: 10px;
+        background: transparent;
+        color: rgb(113, 113, 122);
+        cursor: pointer;
+        padding: 0;
+      `;
+      button.innerHTML = `
+        <div style="position: relative; width: 16px; height: 16px; display: flex; align-items: center; justify-content: center;">
+          <div style="width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;">
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="currentColor" xmlns="http://www.w3.org/2000/svg" aria-hidden="true" style="flex-shrink: 0;">
+              <path d="M16.5 4A1.5 1.5 0 0 1 18 5.5v9a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 2 14.5v-9A1.5 1.5 0 0 1 3.5 4zM7 15h9.5a.5.5 0 0 0 .5-.5v-9a.5.5 0 0 0-.5-.5H7zM3.5 5a.5.5 0 0 0-.5.5v9a.5.5 0 0 0 .5.5H6V5z"></path>
+            </svg>
+          </div>
+        </div>
+      `;
+      button.addEventListener('mouseenter', () => {
+        button.style.color = 'rgb(244, 244, 245)';
+      });
+      button.addEventListener('mouseleave', () => {
+        button.style.color = 'rgb(113, 113, 122)';
+      });
+      button.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        restoreClaudeSidebar();
+      }, true);
+      document.body.appendChild(button);
+    }
+  }
+
+  function ensureClaudeCloseHitArea() {
+    if (window.self === window.top) return;
+    if (location.hostname !== 'claude.ai') return;
+
+    let hitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
+    if (!hitArea) {
+      hitArea = document.createElement('button');
+      hitArea.id = CLAUDE_CLOSE_HITAREA_ID;
+      hitArea.type = 'button';
+      hitArea.title = 'Collapse sidebar';
+      hitArea.style.cssText = `
+        position: fixed;
+        left: 250px;
+        top: 10px;
+        z-index: 2147483646;
+        width: 36px;
+        height: 36px;
+        border: none;
+        background: transparent;
+        cursor: pointer;
+        display: block;
+      `;
+      hitArea.addEventListener('click', (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        collapseClaudeSidebar();
+      }, true);
+      document.body.appendChild(hitArea);
+    }
+  }
+
+  function collapseClaudeSidebar() {
+    const { nav, sticky, wrapper } = getClaudeSidebarElements();
+
+    if (nav) nav.style.setProperty('display', 'none', 'important');
+    if (sticky) sticky.style.setProperty('display', 'none', 'important');
+    if (wrapper) wrapper.style.setProperty('display', 'none', 'important');
+
+    const button = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
+    if (button) button.style.display = 'flex';
+
+    const hitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
+    if (hitArea) hitArea.style.display = 'none';
+  }
+
+  function restoreClaudeSidebar() {
+    const { nav, sticky, wrapper } = getClaudeSidebarElements();
+
+    if (wrapper) {
+      wrapper.style.display = '';
+      wrapper.style.setProperty('width', '18rem', 'important');
+      wrapper.style.setProperty('min-width', '18rem', 'important');
+      wrapper.style.setProperty('max-width', '18rem', 'important');
+      wrapper.style.setProperty('flex', '0 0 18rem', 'important');
+      wrapper.style.setProperty('opacity', '1', 'important');
+      wrapper.style.setProperty('visibility', 'visible', 'important');
+      wrapper.style.setProperty('overflow', 'visible', 'important');
+    }
+
+    if (sticky) {
+      sticky.style.display = '';
+      sticky.style.setProperty('width', '18rem', 'important');
+      sticky.style.setProperty('min-width', '18rem', 'important');
+      sticky.style.setProperty('max-width', '18rem', 'important');
+      sticky.style.setProperty('opacity', '1', 'important');
+      sticky.style.setProperty('visibility', 'visible', 'important');
+    }
+
+    if (nav) {
+      nav.style.setProperty('display', 'flex', 'important');
+      nav.style.setProperty('width', '18rem', 'important');
+      nav.style.setProperty('min-width', '18rem', 'important');
+      nav.style.setProperty('max-width', '18rem', 'important');
+      nav.style.setProperty('opacity', '1', 'important');
+      nav.style.setProperty('visibility', 'visible', 'important');
+      nav.style.setProperty('transform', 'none', 'important');
+    }
+
+    const button = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
+    if (button) button.style.display = 'none';
+
+    const hitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
+    if (hitArea) hitArea.style.display = 'block';
+  }
+
   function ensureClaudeSidebarOpen() {
     if (window.self === window.top) return;
     if (location.hostname !== 'claude.ai') return;
 
     ensureClaudeSidebarStyle();
+    ensureClaudeReopenButton();
+    ensureClaudeCloseHitArea();
 
     const sidebarSticky = document.querySelector('div.fixed.lg\\:sticky.z-sidebar');
     if (sidebarSticky) {
