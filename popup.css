@@ -154,7 +154,8 @@ button:active {
 }
 
 .refresh-btn,
-.maximize-btn {
+.maximize-btn,
+.toggle-btn {
   padding: 2px 6px;
   background: rgba(255, 255, 255, 0.2);
   color: white;
@@ -169,16 +170,28 @@ button:active {
 }
 
 .refresh-btn:hover,
-.maximize-btn:hover {
+.maximize-btn:hover,
+.toggle-btn:hover {
   background: rgba(255, 255, 255, 0.3);
   transform: none;
   box-shadow: none;
 }
 
 .refresh-btn:active,
-.maximize-btn:active {
+.maximize-btn:active,
+.toggle-btn:active {
   background: rgba(255, 255, 255, 0.4);
   transform: none;
+}
+
+.toggle-btn.enabled {
+  background: rgba(39, 174, 96, 0.35);
+  border-color: rgba(39, 174, 96, 0.6);
+}
+
+.toggle-btn.disabled {
+  background: rgba(192, 57, 43, 0.35);
+  border-color: rgba(192, 57, 43, 0.6);
 }
 
 /* 刷新按鈕旋轉動畫 */
@@ -228,6 +241,10 @@ iframe {
 .iframe-wrapper.dimmed {
   opacity: 0.1;
   pointer-events: none;
+}
+
+.iframe-wrapper.platform-disabled iframe {
+  opacity: 0.5;
 }
 
 /* 響應式調整（如果需要） */

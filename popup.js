@@ -6,6 +6,7 @@ const platforms = ['grok', 'gemini', 'claude', 'chatgpt'];
 const iframes = {};
 const statusElements = {};
 let currentMaximizedPlatform = null; // 當前放大的平台
+const platformEnabledState = {};
 
 const defaultUrls = {
   grok: 'https://grok.com/',
@@ -91,6 +92,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 新對話按鈕
   document.getElementById('new-chat-btn').addEventListener('click', startNewChatForAll);
+
+  document.querySelectorAll('[data-platform-toggle]').forEach((button) => {
+    const platform = button.dataset.platformToggle;
+    button.addEventListener('click', () => {
+      setPlatformEnabled(platform, !isPlatformEnabled(platform));
+    });
+  });
 
   // Enter 快捷鍵（Ctrl+Enter 發送）
   document.getElementById('question-input').addEventListener('keydown', (e) => {
@@ -335,6 +343,7 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   console.log('[AI Multi-Chat] Popup initialized');
+  initializePlatformToggles();
 });
 
 // 發送問題到所有 AI
@@ -364,6 +373,11 @@ function startNewChatForAll() {
   
   console.log('[AI Multi-Chat] Starting new chat for all platforms');
   platforms.forEach(platform => {
+    if (!isPlatformEnabled(platform)) {
+      console.log(`[${platform}] Platform disabled, skipping new chat reset`);
+      return;
+    }
+
     // 清除儲存的 URL，恢復預設
     localStorage.removeItem(`ai-chat-url-${platform}`);
 
@@ -381,6 +395,12 @@ function startNewChatForAll() {
 
 // 發送問題到單個平台
 function sendQuestionToPlatform(platform, question) {
+  if (!isPlatformEnabled(platform)) {
+    console.log(`[${platform}] Platform disabled, skipping question send`);
+    updateStatus(platform, '⏸️', '已停用，不發送');
+    return;
+  }
+
   const iframe = iframes[platform];
   if (!iframe) {
     console.error(`[${platform}] iframe not found`);
@@ -433,6 +453,11 @@ function handleMessage(event) {
 
   const platform = data.platform;
   console.log(`[popup] Received message from ${platform}:`, data.type);
+
+  if (!isPlatformEnabled(platform)) {
+    updateStatus(platform, '⏸️', '已停用');
+    return;
+  }
 
   switch (data.type) {
     case 'AI_READY':
@@ -523,6 +548,54 @@ function refreshIframe(platform) {
     // 更新狀態為載入中
     updateStatus(platform, '⏳', chrome.i18n.getMessage('loadingTitle') || '載入中...');
   }, 50);
+}
+
+function getPlatformEnabledStorageKey(platform) {
+  return `ai-platform-enabled-${platform}`;
+}
+
+function isPlatformEnabled(platform) {
+  if (!(platform in platformEnabledState)) {
+    const saved = localStorage.getItem(getPlatformEnabledStorageKey(platform));
+    platformEnabledState[platform] = saved === null ? true : saved === 'true';
+  }
+
+  return platformEnabledState[platform];
+}
+
+function setPlatformEnabled(platform, enabled) {
+  platformEnabledState[platform] = enabled;
+  localStorage.setItem(getPlatformEnabledStorageKey(platform), String(enabled));
+  renderPlatformToggle(platform);
+}
+
+function renderPlatformToggle(platform) {
+  const enabled = isPlatformEnabled(platform);
+  const toggleButton = document.querySelector(`[data-platform-toggle="${platform}"]`);
+  const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
+
+  if (toggleButton) {
+    toggleButton.textContent = enabled ? 'ON' : 'OFF';
+    toggleButton.title = enabled ? `停用 ${platform}` : `啟用 ${platform}`;
+    toggleButton.classList.toggle('enabled', enabled);
+    toggleButton.classList.toggle('disabled', !enabled);
+  }
+
+  if (wrapper) {
+    wrapper.classList.toggle('platform-disabled', !enabled);
+  }
+
+  if (!enabled) {
+    updateStatus(platform, '⏸️', '已停用');
+  } else {
+    updateStatus(platform, '⏳', '等待準備...');
+  }
+}
+
+function initializePlatformToggles() {
+  platforms.forEach((platform) => {
+    renderPlatformToggle(platform);
+  });
 }
 
 // 處理 AI 平台登入相關消息
