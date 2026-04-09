@@ -69,6 +69,16 @@
       "all_frames": true
     }
   ],
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "content-scripts/claude-page-hook.js"
+      ],
+      "matches": [
+        "*://claude.ai/*"
+      ]
+    }
+  ],
   "action": {
     "default_icon": {
       "16": "icons/icon16.png",

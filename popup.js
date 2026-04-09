@@ -7,6 +7,7 @@ const iframes = {};
 const statusElements = {};
 let currentMaximizedPlatform = null; // 當前放大的平台
 const platformEnabledState = {};
+const pendingDiagnostics = new Map();
 
 const defaultUrls = {
   grok: 'https://grok.com/',
@@ -98,6 +99,31 @@ document.addEventListener('DOMContentLoaded', () => {
     button.addEventListener('click', () => {
       setPlatformEnabled(platform, !isPlatformEnabled(platform));
     });
+  });
+
+  document.querySelectorAll('[data-diagnose-platform]').forEach((button) => {
+    const platform = button.dataset.diagnosePlatform;
+    button.addEventListener('click', () => {
+      runPlatformDiagnostics(platform);
+    });
+  });
+
+  document.querySelectorAll('[data-breakpoint-platform]').forEach((button) => {
+    const platform = button.dataset.breakpointPlatform;
+    button.addEventListener('click', () => {
+      armPlatformBreakpoint(platform);
+    });
+  });
+
+  document.querySelectorAll('[data-protect-platform]').forEach((button) => {
+    const platform = button.dataset.protectPlatform;
+    button.addEventListener('click', () => {
+      enablePlatformSidebarProtection(platform);
+    });
+  });
+
+  document.getElementById('close-diagnostics-btn').addEventListener('click', () => {
+    document.getElementById('diagnostics-panel').classList.add('hidden');
   });
 
   // Enter 快捷鍵（Ctrl+Enter 發送）
@@ -501,6 +527,10 @@ function handleMessage(event) {
       refreshIframe(platform);
       break;
 
+    case 'AI_DIAGNOSTICS_RESULT':
+      resolvePlatformDiagnostics(platform, data.diagnostics);
+      break;
+
     default:
       // 忽略其他類型的消息
       break;
@@ -548,6 +578,143 @@ function refreshIframe(platform) {
     // 更新狀態為載入中
     updateStatus(platform, '⏳', chrome.i18n.getMessage('loadingTitle') || '載入中...');
   }, 50);
+}
+
+function requestPlatformDiagnostics(platform, timeoutMs = 6000) {
+  const iframe = iframes[platform];
+  if (!iframe || !iframe.contentWindow) {
+    return Promise.reject(new Error(`${platform} iframe not available`));
+  }
+
+  return new Promise((resolve, reject) => {
+    const timeoutId = setTimeout(() => {
+      pendingDiagnostics.delete(platform);
+      reject(new Error(`${platform} diagnostics timed out`));
+    }, timeoutMs);
+
+    pendingDiagnostics.set(platform, { resolve, reject, timeoutId });
+
+    try {
+      iframe.contentWindow.postMessage({
+        type: 'AI_DIAGNOSTICS_REQUEST',
+        platform,
+        source: 'popup'
+      }, '*');
+    } catch (error) {
+      clearTimeout(timeoutId);
+      pendingDiagnostics.delete(platform);
+      reject(error);
+    }
+  });
+}
+
+function resolvePlatformDiagnostics(platform, diagnostics) {
+  const pending = pendingDiagnostics.get(platform);
+  if (!pending) return;
+
+  clearTimeout(pending.timeoutId);
+  pendingDiagnostics.delete(platform);
+  pending.resolve(diagnostics);
+}
+
+function formatDiagnosticsValue(value) {
+  if (value === null || value === undefined || value === '') return '(empty)';
+  if (typeof value === 'object') return JSON.stringify(value, null, 2);
+  return String(value);
+}
+
+function renderDiagnostics(title, sections) {
+  document.getElementById('diagnostics-title').textContent = title;
+  document.getElementById('diagnostics-output').textContent = sections.join('\n\n');
+  document.getElementById('diagnostics-panel').classList.remove('hidden');
+}
+
+async function runPlatformDiagnostics(platform) {
+  const iframe = iframes[platform];
+  if (!iframe) {
+    renderDiagnostics(`${platform} diagnostics`, ['iframe not found']);
+    return;
+  }
+
+  renderDiagnostics(`${platform} diagnostics`, ['讀取中...']);
+
+  try {
+    const diagnostics = await requestPlatformDiagnostics(platform);
+    const iframeRect = iframe.getBoundingClientRect();
+    const sections = [
+      `Time=${new Date().toLocaleString()}`,
+      `Platform=${platform}`,
+      `Parent iframe size=${Math.round(iframeRect.width)}x${Math.round(iframeRect.height)}`,
+      `Iframe src=${iframe.src}`,
+      [
+        'Reported diagnostics',
+        `href=${formatDiagnosticsValue(diagnostics.href)}`,
+        `inIframe=${formatDiagnosticsValue(diagnostics.inIframe)}`,
+        `window.innerWidth=${formatDiagnosticsValue(diagnostics.innerWidth)}`,
+        `window.innerHeight=${formatDiagnosticsValue(diagnostics.innerHeight)}`,
+        `sidebarToggle=${formatDiagnosticsValue(diagnostics.sidebarToggle)}`,
+        `sidebarNav=${formatDiagnosticsValue(diagnostics.sidebarNav)}`,
+        `localStorageSubset=${formatDiagnosticsValue(diagnostics.localStorageSubset)}`
+      ].join('\n')
+    ];
+
+    renderDiagnostics(`${platform} diagnostics`, sections);
+    console.log(`[AI Multi-Chat] ${platform} diagnostics`, diagnostics);
+  } catch (error) {
+    renderDiagnostics(`${platform} diagnostics`, [`error=${error.message}`]);
+    console.error(`[AI Multi-Chat] ${platform} diagnostics failed`, error);
+  }
+}
+
+function armPlatformBreakpoint(platform) {
+  const iframe = iframes[platform];
+  if (!iframe || !iframe.contentWindow) {
+    updateStatus(platform, '❌', '無法設定斷點');
+    return;
+  }
+
+  try {
+    iframe.contentWindow.postMessage({
+      type: 'AI_ARM_BREAKPOINT_DEBUG',
+      platform,
+      source: 'popup'
+    }, '*');
+
+    updateStatus(platform, '🧨', '已設定斷點，重新載入中...');
+
+    setTimeout(() => {
+      refreshIframe(platform);
+    }, 150);
+  } catch (error) {
+    console.error(`[${platform}] Failed to arm breakpoint`, error);
+    updateStatus(platform, '❌', '斷點設定失敗');
+  }
+}
+
+function enablePlatformSidebarProtection(platform) {
+  const iframe = iframes[platform];
+  if (!iframe || !iframe.contentWindow) {
+    updateStatus(platform, '❌', '無法啟用保護');
+    return;
+  }
+
+  try {
+    iframe.contentWindow.postMessage({
+      type: 'AI_SET_SIDEBAR_PROTECTION',
+      platform,
+      enabled: true,
+      source: 'popup'
+    }, '*');
+
+    updateStatus(platform, '🛡️', '已啟用 5 秒 sidebar 保護，重新載入中...');
+
+    setTimeout(() => {
+      refreshIframe(platform);
+    }, 150);
+  } catch (error) {
+    console.error(`[${platform}] Failed to enable sidebar protection`, error);
+    updateStatus(platform, '❌', '保護啟用失敗');
+  }
 }
 
 function getPlatformEnabledStorageKey(platform) {

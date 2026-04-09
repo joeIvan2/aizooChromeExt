@@ -5,17 +5,63 @@
   console.log('[Claude] Content script initializing...');
 
   const config = window.PLATFORM_CONFIGS.claude;
+  const CLAUDE_BREAKPOINT_SESSION_KEY = 'ai-multichat-claude-sidebar-breakpoint';
+  const CLAUDE_PROTECT_ENABLED_KEY = 'ai-multichat-claude-protect-enabled';
+  const CLAUDE_SIDEBAR_SELECTORS = [
+    'nav[aria-label="Sidebar"]',
+    '[data-testid="pin-sidebar-toggle"]',
+    'button[aria-label="Open sidebar"]',
+    'button[aria-label="Close sidebar"]'
+  ];
+  let claudeSidebarBreakpointEnabled = false;
+  let lastClaudeSidebarState = null;
 
-  // 初始化 Fetch 監聽
+  try {
+    claudeSidebarBreakpointEnabled = sessionStorage.getItem(CLAUDE_BREAKPOINT_SESSION_KEY) === 'armed';
+  } catch (error) {}
+
+  try {
+    sessionStorage.setItem(CLAUDE_PROTECT_ENABLED_KEY, 'true');
+    refreshClaudeProtectionWindow(5000);
+  } catch (error) {}
+
+  function refreshClaudeProtectionWindow(durationMs = 5000) {
+    try {
+      sessionStorage.setItem('ai-multichat-claude-protect-sidebar', 'true');
+      sessionStorage.setItem('ai-multichat-claude-protect-sidebar-until', String(Date.now() + durationMs));
+    } catch (error) {}
+  }
+
+  try {
+    if (sessionStorage.getItem(CLAUDE_PROTECT_ENABLED_KEY) === 'true') {
+      refreshClaudeProtectionWindow(5000);
+    }
+  } catch (error) {}
+
+  function injectClaudeTopLevelShim() {
+    if (window.self === window.top) return;
+    if (location.hostname !== 'claude.ai') return;
+    if (document.documentElement.dataset.aiMultichatClaudeShimInjected === 'true') return;
+
+    document.documentElement.dataset.aiMultichatClaudeShimInjected = 'true';
+
+    const script = document.createElement('script');
+    script.src = chrome.runtime.getURL('content-scripts/claude-page-hook.js');
+    script.async = false;
+
+    (document.documentElement || document.head || document.body).appendChild(script);
+    script.addEventListener('load', () => script.remove(), { once: true });
+    script.addEventListener('error', () => script.remove(), { once: true });
+  }
+
+  injectClaudeTopLevelShim();
+
   window.InjectionCore.setupFetchMonitor(config);
-  // 初始化 URL 監聽
   window.InjectionCore.setupUrlMonitor(config);
 
-  // 監聽來自 popup 的消息
   window.addEventListener('message', async (event) => {
     const data = event.data;
 
-    // 檢查消息來源和類型
     if (!data || typeof data !== 'object') return;
     if (data.source !== 'popup') return;
 
@@ -30,15 +76,307 @@
       console.log('[Claude] Starting new chat...');
       window.location.href = 'https://claude.ai/new';
     }
+
+    if (data.type === 'AI_SET_SIDEBAR_PROTECTION' && data.platform === 'claude') {
+      try {
+        if (data.enabled) {
+          sessionStorage.setItem(CLAUDE_PROTECT_ENABLED_KEY, 'true');
+          refreshClaudeProtectionWindow(5000);
+        } else {
+          sessionStorage.setItem(CLAUDE_PROTECT_ENABLED_KEY, 'false');
+          sessionStorage.setItem('ai-multichat-claude-protect-sidebar', 'false');
+          sessionStorage.removeItem('ai-multichat-claude-protect-sidebar-until');
+        }
+      } catch (error) {}
+
+      console.warn(`[Claude] Sidebar protection ${data.enabled ? 'enabled' : 'disabled'}`);
+    }
+
+    if (data.type === 'AI_ARM_BREAKPOINT_DEBUG' && data.platform === 'claude') {
+      claudeSidebarBreakpointEnabled = true;
+      try {
+        sessionStorage.setItem(CLAUDE_BREAKPOINT_SESSION_KEY, 'armed');
+      } catch (error) {}
+
+      console.warn('[Claude] Sidebar breakpoint armed');
+      window.parent.postMessage({
+        type: 'AI_INFO',
+        platform: 'claude',
+        source: 'content-script',
+        message: 'Claude sidebar breakpoint armed'
+      }, '*');
+    }
+
+    if (data.type === 'AI_DIAGNOSTICS_REQUEST' && data.platform === 'claude') {
+      const sidebarToggle = document.querySelector('[data-testid="pin-sidebar-toggle"], button[aria-label="Open sidebar"], button[aria-label="Close sidebar"]');
+      const sidebarNav = document.querySelector('nav[aria-label="Sidebar"]');
+      const sidebarStorageKeys = Object.keys(localStorage).filter((key) => /sidebar|nav|recents|drawer|collapsed|panel/i.test(key));
+
+      window.parent.postMessage({
+        type: 'AI_DIAGNOSTICS_RESULT',
+        platform: 'claude',
+        source: 'content-script',
+        diagnostics: {
+          href: location.href,
+          inIframe: window.self !== window.top,
+          innerWidth: window.innerWidth,
+          innerHeight: window.innerHeight,
+          sidebarToggle: sidebarToggle ? {
+            ariaLabel: sidebarToggle.getAttribute('aria-label'),
+            dataState: sidebarToggle.getAttribute('data-state'),
+            text: (sidebarToggle.innerText || sidebarToggle.textContent || '').trim()
+          } : null,
+          sidebarNav: sidebarNav ? {
+            exists: true,
+            width: getComputedStyle(sidebarNav).width,
+            minWidth: getComputedStyle(sidebarNav).minWidth,
+            maxWidth: getComputedStyle(sidebarNav).maxWidth,
+            display: getComputedStyle(sidebarNav).display,
+            transform: getComputedStyle(sidebarNav).transform,
+            visibility: getComputedStyle(sidebarNav).visibility,
+            opacity: getComputedStyle(sidebarNav).opacity
+          } : {
+            exists: false
+          },
+          localStorageSubset: Object.fromEntries(sidebarStorageKeys.map((key) => [key, localStorage.getItem(key)]))
+        }
+      }, '*');
+    }
   });
 
-  // 通知準備就緒（發送給 parent window，即 popup.html）
   if (window.parent !== window) {
     window.parent.postMessage({
       type: 'AI_READY',
       platform: 'claude',
       source: 'content-script'
     }, '*');
+  }
+
+  let claudeSidebarExpandedOnce = false;
+  const CLAUDE_IFRAME_SIDEBAR_STYLE_ID = 'ai-multichat-claude-sidebar-style';
+
+  function nodeMatchesClaudeSidebar(node) {
+    if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
+
+    return CLAUDE_SIDEBAR_SELECTORS.some((selector) => {
+      try {
+        return node.matches(selector) || !!node.querySelector(selector);
+      } catch (error) {
+        return false;
+      }
+    });
+  }
+
+  function getClaudeSidebarState() {
+    const sidebarToggle = document.querySelector('[data-testid="pin-sidebar-toggle"], button[aria-label="Open sidebar"], button[aria-label="Close sidebar"]');
+    const sidebarNav = document.querySelector('nav[aria-label="Sidebar"]');
+    const navStyle = sidebarNav ? getComputedStyle(sidebarNav) : null;
+
+    return {
+      href: location.href,
+      hasToggle: !!sidebarToggle,
+      toggleLabel: sidebarToggle ? sidebarToggle.getAttribute('aria-label') : null,
+      toggleState: sidebarToggle ? sidebarToggle.getAttribute('data-state') : null,
+      navExists: !!sidebarNav,
+      navDisplay: navStyle ? navStyle.display : null,
+      navVisibility: navStyle ? navStyle.visibility : null,
+      navOpacity: navStyle ? navStyle.opacity : null,
+      navWidth: navStyle ? navStyle.width : null,
+      navTransform: navStyle ? navStyle.transform : null
+    };
+  }
+
+  function triggerClaudeSidebarBreakpoint(reason, payload) {
+    if (!claudeSidebarBreakpointEnabled) return;
+
+    console.warn('[Claude] Sidebar breakpoint triggered:', reason, payload);
+    console.trace('[Claude] Sidebar breakpoint trace');
+
+    claudeSidebarBreakpointEnabled = false;
+    try {
+      sessionStorage.removeItem(CLAUDE_BREAKPOINT_SESSION_KEY);
+    } catch (error) {}
+
+    debugger;
+  }
+
+  function inspectClaudeSidebarMutations(mutations) {
+    const currentState = getClaudeSidebarState();
+
+    if (!claudeSidebarBreakpointEnabled) {
+      lastClaudeSidebarState = currentState;
+      return;
+    }
+
+    for (const mutation of mutations) {
+      if (mutation.type === 'childList') {
+        for (const node of mutation.removedNodes) {
+          if (nodeMatchesClaudeSidebar(node)) {
+            triggerClaudeSidebarBreakpoint('sidebar-node-removed', {
+              currentState,
+              removedHtml: node.outerHTML ? node.outerHTML.slice(0, 1000) : null
+            });
+            lastClaudeSidebarState = currentState;
+            return;
+          }
+        }
+      }
+
+      if (mutation.type === 'attributes' && nodeMatchesClaudeSidebar(mutation.target)) {
+        const hiddenNow = currentState.navExists && (
+          currentState.navDisplay === 'none' ||
+          currentState.navVisibility === 'hidden' ||
+          currentState.navOpacity === '0' ||
+          currentState.navWidth === '0px'
+        );
+
+        if (hiddenNow) {
+          triggerClaudeSidebarBreakpoint('sidebar-hidden-via-attribute', {
+            attributeName: mutation.attributeName,
+            currentState
+          });
+          lastClaudeSidebarState = currentState;
+          return;
+        }
+      }
+    }
+
+    if (lastClaudeSidebarState && (lastClaudeSidebarState.navExists || lastClaudeSidebarState.hasToggle) && !currentState.navExists && !currentState.hasToggle) {
+      triggerClaudeSidebarBreakpoint('sidebar-disappeared', {
+        previousState: lastClaudeSidebarState,
+        currentState
+      });
+      lastClaudeSidebarState = currentState;
+      return;
+    }
+
+    lastClaudeSidebarState = currentState;
+  }
+
+  function ensureClaudeSidebarStyle() {
+    if (window.self === window.top) return;
+    if (location.hostname !== 'claude.ai') return;
+    if (document.getElementById(CLAUDE_IFRAME_SIDEBAR_STYLE_ID) || !document.head) return;
+
+    const style = document.createElement('style');
+    style.id = CLAUDE_IFRAME_SIDEBAR_STYLE_ID;
+    style.textContent = `
+      div.shrink-0:has(> div.fixed.lg\\:sticky.z-sidebar),
+      div.shrink-0:has(nav[aria-label="Sidebar"]) {
+        width: 18rem !important;
+        min-width: 18rem !important;
+        max-width: 18rem !important;
+        flex: 0 0 18rem !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+        overflow: visible !important;
+      }
+      div.fixed.lg\\:sticky.z-sidebar {
+        width: 18rem !important;
+        min-width: 18rem !important;
+        max-width: 18rem !important;
+        opacity: 1 !important;
+        visibility: visible !important;
+      }
+      nav[aria-label="Sidebar"] {
+        width: 288px !important;
+        min-width: 288px !important;
+        max-width: 288px !important;
+        transform: none !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+        overflow: hidden !important;
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function ensureClaudeSidebarOpen() {
+    if (window.self === window.top) return;
+    if (location.hostname !== 'claude.ai') return;
+
+    ensureClaudeSidebarStyle();
+
+    const sidebarSticky = document.querySelector('div.fixed.lg\\:sticky.z-sidebar');
+    if (sidebarSticky) {
+      sidebarSticky.style.setProperty('width', '18rem', 'important');
+      sidebarSticky.style.setProperty('min-width', '18rem', 'important');
+      sidebarSticky.style.setProperty('max-width', '18rem', 'important');
+      sidebarSticky.style.setProperty('opacity', '1', 'important');
+      sidebarSticky.style.setProperty('visibility', 'visible', 'important');
+    }
+
+    const sidebarWrapper = Array.from(document.querySelectorAll('div.shrink-0')).find((element) => {
+      try {
+        return !!element.querySelector('div.fixed.lg\\:sticky.z-sidebar, nav[aria-label="Sidebar"], button[aria-label="Open sidebar"], button[aria-label="Close sidebar"]');
+      } catch (error) {
+        return false;
+      }
+    });
+
+    if (sidebarWrapper) {
+      sidebarWrapper.style.setProperty('width', '18rem', 'important');
+      sidebarWrapper.style.setProperty('min-width', '18rem', 'important');
+      sidebarWrapper.style.setProperty('max-width', '18rem', 'important');
+      sidebarWrapper.style.setProperty('flex-basis', '18rem', 'important');
+      sidebarWrapper.style.setProperty('flex-grow', '0', 'important');
+      sidebarWrapper.style.setProperty('flex-shrink', '0', 'important');
+      sidebarWrapper.style.setProperty('opacity', '1', 'important');
+      sidebarWrapper.style.setProperty('visibility', 'visible', 'important');
+      sidebarWrapper.style.setProperty('overflow', 'visible', 'important');
+    }
+
+    const sidebarNav = document.querySelector('nav[aria-label="Sidebar"]');
+    if (sidebarNav) {
+      sidebarNav.style.setProperty('width', '288px', 'important');
+      sidebarNav.style.setProperty('min-width', '288px', 'important');
+      sidebarNav.style.setProperty('max-width', '288px', 'important');
+      sidebarNav.style.setProperty('transform', 'none', 'important');
+      sidebarNav.style.setProperty('visibility', 'visible', 'important');
+      sidebarNav.style.setProperty('opacity', '1', 'important');
+    }
+
+    if (claudeSidebarExpandedOnce) return;
+
+    const openSidebarButton = document.querySelector(
+      '[data-testid="pin-sidebar-toggle"][data-state="closed"], button[aria-label="Open sidebar"]'
+    );
+
+    if (!openSidebarButton) return;
+
+    console.log('[Claude] Expanding collapsed sidebar inside iframe...');
+    claudeSidebarExpandedOnce = true;
+    openSidebarButton.click();
+  }
+
+  if (window.self !== window.top) {
+    const sidebarObserver = new MutationObserver((mutations) => {
+      inspectClaudeSidebarMutations(mutations);
+      ensureClaudeSidebarOpen();
+    });
+
+    const startSidebarObserver = () => {
+      if (!document.documentElement) return;
+      sidebarObserver.observe(document.documentElement, {
+        childList: true,
+        subtree: true,
+        attributes: true,
+        attributeFilter: ['aria-label', 'data-state', 'class', 'style']
+      });
+      lastClaudeSidebarState = getClaudeSidebarState();
+      ensureClaudeSidebarOpen();
+    };
+
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', startSidebarObserver, { once: true });
+    } else {
+      startSidebarObserver();
+    }
+
+    ensureClaudeSidebarStyle();
+    setTimeout(ensureClaudeSidebarOpen, 1500);
+    setTimeout(ensureClaudeSidebarOpen, 4000);
+    setInterval(ensureClaudeSidebarOpen, 3000);
   }
 
   // --- Login Monitoring & Overlay Logic ---
@@ -113,11 +451,8 @@
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {
       console.log('[Claude] User clicked "I am logged in", navigating to chat page...');
-      // Navigate to chat page
       window.location.href = 'https://claude.ai/new';
-      // Remove overlay
       overlay.remove();
-      // Disable auto-check for 5 seconds to prevent re-showing during navigation
       window.claudeLoginCheckDisabled = true;
       setTimeout(() => {
         window.claudeLoginCheckDisabled = false;
@@ -126,13 +461,9 @@
   }
 
   function checkLoginState() {
-    // Only run this logic if we are inside an iframe
     if (window.self === window.top) return;
-
-    // Skip check if manually disabled
     if (window.claudeLoginCheckDisabled) return;
 
-    // Detect if we are on the login page
     const isLoginPage = location.href.includes('claude.ai/login');
 
     if (isLoginPage) {
@@ -143,28 +474,19 @@
       return;
     }
 
-    // Check for Claude's main chat interface elements
     const hasChatInterface = document.querySelector('[contenteditable="true"]') ||
-                            document.querySelector('textarea') ||
-                            document.querySelector('[data-testid="chat-input"]');
+      document.querySelector('textarea') ||
+      document.querySelector('[data-testid="chat-input"]');
 
     if (hasChatInterface) {
-      // Logged in: remove overlay if it exists
       const overlay = document.getElementById(LOGIN_OVERLAY_ID);
       if (overlay) overlay.remove();
-    } 
-    
-    // NOTE: We do NOT inject the overlay on non-login pages just because the chat interface is missing.
-    // The page might still be loading (causing React Hydration Mismatch if we touch DOM), 
-    // or Claude might be in a state that doesn't look like the standard chat.
-    // We rely on Claude redirecting to /login for the overlay to appear.
+    }
   }
 
-  // Run check every 1 second, but wait 2 seconds before starting to avoid interfering with initial load
   setTimeout(() => {
     setInterval(checkLoginState, 1000);
   }, 2000);
-  // --- End Login Monitoring ---
 
   console.log('[Claude] Content script loaded');
 })();
