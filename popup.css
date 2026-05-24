@@ -132,6 +132,10 @@ html, body {
   border-color: rgba(255, 255, 255, 0.32);
 }
 
+.input-section button {
+  padding: 0 12px; /* 縮減內邊距以防排版擠出 */
+}
+
 #question-input {
   grid-column: 1 / span 5; /* 橫跨 5 欄 */
   grid-row: 1; /* 第一行 */
@@ -222,7 +226,7 @@ select:disabled {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
   border-color: rgba(255, 255, 255, 0.1);
-  min-width: 90px;
+  min-width: 76px;
 }
 
 #new-chat-btn:hover {
@@ -236,7 +240,7 @@ select:disabled {
   background: rgba(168, 85, 247, 0.08); /* 微微發光紫 */
   color: #c084fc; /* 紫色字體 */
   border-color: rgba(168, 85, 247, 0.22);
-  min-width: 90px;
+  min-width: 76px;
 }
 
 #compare-btn:hover {
@@ -252,7 +256,7 @@ select:disabled {
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
   border-color: rgba(255, 255, 255, 0.1);
-  min-width: 90px;
+  min-width: 76px;
 }
 
 #history-toggle-btn:hover {
