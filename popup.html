@@ -12,6 +12,7 @@
     <div class="input-section">
       <textarea id="question-input" data-i18n-placeholder="inputPlaceholder"></textarea>
       <button id="send-all-btn" data-i18n="sendToAllButton"></button>
+      <button id="compare-btn" type="button" title="智慧對比所有答案">智慧對比</button>
       <button id="new-chat-btn" data-i18n="newChatButton"></button>
       <button id="history-toggle-btn" type="button" title="顯示歷史對話">歷史對話</button>
       <button id="minimize-input-btn" type="button" title="縮小控制面板">⤋</button>
@@ -90,6 +91,38 @@
         <button id="close-diagnostics-btn" type="button" aria-label="Close diagnostics">×</button>
       </div>
       <pre id="diagnostics-output">尚未執行診斷</pre>
+    </div>
+
+    <!-- 智慧對比對照面板 -->
+    <div id="compare-panel" class="compare-panel hidden">
+      <div class="compare-header">
+        <span class="compare-title">✨ 智慧答案橫向比對面版</span>
+        <button id="close-compare-btn" type="button" aria-label="Close comparison">×</button>
+      </div>
+      <div class="compare-content">
+        <div class="compare-prompt-area">
+          <span class="compare-prompt-label">💬 最新問題：</span>
+          <span id="compare-prompt-text">尚未發送問題，或正在等待平台回應...</span>
+        </div>
+        <div class="compare-grid">
+          <div class="compare-col" data-platform="grok">
+            <div class="col-title grok-title">Grok</div>
+            <div class="col-text" id="compare-text-grok">等待載入對話...</div>
+          </div>
+          <div class="compare-col" data-platform="gemini">
+            <div class="col-title gemini-title">Gemini</div>
+            <div class="col-text" id="compare-text-gemini">等待載入對話...</div>
+          </div>
+          <div class="compare-col" data-platform="claude">
+            <div class="col-title claude-title">Claude</div>
+            <div class="col-text" id="compare-text-claude">等待載入對話...</div>
+          </div>
+          <div class="compare-col" data-platform="chatgpt">
+            <div class="col-title chatgpt-title">ChatGPT</div>
+            <div class="col-text" id="compare-text-chatgpt">等待載入對話...</div>
+          </div>
+        </div>
+      </div>
     </div>
 
   </div>

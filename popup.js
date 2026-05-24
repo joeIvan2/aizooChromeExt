@@ -102,6 +102,20 @@ document.addEventListener('DOMContentLoaded', () => {
   // 發送按鈕
   document.getElementById('send-all-btn').addEventListener('click', sendQuestionToAll);
 
+  // 智慧對比按鈕
+  const compareBtn = document.getElementById('compare-btn');
+  if (compareBtn) {
+    compareBtn.addEventListener('click', openComparePanel);
+  }
+
+  const closeCompareBtn = document.getElementById('close-compare-btn');
+  if (closeCompareBtn) {
+    closeCompareBtn.addEventListener('click', () => {
+      const panel = document.getElementById('compare-panel');
+      if (panel) panel.classList.add('hidden');
+    });
+  }
+
   // 新對話按鈕
   document.getElementById('new-chat-btn').addEventListener('click', startNewChatForAll);
 
@@ -439,6 +453,7 @@ function sendQuestionToAll() {
   }
 
   console.log('[AI Multi-Chat] Sending question to all platforms:', question);
+  window.lastSentQuestion = question; // 紀錄最新發送的問題
   startSessionCapture(question);
 
   // 清空輸入區
@@ -588,6 +603,40 @@ function handleMessage(event) {
 
     case 'AI_DIAGNOSTICS_RESULT':
       resolvePlatformDiagnostics(platform, data.diagnostics);
+      break;
+
+    case 'AI_SCRAPE_HISTORY_RESPONSE':
+      console.log(`[popup] Received scraped history for ${platform}`);
+      const history = data.history || [];
+      const colTextEl = document.getElementById(`compare-text-${platform}`);
+      if (colTextEl) {
+        if (history.length === 0) {
+          colTextEl.textContent = '此平台尚無對話內容。';
+        } else {
+          // 如果沒有發送過問題，但對話紀錄有，可以用最後一次提問作為最新問題
+          const userMsgs = history.filter(m => m.role === 'user');
+          if (userMsgs.length > 0) {
+            const latestUserMsg = userMsgs[userMsgs.length - 1].content;
+            document.getElementById('compare-prompt-text').textContent = latestUserMsg;
+            if (!window.lastSentQuestion) {
+              window.lastSentQuestion = latestUserMsg;
+            }
+          }
+
+          // 美化顯示對話紀錄
+          colTextEl.innerHTML = history.map(m => {
+            const label = m.role === 'user' ? '👤 <b>你：</b>' : '🤖 <b>AI：</b>';
+            const bubbleBg = m.role === 'user' ? 'rgba(255, 255, 255, 0.04)' : 'rgba(168, 85, 247, 0.05)';
+            const borderColor = m.role === 'user' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(168, 85, 247, 0.18)';
+            return `<div class="msg-bubble-${m.role}" style="margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: ${bubbleBg}; border: 1px solid ${borderColor}; box-shadow: 0 4px 10px rgba(0,0,0,0.15)"><div style="font-size: 11.5px; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; opacity: 0.75">${label}</div><div style="font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word">${escapeHtml(m.content)}</div></div>`;
+          }).join('');
+
+          // 滾動到底部
+          setTimeout(() => {
+            colTextEl.scrollTop = colTextEl.scrollHeight;
+          }, 50);
+        }
+      }
       break;
 
     default:
@@ -1156,6 +1205,57 @@ function handleLoginMessage(data) {
     default:
       break;
   }
+}
+
+// ==========================================
+// ✨ 智慧對比對照面板輔助函數
+// ==========================================
+
+// 全局紀錄最新發送的問題，初始化為空字串
+window.lastSentQuestion = '';
+
+function escapeHtml(unsafe) {
+  if (!unsafe) return '';
+  return String(unsafe)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#039;");
+}
+
+function openComparePanel() {
+  const panel = document.getElementById('compare-panel');
+  if (!panel) return;
+
+  panel.classList.remove('hidden');
+
+  // 如果有發送過的問題，先填入最新問題區
+  if (window.lastSentQuestion) {
+    document.getElementById('compare-prompt-text').textContent = window.lastSentQuestion;
+  }
+
+  platforms.forEach(platform => {
+    const textEl = document.getElementById(`compare-text-${platform}`);
+    if (!textEl) return;
+
+    if (isPlatformEnabled(platform)) {
+      textEl.textContent = '讀取對話紀錄中...';
+
+      const iframe = iframes[platform];
+      if (iframe && iframe.contentWindow) {
+        iframe.contentWindow.postMessage({
+          type: 'AI_SCRAPE_HISTORY_REQUEST',
+          platform: platform,
+          source: 'popup'
+        }, '*');
+      } else {
+        textEl.textContent = '平台尚未準備就緒';
+      }
+    } else {
+      textEl.textContent = '此平台已停用';
+    }
+  });
 }
 
 console.log('[AI Multi-Chat] Popup script loaded');

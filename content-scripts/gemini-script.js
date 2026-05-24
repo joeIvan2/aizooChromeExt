@@ -30,6 +30,16 @@
       console.log('[Gemini] Starting new chat...');
       window.location.href = 'https://gemini.google.com/app';
     }
+
+    if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'gemini') {
+      console.log('[Gemini] Received scrape history request');
+      const history = config.scrapeHistory ? config.scrapeHistory() : [];
+      sendMessageToPopup({
+        type: 'AI_SCRAPE_HISTORY_RESPONSE',
+        platform: 'gemini',
+        history: history
+      });
+    }
   });
 
   // 通知準備就緒（發送給 parent window，即 popup.html）

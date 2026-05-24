@@ -77,6 +77,16 @@
       window.location.href = 'https://claude.ai/new';
     }
 
+    if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'claude') {
+      console.log('[Claude] Received scrape history request');
+      const history = config.scrapeHistory ? config.scrapeHistory() : [];
+      sendMessageToPopup({
+        type: 'AI_SCRAPE_HISTORY_RESPONSE',
+        platform: 'claude',
+        history: history
+      });
+    }
+
     if (data.type === 'AI_SET_SIDEBAR_PROTECTION' && data.platform === 'claude') {
       try {
         if (data.enabled) {

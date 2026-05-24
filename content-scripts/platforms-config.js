@@ -91,6 +91,16 @@ const PLATFORM_CONFIGS = {
       }
       return '';
     },
+    scrapeHistory: function() {
+      var bubbles = Array.from(document.querySelectorAll('.message-bubble'));
+      return bubbles.map(function(el) {
+        var isUser = el.className.includes('bg-surface-l1') || el.className.includes('bg-surface-l');
+        return {
+          role: isUser ? 'user' : 'assistant',
+          content: el.innerText.trim()
+        };
+      }).filter(function(m) { return m.content; });
+    },
     waitAfterFill: 2000
   },
 
@@ -164,6 +174,21 @@ const PLATFORM_CONFIGS = {
       } catch(e) {}
       return '(解析失敗)';
     },
+    scrapeHistory: function() {
+      var userQueries = Array.from(document.querySelectorAll('user-query, .query-text, .user-query-content'));
+      var assistantResponses = Array.from(document.querySelectorAll('message-content, .message-content, .model-response'));
+      var history = [];
+      var maxLen = Math.max(userQueries.length, assistantResponses.length);
+      for (var i = 0; i < maxLen; i++) {
+        if (userQueries[i]) {
+          history.push({ role: 'user', content: userQueries[i].innerText.trim() });
+        }
+        if (assistantResponses[i]) {
+          history.push({ role: 'assistant', content: assistantResponses[i].innerText.trim() });
+        }
+      }
+      return history;
+    },
     waitAfterFill: 2000
   },
 
@@ -235,6 +260,16 @@ const PLATFORM_CONFIGS = {
       findTexts(lastAssistantMsg);
       return allTexts.join('');
     },
+    scrapeHistory: function() {
+      var messages = Array.from(document.querySelectorAll('.font-user-message, .font-claude-message, div[data-testid="user-message"], div[data-testid="claude-message"]'));
+      return messages.map(function(el) {
+        var isUser = el.classList.contains('font-user-message') || el.getAttribute('data-testid') === 'user-message';
+        return {
+          role: isUser ? 'user' : 'assistant',
+          content: el.innerText.trim()
+        };
+      }).filter(function(m) { return m.content; });
+    },
     waitAfterFill: 1000
   },
 
@@ -291,6 +326,18 @@ const PLATFORM_CONFIGS = {
         }
       }
       return lastContent;
+    },
+    scrapeHistory: function() {
+      var turns = Array.from(document.querySelectorAll('[data-testid^="conversation-turn"]'));
+      return turns.map(function(turn) {
+        var isUser = turn.querySelector('div.bg-token-main-surface-secondary') || turn.querySelector('.justify-end') || !turn.querySelector('.markdown');
+        var markdownEl = turn.querySelector('.markdown');
+        var text = markdownEl ? markdownEl.innerText : turn.innerText;
+        return {
+          role: isUser ? 'user' : 'assistant',
+          content: text.trim()
+        };
+      }).filter(function(m) { return m.content; });
     },
     waitAfterFill: 500
   }

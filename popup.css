@@ -110,7 +110,7 @@ html, body {
   -webkit-backdrop-filter: var(--blur-main);
   backdrop-filter: var(--blur-main);
   display: grid;
-  grid-template-columns: 1fr auto auto auto; /* 4欄：送出按鈕拉伸佔滿，另三個按鈕靠右 */
+  grid-template-columns: 1fr auto auto auto auto; /* 5欄：送出按鈕拉伸佔滿，另四個按鈕靠右 */
   grid-template-rows: auto auto; /* 2列：上列為輸入區，下列為按鈕區 */
   gap: 10px;
   box-shadow: var(--shadow-controller);
@@ -133,7 +133,7 @@ html, body {
 }
 
 #question-input {
-  grid-column: 1 / span 4; /* 橫跨 4 欄 */
+  grid-column: 1 / span 5; /* 橫跨 5 欄 */
   grid-row: 1; /* 第一行 */
   width: 100%;
   padding: 12px 14px;
@@ -217,7 +217,7 @@ select:disabled {
 }
 
 #new-chat-btn {
-  grid-column: 2; /* 第二行第二欄 */
+  grid-column: 3; /* 第二行第三欄 */
   grid-row: 2;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-primary);
@@ -230,8 +230,24 @@ select:disabled {
   border-color: rgba(255, 255, 255, 0.18);
 }
 
+#compare-btn {
+  grid-column: 2; /* 第二行第二欄 */
+  grid-row: 2;
+  background: rgba(168, 85, 247, 0.08); /* 微微發光紫 */
+  color: #c084fc; /* 紫色字體 */
+  border-color: rgba(168, 85, 247, 0.22);
+  min-width: 90px;
+}
+
+#compare-btn:hover {
+  background: rgba(168, 85, 247, 0.16);
+  color: #d8b4fe;
+  border-color: rgba(168, 85, 247, 0.4);
+  box-shadow: 0 0 10px rgba(168, 85, 247, 0.25);
+}
+
 #history-toggle-btn {
-  grid-column: 3; /* 第二行第三欄 */
+  grid-column: 4; /* 第二行第四欄 */
   grid-row: 2;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
@@ -246,7 +262,7 @@ select:disabled {
 }
 
 #minimize-input-btn {
-  grid-column: 4; /* 第二行第四欄 */
+  grid-column: 5; /* 第二行第五欄 */
   grid-row: 2;
   background: rgba(255, 255, 255, 0.04);
   color: var(--text-secondary);
@@ -776,6 +792,164 @@ iframe {
   line-height: 1.6;
   color: #e2e8f0;
   font-family: Consolas, "SFMono-Regular", Menlo, monospace;
+}
+
+/* ==========================================
+   ✨ 智慧對比對照面板樣式
+   ========================================== */
+.compare-panel {
+  position: fixed;
+  top: 24px;
+  left: 24px;
+  width: calc(100vw - 48px);
+  height: calc(100vh - 48px);
+  display: flex;
+  flex-direction: column;
+  background: var(--surface-controller-strong);
+  color: var(--text-primary);
+  border: 1px solid var(--border-controller);
+  border-radius: 20px;
+  box-shadow: var(--shadow-controller);
+  z-index: 10005;
+  overflow: hidden;
+  -webkit-backdrop-filter: var(--blur-main);
+  backdrop-filter: var(--blur-main);
+  animation: slideUp 300ms cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.compare-panel.hidden {
+  display: none;
+}
+
+.compare-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  background: rgba(255, 255, 255, 0.03);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.compare-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  color: #c084fc; /* 紫色標題 */
+  text-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+}
+
+#close-compare-btn {
+  min-width: auto;
+  min-height: 32px;
+  height: 32px;
+  width: 32px;
+  padding: 0;
+  background: rgba(255, 255, 255, 0.08);
+  color: #f3f4f6;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+#close-compare-btn:hover {
+  background: rgba(239, 68, 68, 0.2);
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.compare-content {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  padding: 16px 20px;
+  gap: 12px;
+  min-height: 0;
+}
+
+.compare-prompt-area {
+  padding: 12px 16px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.compare-prompt-label {
+  color: var(--text-secondary);
+  font-weight: 700;
+}
+
+#compare-prompt-text {
+  color: var(--text-primary);
+}
+
+.compare-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 12px;
+  min-height: 0;
+}
+
+.compare-col {
+  display: flex;
+  flex-direction: column;
+  background: rgba(8, 9, 18, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 14px;
+  overflow: hidden;
+  transition: all 250ms ease;
+}
+
+.compare-col:hover {
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+}
+
+.col-title {
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 700;
+  text-align: center;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04);
+  user-select: none;
+}
+
+/* 品牌背景色標題 */
+.grok-title {
+  background: rgba(255, 69, 58, 0.1);
+  color: #ff453a;
+  border-bottom-color: rgba(255, 69, 58, 0.2);
+}
+.gemini-title {
+  background: rgba(168, 85, 247, 0.1);
+  color: #a855f7;
+  border-bottom-color: rgba(168, 85, 247, 0.2);
+}
+.claude-title {
+  background: rgba(249, 115, 22, 0.1);
+  color: #f97316;
+  border-bottom-color: rgba(249, 115, 22, 0.2);
+}
+.chatgpt-title {
+  background: rgba(16, 185, 129, 0.1);
+  color: #10b981;
+  border-bottom-color: rgba(16, 185, 129, 0.2);
+}
+
+.col-text {
+  flex: 1;
+  padding: 14px;
+  overflow-y: auto;
+  font-size: 13px;
+  line-height: 1.6;
+  color: var(--text-primary);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
 
 /* 響應式佈局 */
