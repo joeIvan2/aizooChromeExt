@@ -2,6 +2,7 @@
 <html>
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Multi-Chat</title>
   <link rel="stylesheet" href="popup.css">
 </head>
@@ -13,6 +14,7 @@
       <button id="send-all-btn" data-i18n="sendToAllButton"></button>
       <button id="new-chat-btn" data-i18n="newChatButton"></button>
       <button id="history-toggle-btn" type="button" title="顯示歷史對話">歷史對話</button>
+      <button id="minimize-input-btn" type="button" title="縮小控制面板">⤋</button>
     </div>
 
     <div id="session-switcher" class="session-switcher hidden" aria-label="對話組清單">
@@ -27,7 +29,7 @@
     <!-- 4 個 AI iframe -->
     <div class="iframes-container">
       <div class="iframe-wrapper" data-platform="grok">
-        <div class="iframe-header" style="background-color: #e74c3c;">
+        <div class="iframe-header">
           <div class="header-left">
             <span class="platform-name">Grok</span>
             <button class="toggle-btn enabled" data-platform-toggle="grok" type="button" title="停用 Grok">ON</button>
@@ -40,7 +42,7 @@
       </div>
 
       <div class="iframe-wrapper" data-platform="gemini">
-        <div class="iframe-header" style="background-color: #8e44ad;">
+        <div class="iframe-header">
           <div class="header-left">
             <span class="platform-name">Gemini</span>
             <button class="toggle-btn enabled" data-platform-toggle="gemini" type="button" title="停用 Gemini">ON</button>
@@ -53,7 +55,7 @@
       </div>
 
       <div class="iframe-wrapper" data-platform="claude">
-        <div class="iframe-header" style="background-color: #CC785C;">
+        <div class="iframe-header">
           <div class="header-left">
             <span class="platform-name">Claude</span>
             <button class="toggle-btn enabled" data-platform-toggle="claude" type="button" title="停用 Claude">ON</button>
@@ -69,7 +71,7 @@
       </div>
 
       <div class="iframe-wrapper" data-platform="chatgpt">
-        <div class="iframe-header" style="background-color: #27ae60;">
+        <div class="iframe-header">
           <div class="header-left">
             <span class="platform-name">ChatGPT</span>
             <button class="toggle-btn enabled" data-platform-toggle="chatgpt" type="button" title="停用 ChatGPT">ON</button>

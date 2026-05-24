@@ -192,6 +192,8 @@ document.addEventListener('DOMContentLoaded', () => {
     }
   });
 
+  window.addEventListener('resize', positionSessionSwitcher);
+
   function switchMaximizedIframe(direction) {
     if (!currentMaximizedPlatform) return;
 
@@ -281,6 +283,7 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Draggable Input Section Logic ---
   const inputSection = document.querySelector('.input-section');
   let isDragging = false;
+  let hasMoved = false; // 用於區分拖拽與點擊恢復的 Flag
   let currentX;
   let currentY;
   let initialX;
@@ -326,8 +329,9 @@ document.addEventListener('DOMContentLoaded', () => {
   inputSection.addEventListener('pointercancel', dragEnd);
 
   function dragStart(e) {
-    // Prevent dragging if clicking on interactive elements
-    if (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON') {
+    // Prevent dragging if clicking on interactive elements (unless minimized)
+    if (!inputSection.classList.contains('minimized') && 
+        (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON')) {
       return;
     }
     
@@ -344,6 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
     initialY = e.clientY - inputSection.offsetTop;
 
     isDragging = true;
+    hasMoved = false; // 開始拖拽時重置 moved 狀態
     inputSection.setPointerCapture(e.pointerId); // Capture pointer to handle out-of-bounds/iframes
   }
 
@@ -359,6 +364,7 @@ document.addEventListener('DOMContentLoaded', () => {
       top: inputSection.style.top
     };
     localStorage.setItem('ai-chat-input-pos', JSON.stringify(pos));
+    positionSessionSwitcher();
   }
 
   function drag(e) {
@@ -377,11 +383,45 @@ document.addEventListener('DOMContentLoaded', () => {
 
       inputSection.style.left = currentX + "px";
       inputSection.style.top = currentY + "px";
+      
+      // 有移動就將 moved 設為 true，防止拖動懸浮球時觸發還原面板
+      hasMoved = true;
+      
+      positionSessionSwitcher();
     }
   }
   
   function setTranslate(xPos, yPos, el) {
     el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
+  }
+
+  // --- 懸浮面板最小化與還原邏輯 ---
+  const minimizeBtn = document.getElementById('minimize-input-btn');
+  
+  if (minimizeBtn) {
+    minimizeBtn.addEventListener('click', (e) => {
+      e.stopPropagation(); // 阻止事件冒泡，避免點擊按鈕時又觸發外層 click 還原
+      inputSection.classList.add('minimized');
+      localStorage.setItem('ai-chat-input-minimized', 'true');
+      hideSessionSwitcher(); // 最小化時順便隱藏歷史對話面板
+    });
+  }
+
+  // 點擊最小化後的懸浮球還原為完整面板
+  inputSection.addEventListener('click', (e) => {
+    if (inputSection.classList.contains('minimized')) {
+      // 只有在純點擊（沒有拖拽移動）的情況下才還原
+      if (!hasMoved) {
+        inputSection.classList.remove('minimized');
+        localStorage.setItem('ai-chat-input-minimized', 'false');
+      }
+    }
+  });
+
+  // 載入時復原之前的最小化狀態
+  const isMinimized = localStorage.getItem('ai-chat-input-minimized') === 'true';
+  if (isMinimized) {
+    inputSection.classList.add('minimized');
   }
 
   console.log('[AI Multi-Chat] Popup initialized');
@@ -687,11 +727,38 @@ function getSelectedSession() {
   return getSessionList().find(session => session.id === select.value) || null;
 }
 
+function positionSessionSwitcher() {
+  const switcher = document.getElementById('session-switcher');
+  const inputSection = document.querySelector('.input-section');
+  if (!switcher || !inputSection || switcher.classList.contains('hidden')) return;
+
+  const gap = 10;
+  const margin = 10;
+  const inputRect = inputSection.getBoundingClientRect();
+  const panelWidth = switcher.offsetWidth;
+  const panelHeight = switcher.offsetHeight;
+
+  let left = inputRect.left;
+  let top = inputRect.top - panelHeight - gap;
+
+  if (top < margin) {
+    top = inputRect.bottom + gap;
+  }
+
+  left = Math.max(margin, Math.min(left, window.innerWidth - panelWidth - margin));
+  top = Math.max(margin, Math.min(top, window.innerHeight - panelHeight - margin));
+
+  switcher.style.left = left + 'px';
+  switcher.style.top = top + 'px';
+  switcher.style.bottom = 'auto';
+}
+
 function showSessionSwitcher() {
   const switcher = document.getElementById('session-switcher');
   if (!switcher) return;
   renderSessionList();
   switcher.classList.remove('hidden');
+  positionSessionSwitcher();
 }
 
 function hideSessionSwitcher() {
