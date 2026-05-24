@@ -8,12 +8,23 @@ const statusElements = {};
 let currentMaximizedPlatform = null; // 當前放大的平台
 const platformEnabledState = {};
 const pendingDiagnostics = new Map();
+const SESSION_LIST_STORAGE_KEY = 'ai-chat-session-list';
+const MAX_SESSION_RECORDS = 50;
+const SESSION_CAPTURE_WINDOW_MS = 2 * 60 * 1000;
+let activeSessionDraft = null;
 
 const defaultUrls = {
   grok: 'https://grok.com/',
   gemini: 'https://gemini.google.com/app',
   claude: 'https://claude.ai/new',
   chatgpt: 'https://chatgpt.com/'
+};
+
+const conversationUrlPatterns = {
+  grok: /^https:\/\/grok\.com\/(?:chat|c)\//,
+  gemini: /^https:\/\/gemini\.google\.com\/app\/[^/?#]+/,
+  claude: /^https:\/\/claude\.ai\/chat\/[^/?#]+/,
+  chatgpt: /^https:\/\/chatgpt\.com\/c\/[^/?#]+/
 };
 
 // i18n 初始化函數
@@ -93,6 +104,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 新對話按鈕
   document.getElementById('new-chat-btn').addEventListener('click', startNewChatForAll);
+
+  document.getElementById('history-toggle-btn').addEventListener('click', toggleSessionSwitcher);
+  document.getElementById('load-session-btn').addEventListener('click', loadSelectedSession);
+  document.getElementById('delete-session-btn').addEventListener('click', deleteSelectedSession);
+  document.getElementById('hide-session-btn').addEventListener('click', hideSessionSwitcher);
 
   document.querySelectorAll('[data-platform-toggle]').forEach((button) => {
     const platform = button.dataset.platformToggle;
@@ -370,6 +386,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   console.log('[AI Multi-Chat] Popup initialized');
   initializePlatformToggles();
+  renderSessionList();
 });
 
 // 發送問題到所有 AI
@@ -382,6 +399,7 @@ function sendQuestionToAll() {
   }
 
   console.log('[AI Multi-Chat] Sending question to all platforms:', question);
+  startSessionCapture(question);
 
   // 清空輸入區
   questionInput.value = '';
@@ -520,6 +538,7 @@ function handleMessage(event) {
     case 'AI_URL_CHANGED':
       console.log(`[${platform}] URL changed:`, data.url);
       localStorage.setItem(`ai-chat-url-${platform}`, data.url);
+      captureSessionUrl(platform, data.url);
       break;
 
     case 'AI_REFRESH_IFRAME':
@@ -535,6 +554,194 @@ function handleMessage(event) {
       // 忽略其他類型的消息
       break;
   }
+}
+
+function normalizeUrl(url) {
+  return String(url || '').replace(/\/$/, '');
+}
+
+function isRecordableConversationUrl(platform, url) {
+  if (!url || !conversationUrlPatterns[platform]) return false;
+  if (normalizeUrl(url) === normalizeUrl(defaultUrls[platform])) return false;
+  return conversationUrlPatterns[platform].test(url);
+}
+
+function getSessionList() {
+  try {
+    const raw = localStorage.getItem(SESSION_LIST_STORAGE_KEY);
+    const sessions = raw ? JSON.parse(raw) : [];
+    return Array.isArray(sessions) ? sessions : [];
+  } catch (error) {
+    console.error('[AI Multi-Chat] Failed to read session list:', error);
+    return [];
+  }
+}
+
+function saveSessionList(sessions) {
+  localStorage.setItem(SESSION_LIST_STORAGE_KEY, JSON.stringify(sessions.slice(0, MAX_SESSION_RECORDS)));
+}
+
+function makeSessionTitle(question) {
+  const text = (question || '').replace(/\s+/g, ' ').trim();
+  if (!text) return '未命名對話';
+  return text.length > 48 ? text.substring(0, 48) + '...' : text;
+}
+
+function startSessionCapture(question) {
+  activeSessionDraft = {
+    id: String(Date.now()),
+    title: makeSessionTitle(question),
+    question: question,
+    createdAt: Date.now(),
+    updatedAt: Date.now(),
+    urls: {}
+  };
+}
+
+function captureSessionUrl(platform, url) {
+  if (!activeSessionDraft) return;
+
+  const age = Date.now() - activeSessionDraft.createdAt;
+  if (age > SESSION_CAPTURE_WINDOW_MS) {
+    activeSessionDraft = null;
+    return;
+  }
+
+  if (!isRecordableConversationUrl(platform, url)) {
+    return;
+  }
+
+  activeSessionDraft.urls[platform] = url;
+  activeSessionDraft.updatedAt = Date.now();
+
+  const sessions = getSessionList();
+  const existingIndex = sessions.findIndex(session => session.id === activeSessionDraft.id);
+  const nextSession = {
+    ...activeSessionDraft,
+    platforms: Object.keys(activeSessionDraft.urls)
+  };
+
+  if (existingIndex >= 0) {
+    sessions[existingIndex] = nextSession;
+  } else {
+    sessions.unshift(nextSession);
+  }
+
+  saveSessionList(sessions);
+  renderSessionList(activeSessionDraft.id);
+}
+
+function formatSessionOption(session) {
+  const time = new Date(session.createdAt).toLocaleString('zh-TW', {
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
+  const platformCount = Object.keys(session.urls || {}).length;
+  return `${time} · ${platformCount} 個平台 · ${session.title}`;
+}
+
+function renderSessionList(selectedId) {
+  const select = document.getElementById('session-select');
+  const loadButton = document.getElementById('load-session-btn');
+  const deleteButton = document.getElementById('delete-session-btn');
+  if (!select || !loadButton || !deleteButton) return;
+
+  const sessions = getSessionList();
+  const previousValue = selectedId || select.value;
+  select.innerHTML = '';
+
+  if (sessions.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = '尚無對話組';
+    select.appendChild(option);
+    select.disabled = true;
+    loadButton.disabled = true;
+    deleteButton.disabled = true;
+    return;
+  }
+
+  sessions.forEach(session => {
+    const option = document.createElement('option');
+    option.value = session.id;
+    option.textContent = formatSessionOption(session);
+    select.appendChild(option);
+  });
+
+  select.disabled = false;
+  loadButton.disabled = false;
+  deleteButton.disabled = false;
+
+  if (previousValue && sessions.some(session => session.id === previousValue)) {
+    select.value = previousValue;
+  } else {
+    select.value = sessions[0].id;
+  }
+}
+
+function getSelectedSession() {
+  const select = document.getElementById('session-select');
+  if (!select || !select.value) return null;
+  return getSessionList().find(session => session.id === select.value) || null;
+}
+
+function showSessionSwitcher() {
+  const switcher = document.getElementById('session-switcher');
+  if (!switcher) return;
+  renderSessionList();
+  switcher.classList.remove('hidden');
+}
+
+function hideSessionSwitcher() {
+  const switcher = document.getElementById('session-switcher');
+  if (!switcher) return;
+  switcher.classList.add('hidden');
+}
+
+function toggleSessionSwitcher() {
+  const switcher = document.getElementById('session-switcher');
+  if (!switcher) return;
+
+  if (switcher.classList.contains('hidden')) {
+    showSessionSwitcher();
+  } else {
+    hideSessionSwitcher();
+  }
+}
+
+function loadSelectedSession() {
+  const session = getSelectedSession();
+  if (!session) return;
+
+  platforms.forEach(platform => {
+    const url = session.urls && session.urls[platform];
+    const iframe = iframes[platform];
+    if (!url || !iframe) return;
+
+    localStorage.setItem(`ai-chat-url-${platform}`, url);
+    iframe.src = url;
+    updateStatus(platform, '⏳', '切換對話中...');
+  });
+}
+
+function deleteSelectedSession() {
+  const session = getSelectedSession();
+  if (!session) return;
+
+  if (!confirm(`刪除對話組「${session.title}」？`)) {
+    return;
+  }
+
+  const sessions = getSessionList().filter(item => item.id !== session.id);
+  saveSessionList(sessions);
+
+  if (activeSessionDraft && activeSessionDraft.id === session.id) {
+    activeSessionDraft = null;
+  }
+
+  renderSessionList();
 }
 
 // 更新狀態指示器

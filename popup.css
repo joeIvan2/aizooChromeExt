@@ -113,6 +113,88 @@ button:active {
   background: #218838;
 }
 
+#history-toggle-btn {
+  background: #4b5563;
+  color: white;
+  min-width: 100px;
+}
+
+#history-toggle-btn:hover {
+  background: #374151;
+}
+
+.session-switcher {
+  position: absolute;
+  bottom: 118px;
+  left: 20px;
+  z-index: 9998;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px;
+  background: rgba(24, 24, 27, 0.92);
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.25);
+  backdrop-filter: blur(10px);
+}
+
+.session-switcher.hidden {
+  display: none;
+}
+
+#session-select {
+  width: min(360px, 38vw);
+  height: 34px;
+  padding: 0 10px;
+  color: #f8fafc;
+  background: #2f343b;
+  border: 1px solid #4b5563;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+#session-select:focus {
+  outline: none;
+  border-color: #60a5fa;
+}
+
+#load-session-btn,
+#delete-session-btn,
+#hide-session-btn {
+  min-width: 56px;
+  height: 34px;
+  padding: 0 12px;
+  color: #ffffff;
+  border-radius: 6px;
+  font-size: 13px;
+}
+
+#load-session-btn {
+  background: #2563eb;
+}
+
+#load-session-btn:hover {
+  background: #1d4ed8;
+}
+
+#delete-session-btn {
+  background: #b91c1c;
+}
+
+#delete-session-btn:hover {
+  background: #991b1b;
+}
+
+#hide-session-btn {
+  background: #52525b;
+}
+
+#hide-session-btn:hover {
+  background: #3f3f46;
+}
+
 /* iframe 容器 */
 .iframes-container {
   flex: 1;

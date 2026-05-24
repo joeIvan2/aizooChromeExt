@@ -104,9 +104,13 @@ const PLATFORM_CONFIGS = {
       return !!document.querySelector('.ql-editor[contenteditable="true"]');
     },
     detectButton: function() {
-      // 佇列邏輯：檢查按鈕是否有 submit class。
-      const btn = document.querySelector('button.submit');
-      return !!btn;
+      const btn = document.querySelector(
+        'button[aria-label*="傳送訊息"], button[aria-label*="Send message"], button[aria-label*="send message"], button[aria-label*="Send"], button[aria-label*="send"], button.submit'
+      );
+      if (!btn) return false;
+
+      var ariaDisabled = btn.getAttribute('aria-disabled');
+      return ariaDisabled !== 'true' && !btn.disabled;
     },
     getContent: function() {
       var editor = document.querySelector('.ql-editor[contenteditable="true"]');
@@ -122,7 +126,9 @@ const PLATFORM_CONFIGS = {
       return true;
     },
     clickButton: function() {
-      var btn = document.querySelector('button.submit');
+      var btn = document.querySelector(
+        'button[aria-label*="傳送訊息"], button[aria-label*="Send message"], button[aria-label*="send message"], button[aria-label*="Send"], button[aria-label*="send"], button.submit'
+      );
       if (btn) {
         var ariaDisabled = btn.getAttribute('aria-disabled');
         if (ariaDisabled !== 'true' && !btn.disabled) {

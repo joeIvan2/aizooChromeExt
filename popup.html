@@ -12,6 +12,16 @@
       <textarea id="question-input" data-i18n-placeholder="inputPlaceholder"></textarea>
       <button id="send-all-btn" data-i18n="sendToAllButton"></button>
       <button id="new-chat-btn" data-i18n="newChatButton"></button>
+      <button id="history-toggle-btn" type="button" title="顯示歷史對話">歷史對話</button>
+    </div>
+
+    <div id="session-switcher" class="session-switcher hidden" aria-label="對話組清單">
+      <select id="session-select" title="選擇已記錄的對話組">
+        <option value="">尚無對話組</option>
+      </select>
+      <button id="load-session-btn" type="button" title="切換所有平台到這組對話">切換</button>
+      <button id="delete-session-btn" type="button" title="刪除這組對話紀錄">刪除</button>
+      <button id="hide-session-btn" type="button" title="隱藏歷史對話">隱藏</button>
     </div>
 
     <!-- 4 個 AI iframe -->
