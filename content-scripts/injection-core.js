@@ -265,6 +265,17 @@ const InjectionCore = {
       .toLowerCase();
   },
 
+  isLikelyPlanningOnlyAnswer(text) {
+    const value = String(text || '').replace(/\s+/g, ' ').trim();
+    if (!value || value.length > 620) return false;
+
+    const startsLikePlanning = /^(i['’]ll|i will|let me|i’m going to|i am going to|我(?:先|會|來|要|幫你|可以先)|讓我|先(?:查|看|分析|整理|確認)|以下(?:我會|先)|好的[,，]?\s*我)/i.test(value);
+    const containsPlanningAction = /(break|verify|check|look up|research|judge|analy[sz]e|compare|separate|before|查詢|查證|查看|搜尋|搜索|研究|分析|整理|確認|比較|拆解|判斷|評估|找資料|先看|網頁|來源)/i.test(value);
+    const hasSubstantialStructure = /(\n|#{1,6}\s|^[-*•]\s|\d+[.)、]\s|[。！？.!?].+[。！？.!?].+[。！？.!?])/m.test(String(text || '').trim());
+
+    return startsLikePlanning && containsPlanningAction && !hasSubstantialStructure;
+  },
+
   findAnswerAfterQuestion(history, question) {
     const target = this.normalizeLifecycleText(question);
     if (!target || !Array.isArray(history)) {
@@ -285,9 +296,14 @@ const InjectionCore = {
 
     if (questionIndex < 0) return { questionIndex: -1, answer: null };
 
-    const answer = history.slice(questionIndex + 1).find(message => (
-      message && message.role === 'assistant' && String(message.content || '').trim()
-    )) || null;
+    let answer = null;
+    for (let i = history.length - 1; i > questionIndex; i--) {
+      const message = history[i];
+      if (message && message.role === 'assistant' && String(message.content || '').trim()) {
+        answer = message;
+        break;
+      }
+    }
 
     return { questionIndex, answer };
   },
@@ -327,6 +343,7 @@ const InjectionCore = {
 
       const result = this.findAnswerAfterQuestion(history, question);
       const answerText = result.answer ? String(result.answer.content || '').trim() : '';
+      const hasFinalAnswerText = !!answerText && !this.isLikelyPlanningOnlyAnswer(answerText);
 
       if (!hasStarted && (generating || result.questionIndex >= 0 || answerText)) {
         hasStarted = true;
@@ -338,16 +355,19 @@ const InjectionCore = {
         });
       }
 
-      if (answerText) {
+      if (hasFinalAnswerText) {
         if (answerText === lastAnswerText) {
           stableCount++;
         } else {
           lastAnswerText = answerText;
           stableCount = 0;
         }
+      } else if (answerText) {
+        lastAnswerText = answerText;
+        stableCount = 0;
       }
 
-      if (answerText && !generating && stableCount >= stablePollsRequired) {
+      if (hasFinalAnswerText && !generating && stableCount >= stablePollsRequired) {
         sendMessageToPopup({
           type: 'AI_RESPONSE_RECEIVED',
           platform: config.id,
