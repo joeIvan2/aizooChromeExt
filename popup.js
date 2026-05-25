@@ -1377,11 +1377,11 @@ function splitCompareParagraphText(text) {
   if (!raw) return [];
 
   if (raw.includes('\n')) {
-    return [raw
+    return raw
       .split('\n')
       .map(line => line.trim())
       .filter(Boolean)
-      .join('\n')];
+      .filter(Boolean);
   }
 
   const prepared = raw
