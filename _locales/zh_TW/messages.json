@@ -19,14 +19,6 @@
     "message": "發送到所有 AI",
     "description": "發送按鈕文字"
   },
-  "compareInputPlaceholder": {
-    "message": "輸入下一個問題...",
-    "description": "智慧比對面板輸入框提示文字"
-  },
-  "compareSendButton": {
-    "message": "送出",
-    "description": "智慧比對面板發送按鈕文字"
-  },
   "newChatButton": {
     "message": "新對話 +",
     "description": "新對話按鈕文字"

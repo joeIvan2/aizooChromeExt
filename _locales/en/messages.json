@@ -19,14 +19,6 @@
     "message": "Send to All AI",
     "description": "Send button text"
   },
-  "compareInputPlaceholder": {
-    "message": "Ask the next question...",
-    "description": "Placeholder text for the comparison panel input"
-  },
-  "compareSendButton": {
-    "message": "Send",
-    "description": "Send button text in the comparison panel"
-  },
   "newChatButton": {
     "message": "New Chat +",
     "description": "New chat button text"

@@ -98,6 +98,15 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log(`[${platform}] Refocused question input after iframe load`);
           }
         }, 100);
+
+        if (isComparePanelVisible() && isPlatformEnabled(platform)) {
+          const state = compareWatchState[platform];
+          if (!state || state.complete) {
+            const textEl = document.getElementById(`compare-text-${platform}`);
+            if (textEl) textEl.textContent = '讀取對話紀錄中...';
+            setTimeout(() => requestPlatformHistory(platform), 800);
+          }
+        }
       });
     }
   });
@@ -107,7 +116,6 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 發送按鈕
   const mainQuestionInput = document.getElementById('question-input');
-  const compareQuestionInput = document.getElementById('compare-question-input');
   document.getElementById('send-all-btn').addEventListener('click', () => sendQuestionToAll(mainQuestionInput));
 
   // 智慧對比按鈕
@@ -121,6 +129,7 @@ document.addEventListener('DOMContentLoaded', () => {
     closeCompareBtn.addEventListener('click', () => {
       const panel = document.getElementById('compare-panel');
       if (panel) panel.classList.add('hidden');
+      setCompareInputDocked(false);
     });
   }
 
@@ -133,11 +142,6 @@ document.addEventListener('DOMContentLoaded', () => {
   document.getElementById('copy-share-btn')?.addEventListener('click', copyShareText);
   document.getElementById('download-share-btn')?.addEventListener('click', downloadShareMarkdown);
   document.getElementById('native-share-btn')?.addEventListener('click', nativeShareCompareText);
-
-  const compareSendBtn = document.getElementById('compare-send-all-btn');
-  if (compareSendBtn && compareQuestionInput) {
-    compareSendBtn.addEventListener('click', () => sendQuestionToAll(compareQuestionInput));
-  }
 
   // 新對話按鈕
   document.getElementById('new-chat-btn').addEventListener('click', startNewChatForAll);
@@ -180,13 +184,11 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Enter 快捷鍵（Ctrl+Enter 發送）
-  [mainQuestionInput, compareQuestionInput].filter(Boolean).forEach(input => {
-    input.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
-        sendQuestionToAll(input);
-      }
-    });
+  mainQuestionInput.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      sendQuestionToAll(mainQuestionInput);
+    }
   });
 
   // 聚焦到輸入框
@@ -216,9 +218,9 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // 當用戶開始在主輸入框輸入時，重置互動標記
-  [mainQuestionInput, compareQuestionInput].filter(Boolean).forEach(input => input.addEventListener('focus', () => {
+  mainQuestionInput.addEventListener('focus', () => {
     userInteractedWithIframe = false;
-  }));
+  });
 
   // 全局鍵盤事件（用於切換放大的 iframe）
   document.addEventListener('keydown', (e) => {
@@ -470,17 +472,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function getQuestionInputs() {
   return [
-    document.getElementById('question-input'),
-    document.getElementById('compare-question-input')
+    document.getElementById('question-input')
   ].filter(Boolean);
 }
 
 function getPreferredQuestionInput() {
-  const compareInput = document.getElementById('compare-question-input');
-  if (compareInput && isComparePanelVisible()) {
-    return compareInput;
-  }
-
   return document.getElementById('question-input');
 }
 
@@ -870,9 +866,43 @@ function toggleSessionSwitcher() {
   }
 }
 
+function prepareComparePanelForSessionSwitch(session) {
+  if (comparePollTimer) {
+    clearInterval(comparePollTimer);
+    comparePollTimer = null;
+  }
+
+  platforms.forEach(platform => {
+    delete compareWatchState[platform];
+    delete compareLatestHistories[platform];
+  });
+
+  const promptEl = document.getElementById('compare-prompt-text');
+  if (promptEl) {
+    promptEl.textContent = session?.title ? `歷史對話：${session.title}` : '正在切換歷史對話...';
+  }
+
+  if (!isComparePanelVisible()) return;
+
+  platforms.forEach(platform => {
+    const textEl = document.getElementById(`compare-text-${platform}`);
+    if (!textEl) return;
+
+    if (!isPlatformEnabled(platform)) {
+      textEl.textContent = '此平台已停用';
+    } else if (session?.urls?.[platform]) {
+      textEl.textContent = '切換對話中...';
+    } else {
+      textEl.textContent = '這組歷史對話沒有此平台網址。';
+    }
+  });
+}
+
 function loadSelectedSession() {
   const session = getSelectedSession();
   if (!session) return;
+
+  prepareComparePanelForSessionSwitch(session);
 
   platforms.forEach(platform => {
     const url = session.urls && session.urls[platform];
@@ -883,6 +913,16 @@ function loadSelectedSession() {
     iframe.src = url;
     updateStatus(platform, '⏳', '切換對話中...');
   });
+
+  if (isComparePanelVisible()) {
+    setTimeout(() => {
+      platforms.forEach(platform => {
+        if (isPlatformEnabled(platform) && session.urls?.[platform]) {
+          requestPlatformHistory(platform);
+        }
+      });
+    }, 2500);
+  }
 }
 
 function deleteSelectedSession() {
@@ -1416,11 +1456,24 @@ function isComparePanelVisible() {
   return !!panel && !panel.classList.contains('hidden');
 }
 
+function setCompareInputDocked(isDocked) {
+  const inputSection = document.querySelector('.input-section');
+  if (!inputSection) return;
+
+  inputSection.classList.toggle('compare-docked', isDocked);
+
+  if (isDocked && inputSection.classList.contains('minimized')) {
+    inputSection.classList.remove('minimized');
+    localStorage.setItem('ai-chat-input-minimized', 'false');
+  }
+}
+
 function showComparePanel() {
   const panel = getComparePanel();
   if (!panel) return;
 
   panel.classList.remove('hidden');
+  setCompareInputDocked(true);
 
   if (window.lastSentQuestion) {
     const promptEl = document.getElementById('compare-prompt-text');
@@ -1819,7 +1872,7 @@ function openComparePanel() {
   });
 
   setTimeout(() => {
-    document.getElementById('compare-question-input')?.focus();
+    document.getElementById('question-input')?.focus();
   }, 80);
 }
 
