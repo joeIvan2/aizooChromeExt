@@ -45,9 +45,9 @@ const InjectionCore = {
       if (isTarget) {
         console.log(`[${config.id}] Detected target fetch:`, url);
 
-        // 通知回應開始
+        // Network events are only diagnostics; DOM watcher owns AI_RESPONSE_START/RECEIVED.
         sendMessageToPopup({
-          type: 'AI_RESPONSE_START',
+          type: 'AI_NETWORK_RESPONSE_START',
           platform: config.id
         });
 
@@ -74,7 +74,7 @@ const InjectionCore = {
               console.log(`[${config.id}] Response received:`, parsedResponse.substring(0, 100) + '...');
 
               sendMessageToPopup({
-                type: 'AI_RESPONSE_RECEIVED',
+                type: 'AI_NETWORK_RESPONSE_RECEIVED',
                 platform: config.id,
                 response: parsedResponse
               });
@@ -124,9 +124,9 @@ const InjectionCore = {
       if (url.includes(config.responseApiPattern)) {
         console.log(`[${config.id}] Detected target XHR:`, url);
 
-        // 通知回應開始
+        // Network events are only diagnostics; DOM watcher owns AI_RESPONSE_START/RECEIVED.
         sendMessageToPopup({
-          type: 'AI_RESPONSE_START',
+          type: 'AI_NETWORK_RESPONSE_START',
           platform: config.id
         });
 
@@ -140,7 +140,7 @@ const InjectionCore = {
             console.log(`[${config.id}] Response received:`, parsedResponse.substring(0, 100) + '...');
 
             sendMessageToPopup({
-              type: 'AI_RESPONSE_RECEIVED',
+              type: 'AI_NETWORK_RESPONSE_RECEIVED',
               platform: config.id,
               response: parsedResponse
             });
@@ -207,6 +207,169 @@ const InjectionCore = {
     setInterval(reportUrlChange, 1000);
 
     console.log(`[${config.id}] URL monitor initialized`);
+  },
+
+  /**
+   * 提交問題（帶重試機制）
+   */
+  async scrapeHistory(config, timeoutMs = 7000) {
+    const start = Date.now();
+    let lastHistory = [];
+
+    while (Date.now() - start < timeoutMs) {
+      try {
+        lastHistory = config.scrapeHistory ? config.scrapeHistory() : [];
+        if (Array.isArray(lastHistory) && lastHistory.length > 0) {
+          return lastHistory;
+        }
+      } catch (error) {
+        console.error(`[${config.id}] History scrape error:`, error);
+      }
+
+      await new Promise(resolve => setTimeout(resolve, 500));
+    }
+
+    return Array.isArray(lastHistory) ? lastHistory : [];
+  },
+
+  isGenerating(config) {
+    try {
+      if (config.detectGenerating) {
+        return !!config.detectGenerating();
+      }
+    } catch (error) {
+      console.error(`[${config.id}] Generation detection error:`, error);
+    }
+
+    const stopSelectors = [
+      'button[data-testid="stop-button"]',
+      'button[aria-label*="Stop"]',
+      'button[aria-label*="stop"]',
+      'button[aria-label*="停止"]',
+      'button[aria-label*="停止生成"]'
+    ];
+    if (document.querySelector(stopSelectors.join(','))) {
+      return true;
+    }
+
+    return Array.from(document.querySelectorAll('button')).some(function(button) {
+      const text = (button.innerText || button.textContent || '').trim().toLowerCase();
+      return text === 'stop' || text === '停止' || text === '停止生成';
+    });
+  },
+
+  normalizeLifecycleText(text) {
+    return String(text || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+  },
+
+  findAnswerAfterQuestion(history, question) {
+    const target = this.normalizeLifecycleText(question);
+    if (!target || !Array.isArray(history)) {
+      return { questionIndex: -1, answer: null };
+    }
+
+    let questionIndex = -1;
+    for (let i = history.length - 1; i >= 0; i--) {
+      const message = history[i];
+      if (!message || message.role !== 'user') continue;
+
+      const content = this.normalizeLifecycleText(message.content);
+      if (content === target || content.includes(target) || target.includes(content)) {
+        questionIndex = i;
+        break;
+      }
+    }
+
+    if (questionIndex < 0) return { questionIndex: -1, answer: null };
+
+    const answer = history.slice(questionIndex + 1).find(message => (
+      message && message.role === 'assistant' && String(message.content || '').trim()
+    )) || null;
+
+    return { questionIndex, answer };
+  },
+
+  watchResponseLifecycle(config, question, options = {}) {
+    const pollMs = options.pollMs || 700;
+    const timeoutMs = options.timeoutMs || 180000;
+    const stablePollsRequired = options.stablePollsRequired || 2;
+
+    window.__aiResponseLifecycleWatchers = window.__aiResponseLifecycleWatchers || {};
+    if (window.__aiResponseLifecycleWatchers[config.id]) {
+      clearInterval(window.__aiResponseLifecycleWatchers[config.id]);
+    }
+
+    const startedAt = Date.now();
+    let hasStarted = false;
+    let lastAnswerText = '';
+    let stableCount = 0;
+
+    const finish = (timer) => {
+      clearInterval(timer);
+      if (window.__aiResponseLifecycleWatchers) {
+        delete window.__aiResponseLifecycleWatchers[config.id];
+      }
+    };
+
+    const timer = setInterval(() => {
+      let history = [];
+      let generating = false;
+
+      try {
+        history = config.scrapeHistory ? config.scrapeHistory() : [];
+        generating = this.isGenerating(config);
+      } catch (error) {
+        console.error(`[${config.id}] Response lifecycle watch error:`, error);
+      }
+
+      const result = this.findAnswerAfterQuestion(history, question);
+      const answerText = result.answer ? String(result.answer.content || '').trim() : '';
+
+      if (!hasStarted && (generating || result.questionIndex >= 0 || answerText)) {
+        hasStarted = true;
+        sendMessageToPopup({
+          type: 'AI_RESPONSE_START',
+          platform: config.id,
+          history,
+          isGenerating: generating
+        });
+      }
+
+      if (answerText) {
+        if (answerText === lastAnswerText) {
+          stableCount++;
+        } else {
+          lastAnswerText = answerText;
+          stableCount = 0;
+        }
+      }
+
+      if (answerText && !generating && stableCount >= stablePollsRequired) {
+        sendMessageToPopup({
+          type: 'AI_RESPONSE_RECEIVED',
+          platform: config.id,
+          response: answerText,
+          history,
+          isGenerating: false
+        });
+        finish(timer);
+        return;
+      }
+
+      if (Date.now() - startedAt > timeoutMs) {
+        sendMessageToPopup({
+          type: 'AI_ERROR',
+          platform: config.id,
+          message: '等待回覆完成逾時'
+        });
+        finish(timer);
+      }
+    }, pollMs);
+
+    window.__aiResponseLifecycleWatchers[config.id] = timer;
   },
 
   /**
@@ -384,6 +547,7 @@ const InjectionCore = {
             type: 'AI_QUESTION_SENT',
             platform: config.id
           });
+          this.watchResponseLifecycle(config, question);
           return;
         }
 

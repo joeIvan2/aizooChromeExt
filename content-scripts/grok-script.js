@@ -33,12 +33,21 @@
 
     if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'grok') {
       console.log('[Grok] Received scrape history request');
-      const history = config.scrapeHistory ? config.scrapeHistory() : [];
-      sendMessageToPopup({
-        type: 'AI_SCRAPE_HISTORY_RESPONSE',
-        platform: 'grok',
-        history: history
-      });
+      let history = [];
+      try {
+        history = await window.InjectionCore.scrapeHistory(config);
+      } catch (e) {
+        console.error('[Grok] Scrape history error:', e);
+      }
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'AI_SCRAPE_HISTORY_RESPONSE',
+          platform: 'grok',
+          history: history,
+          isGenerating: window.InjectionCore.isGenerating(config),
+          source: 'content-script'
+        }, '*');
+      }
     }
 
   });

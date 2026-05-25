@@ -97,7 +97,10 @@
     <div id="compare-panel" class="compare-panel hidden">
       <div class="compare-header">
         <span class="compare-title">✨ 智慧答案橫向比對面版</span>
-        <button id="close-compare-btn" type="button" aria-label="Close comparison">×</button>
+        <div class="compare-header-actions">
+          <button id="share-compare-btn" type="button" title="整理並分享所有 LLM 內容">分享</button>
+          <button id="close-compare-btn" type="button" aria-label="Close comparison">×</button>
+        </div>
       </div>
       <div class="compare-content">
         <div class="compare-prompt-area">
@@ -121,6 +124,28 @@
             <div class="col-title chatgpt-title">ChatGPT</div>
             <div class="col-text" id="compare-text-chatgpt">等待載入對話...</div>
           </div>
+        </div>
+        <div class="compare-composer" aria-label="在智慧比對面板發送問題">
+          <textarea id="compare-question-input" data-i18n-placeholder="compareInputPlaceholder" placeholder="輸入下一個問題..."></textarea>
+          <button id="compare-send-all-btn" type="button" data-i18n="compareSendButton" title="發送到所有 AI">送出</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="share-panel" class="share-panel hidden" role="dialog" aria-modal="true" aria-labelledby="share-panel-title">
+      <div class="share-card">
+        <div class="share-header">
+          <div>
+            <div id="share-panel-title" class="share-title">整理分享</div>
+            <div class="share-subtitle">已整理成 Markdown，可先複製或下載，不會自動上傳。</div>
+          </div>
+          <button id="close-share-btn" type="button" aria-label="Close share panel">×</button>
+        </div>
+        <textarea id="share-output" readonly spellcheck="false"></textarea>
+        <div class="share-actions">
+          <button id="copy-share-btn" type="button">複製文字</button>
+          <button id="download-share-btn" type="button">下載 .md</button>
+          <button id="native-share-btn" type="button">系統分享</button>
         </div>
       </div>
     </div>

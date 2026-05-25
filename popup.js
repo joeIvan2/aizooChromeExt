@@ -11,7 +11,13 @@ const pendingDiagnostics = new Map();
 const SESSION_LIST_STORAGE_KEY = 'ai-chat-session-list';
 const MAX_SESSION_RECORDS = 50;
 const SESSION_CAPTURE_WINDOW_MS = 2 * 60 * 1000;
+const COMPARE_POLL_INTERVAL_MS = 1500;
+const COMPARE_MAX_WATCH_MS = 3 * 60 * 1000;
+const COMPARE_STABLE_POLLS_REQUIRED = 2;
 let activeSessionDraft = null;
+let comparePollTimer = null;
+const compareWatchState = {};
+const compareLatestHistories = {};
 
 const defaultUrls = {
   grok: 'https://grok.com/',
@@ -84,12 +90,12 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log(`[${platform}] iframe loaded`);
         updateStatus(platform, '⏳', '等待準備...');
 
-        // iframe 載入後重新聚焦到主輸入框（防止焦點被 iframe 內部搶走）
+        // iframe 載入後重新聚焦到目前可用的輸入框（防止焦點被 iframe 內部搶走）
         setTimeout(() => {
-          const mainInput = document.getElementById('question-input');
-          if (mainInput && document.activeElement !== mainInput) {
-            mainInput.focus();
-            console.log(`[${platform}] Refocused main input after iframe load`);
+          const targetInput = getPreferredQuestionInput();
+          if (targetInput && document.activeElement !== targetInput) {
+            targetInput.focus();
+            console.log(`[${platform}] Refocused question input after iframe load`);
           }
         }, 100);
       });
@@ -100,7 +106,9 @@ document.addEventListener('DOMContentLoaded', () => {
   window.addEventListener('message', handleMessage);
 
   // 發送按鈕
-  document.getElementById('send-all-btn').addEventListener('click', sendQuestionToAll);
+  const mainQuestionInput = document.getElementById('question-input');
+  const compareQuestionInput = document.getElementById('compare-question-input');
+  document.getElementById('send-all-btn').addEventListener('click', () => sendQuestionToAll(mainQuestionInput));
 
   // 智慧對比按鈕
   const compareBtn = document.getElementById('compare-btn');
@@ -114,6 +122,21 @@ document.addEventListener('DOMContentLoaded', () => {
       const panel = document.getElementById('compare-panel');
       if (panel) panel.classList.add('hidden');
     });
+  }
+
+  const shareCompareBtn = document.getElementById('share-compare-btn');
+  if (shareCompareBtn) {
+    shareCompareBtn.addEventListener('click', openSharePanel);
+  }
+
+  document.getElementById('close-share-btn')?.addEventListener('click', closeSharePanel);
+  document.getElementById('copy-share-btn')?.addEventListener('click', copyShareText);
+  document.getElementById('download-share-btn')?.addEventListener('click', downloadShareMarkdown);
+  document.getElementById('native-share-btn')?.addEventListener('click', nativeShareCompareText);
+
+  const compareSendBtn = document.getElementById('compare-send-all-btn');
+  if (compareSendBtn && compareQuestionInput) {
+    compareSendBtn.addEventListener('click', () => sendQuestionToAll(compareQuestionInput));
   }
 
   // 新對話按鈕
@@ -157,15 +180,17 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   // Enter 快捷鍵（Ctrl+Enter 發送）
-  document.getElementById('question-input').addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.key === 'Enter') {
-      e.preventDefault();
-      sendQuestionToAll();
-    }
+  [mainQuestionInput, compareQuestionInput].filter(Boolean).forEach(input => {
+    input.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        e.preventDefault();
+        sendQuestionToAll(input);
+      }
+    });
   });
 
   // 聚焦到輸入框
-  document.getElementById('question-input').focus();
+  mainQuestionInput.focus();
 
   // 全局焦點管理：防止 iframe 自動搶走焦點（僅在非放大狀態下）
   let userInteractedWithIframe = false;
@@ -179,21 +204,21 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 監聽焦點變化
   document.addEventListener('focusin', (e) => {
-    const mainInput = document.getElementById('question-input');
+    const targetInput = getPreferredQuestionInput();
 
     // 如果焦點跳到 iframe，且沒有放大任何 iframe，且用戶沒有主動點擊 iframe
     if (e.target.tagName === 'IFRAME' && !currentMaximizedPlatform && !userInteractedWithIframe) {
-      console.log('[AI Multi-Chat] Focus stolen by iframe, refocusing main input');
+      console.log('[AI Multi-Chat] Focus stolen by iframe, refocusing question input');
       setTimeout(() => {
-        if (mainInput) mainInput.focus();
+        if (targetInput) targetInput.focus();
       }, 50);
     }
   });
 
   // 當用戶開始在主輸入框輸入時，重置互動標記
-  document.getElementById('question-input').addEventListener('focus', () => {
+  [mainQuestionInput, compareQuestionInput].filter(Boolean).forEach(input => input.addEventListener('focus', () => {
     userInteractedWithIframe = false;
-  });
+  }));
 
   // 全局鍵盤事件（用於切換放大的 iframe）
   document.addEventListener('keydown', (e) => {
@@ -443,21 +468,47 @@ document.addEventListener('DOMContentLoaded', () => {
   renderSessionList();
 });
 
+function getQuestionInputs() {
+  return [
+    document.getElementById('question-input'),
+    document.getElementById('compare-question-input')
+  ].filter(Boolean);
+}
+
+function getPreferredQuestionInput() {
+  const compareInput = document.getElementById('compare-question-input');
+  if (compareInput && isComparePanelVisible()) {
+    return compareInput;
+  }
+
+  return document.getElementById('question-input');
+}
+
+function clearSentQuestionInputs(sourceInput, question) {
+  getQuestionInputs().forEach(input => {
+    if (input === sourceInput || input.value.trim() === question) {
+      input.value = '';
+    }
+  });
+}
+
 // 發送問題到所有 AI
-function sendQuestionToAll() {
-  const questionInput = document.getElementById('question-input');
+function sendQuestionToAll(sourceInput = document.getElementById('question-input')) {
+  const questionInput = sourceInput || document.getElementById('question-input');
   const question = questionInput.value.trim();
   if (!question) {
     alert('請輸入問題');
+    questionInput.focus();
     return;
   }
 
   console.log('[AI Multi-Chat] Sending question to all platforms:', question);
   window.lastSentQuestion = question; // 紀錄最新發送的問題
   startSessionCapture(question);
+  startCompareWatch(question);
 
-  // 清空輸入區
-  questionInput.value = '';
+  // 清空送出的輸入區；若另一個輸入區內容相同也一起清掉，避免殘留舊問題
+  clearSentQuestionInputs(questionInput, question);
 
   platforms.forEach(platform => {
     sendQuestionToPlatform(platform, question);
@@ -567,17 +618,37 @@ function handleMessage(event) {
     case 'AI_QUESTION_SENT':
       console.log(`[${platform}] Question sent successfully`);
       updateStatus(platform, '🔄', '等待回應...');
+      markComparePlatformPending(platform, '回覆中...');
+      requestPlatformHistory(platform);
       break;
 
     case 'AI_RESPONSE_START':
       console.log(`[${platform}] Response started`);
       updateStatus(platform, '🔄', '正在回應...');
+      if (Array.isArray(data.history)) {
+        updateCompareFromHistory(platform, data.history, !!data.isGenerating);
+      }
+      markComparePlatformPending(platform, '回覆中...');
       break;
 
     case 'AI_RESPONSE_RECEIVED':
-      console.log(`[${platform}] Response received:`, data.response.substring(0, 100) + '...');
-      updateStatus(platform, '✅', '完成');
-      // 可以在這裡顯示回應內容（未來功能）
+      console.log(`[${platform}] Response received:`, String(data.response || '').substring(0, 100) + '...');
+      if (Array.isArray(data.history)) {
+        updateCompareFromHistory(platform, data.history, false, { forceComplete: true });
+      } else if (compareWatchState[platform] && !compareWatchState[platform].complete) {
+        updateStatus(platform, '🔄', '同步回覆中...');
+        requestPlatformHistory(platform);
+      } else {
+        updateStatus(platform, '✅', '完成');
+      }
+      break;
+
+    case 'AI_NETWORK_RESPONSE_START':
+      console.log(`[${platform}] Network response started`);
+      break;
+
+    case 'AI_NETWORK_RESPONSE_RECEIVED':
+      console.log(`[${platform}] Network response received`);
       break;
 
     case 'AI_ERROR':
@@ -608,35 +679,7 @@ function handleMessage(event) {
     case 'AI_SCRAPE_HISTORY_RESPONSE':
       console.log(`[popup] Received scraped history for ${platform}`);
       const history = data.history || [];
-      const colTextEl = document.getElementById(`compare-text-${platform}`);
-      if (colTextEl) {
-        if (history.length === 0) {
-          colTextEl.textContent = '此平台尚無對話內容。';
-        } else {
-          // 如果沒有發送過問題，但對話紀錄有，可以用最後一次提問作為最新問題
-          const userMsgs = history.filter(m => m.role === 'user');
-          if (userMsgs.length > 0) {
-            const latestUserMsg = userMsgs[userMsgs.length - 1].content;
-            document.getElementById('compare-prompt-text').textContent = latestUserMsg;
-            if (!window.lastSentQuestion) {
-              window.lastSentQuestion = latestUserMsg;
-            }
-          }
-
-          // 美化顯示對話紀錄
-          colTextEl.innerHTML = history.map(m => {
-            const label = m.role === 'user' ? '👤 <b>你：</b>' : '🤖 <b>AI：</b>';
-            const bubbleBg = m.role === 'user' ? 'rgba(255, 255, 255, 0.04)' : 'rgba(168, 85, 247, 0.05)';
-            const borderColor = m.role === 'user' ? 'rgba(255, 255, 255, 0.06)' : 'rgba(168, 85, 247, 0.18)';
-            return `<div class="msg-bubble-${m.role}" style="margin-bottom: 12px; padding: 10px 12px; border-radius: 10px; background: ${bubbleBg}; border: 1px solid ${borderColor}; box-shadow: 0 4px 10px rgba(0,0,0,0.15)"><div style="font-size: 11.5px; margin-bottom: 4px; display: flex; align-items: center; gap: 4px; opacity: 0.75">${label}</div><div style="font-size: 13px; line-height: 1.5; white-space: pre-wrap; word-break: break-word">${escapeHtml(m.content)}</div></div>`;
-          }).join('');
-
-          // 滾動到底部
-          setTimeout(() => {
-            colTextEl.scrollTop = colTextEl.scrollHeight;
-          }, 50);
-        }
-      }
+      updateCompareFromHistory(platform, history, !!data.isGenerating);
       break;
 
     default:
@@ -1224,38 +1267,549 @@ function escapeHtml(unsafe) {
     .replace(/'/g, "&#039;");
 }
 
-function openComparePanel() {
-  const panel = document.getElementById('compare-panel');
+function normalizeCompareText(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function isCompareHeadingLine(line) {
+  const text = String(line || '').trim();
+  if (!text) return false;
+  if (/^#{1,6}\s+/.test(text)) return true;
+  if (/^[一二三四五六七八九十]+[、.]\s*\S+/.test(text)) return true;
+  if (/^\d+[.)、]\s+\S+/.test(text) && text.length <= 42) return true;
+  if (/^[✅⚠️📈💡🎯🔥⭐]\s*\S+/.test(text) && text.length <= 48) return true;
+  if (/：$/.test(text) && text.length <= 30) return true;
+  return /^(目前|詳細|實際|建議|總結|結論|優點|缺點|最大問題|跟 ChatGPT 比|為什麼|如果你|坦白評估|订阅方式|用户反馈|相对位置|稳定性问题|SuperGrok|Heavy)/.test(text) && text.length <= 44;
+}
+
+function isCompareListLine(line) {
+  return /^([-*•]|[0-9]+[.)])\s+\S+/.test(String(line || '').trim());
+}
+
+function formatCompareTableLine(line) {
+  const cells = String(line || '')
+    .split(/\t+/)
+    .map(cell => cell.trim())
+    .filter(Boolean);
+
+  if (cells.length < 2) return '';
+
+  return `<div class="compare-table-row">${cells.map(cell => (
+    `<span>${escapeHtml(cell)}</span>`
+  )).join('')}</div>`;
+}
+
+function splitCompareParagraphText(text) {
+  const labelPattern = '[^\\s。！？.!?：:\\n][^。！？.!?：:\\n]{0,28}[：:]';
+  const raw = String(text || '')
+    .replace(/\u2060/g, ' ')
+    .trim();
+
+  if (!raw) return [];
+
+  if (raw.includes('\n')) {
+    return [raw
+      .split('\n')
+      .map(line => line.trim())
+      .filter(Boolean)
+      .join('\n')];
+  }
+
+  const prepared = raw
+    .replace(/[ \t\f\v]+/g, ' ')
+    .replace(new RegExp(`[ \\t\\f\\v]+(?=${labelPattern})`, 'g'), '\n')
+    .trim();
+
+  if (!prepared) return [];
+
+  return prepared
+    .split(/\n+/)
+    .map(part => part.trim())
+    .filter(Boolean);
+}
+
+function formatCompareInlineHtml(text) {
+  return escapeHtml(text).replace(/\n/g, '<br>');
+}
+
+function formatCompareParagraphHtml(text) {
+  const trimmed = String(text || '').trim();
+  const labelMatch = trimmed.includes('\n')
+    ? null
+    : trimmed.match(/^([^。！？.!?\n]{2,28}[：:])\s*(.+)$/);
+
+  if (labelMatch) {
+    return `<span class="compare-message-key">${escapeHtml(labelMatch[1])}</span>${formatCompareInlineHtml(labelMatch[2])}`;
+  }
+
+  return formatCompareInlineHtml(trimmed);
+}
+
+function formatCompareMessageContent(content, options = {}) {
+  const allowHeadings = options.allowHeadings !== false;
+  const normalized = String(content || '')
+    .replace(/\r\n/g, '\n')
+    .replace(/\u2060/g, ' ')
+    .replace(/\s+(?=(?:風險與建議|最安全做法|不會被拒絕入住|不同飯店差異很大|但為了保險|簡單結論|總之|操作步驟|特點|按月訂閱|按年訂閱|月付|年付)[：:])/g, '\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+
+  if (!normalized) return '';
+
+  const lines = normalized.split('\n');
+  const blocks = [];
+  let paragraphLines = [];
+
+  function flushParagraph() {
+    if (paragraphLines.length === 0) return;
+    const text = paragraphLines.join('\n').trim();
+    splitCompareParagraphText(text).forEach(paragraph => {
+      blocks.push(`<p class="compare-message-paragraph">${formatCompareParagraphHtml(paragraph)}</p>`);
+    });
+    paragraphLines = [];
+  }
+
+  lines.forEach(rawLine => {
+    const line = rawLine.trim();
+
+    if (!line) {
+      flushParagraph();
+      return;
+    }
+
+    const tableLine = formatCompareTableLine(line);
+    if (tableLine) {
+      flushParagraph();
+      blocks.push(tableLine);
+      return;
+    }
+
+    if (allowHeadings && isCompareHeadingLine(line)) {
+      flushParagraph();
+      blocks.push(`<div class="compare-message-heading">${escapeHtml(line.replace(/^#{1,6}\s+/, ''))}</div>`);
+      return;
+    }
+
+    if (allowHeadings && isCompareListLine(line)) {
+      flushParagraph();
+      const item = line.replace(/^([-*•]|[0-9]+[.)])\s+/, '');
+      blocks.push(`<div class="compare-message-list-item">${escapeHtml(item)}</div>`);
+      return;
+    }
+
+    paragraphLines.push(line);
+  });
+
+  flushParagraph();
+  return blocks.join('');
+}
+
+function getComparePanel() {
+  return document.getElementById('compare-panel');
+}
+
+function isComparePanelVisible() {
+  const panel = getComparePanel();
+  return !!panel && !panel.classList.contains('hidden');
+}
+
+function showComparePanel() {
+  const panel = getComparePanel();
   if (!panel) return;
 
   panel.classList.remove('hidden');
 
-  // 如果有發送過的問題，先填入最新問題區
   if (window.lastSentQuestion) {
-    document.getElementById('compare-prompt-text').textContent = window.lastSentQuestion;
+    const promptEl = document.getElementById('compare-prompt-text');
+    if (promptEl) promptEl.textContent = window.lastSentQuestion;
   }
+}
+
+function buildCompareBubble(message, options = {}) {
+  const role = message.role === 'user' ? 'user' : 'assistant';
+  const label = role === 'user' ? '👤 <b>你：</b>' : '🤖 <b>AI：</b>';
+  const isPending = !!options.pending;
+  const bubbleBg = role === 'user'
+    ? 'rgba(255, 255, 255, 0.04)'
+    : (isPending ? 'rgba(59, 130, 246, 0.08)' : 'rgba(168, 85, 247, 0.05)');
+  const borderColor = role === 'user'
+    ? 'rgba(255, 255, 255, 0.06)'
+    : (isPending ? 'rgba(96, 165, 250, 0.35)' : 'rgba(168, 85, 247, 0.18)');
+  const pendingClass = isPending ? ' compare-pending-bubble' : '';
+
+  return `<div class="compare-msg-bubble msg-bubble-${role}${pendingClass}" style="margin-bottom: 14px; padding: 11px 12px; border-radius: 10px; background: ${bubbleBg}; border: 1px solid ${borderColor}; box-shadow: 0 4px 10px rgba(0,0,0,0.15)"><div class="compare-bubble-label">${label}</div><div class="compare-message-content">${formatCompareMessageContent(message.content, { allowHeadings: role === 'assistant' })}</div></div>`;
+}
+
+function renderCompareHistory(platform, history, pendingMessage = '') {
+  const colTextEl = document.getElementById(`compare-text-${platform}`);
+  if (!colTextEl) return;
+
+  const messages = Array.isArray(history) ? history.filter(m => m && m.content) : [];
+  compareLatestHistories[platform] = messages;
+  if (messages.length === 0 && !pendingMessage) {
+    colTextEl.textContent = '此平台尚無對話內容。';
+    return;
+  }
+
+  let html = messages.map(m => buildCompareBubble(m)).join('');
+  if (pendingMessage) {
+    html += buildCompareBubble({ role: 'assistant', content: pendingMessage }, { pending: true });
+  }
+
+  colTextEl.innerHTML = html || escapeHtml(pendingMessage);
+
+  setTimeout(() => {
+    colTextEl.scrollTop = colTextEl.scrollHeight;
+  }, 50);
+}
+
+function getCompareStatusLabel(platform) {
+  if (!isPlatformEnabled(platform)) return '已停用';
+  const state = compareWatchState[platform];
+  if (state && !state.complete) return '回覆中';
+  if ((compareLatestHistories[platform] || []).length > 0) return '已整理';
+  return '尚無內容';
+}
+
+function getShareTitle() {
+  const prompt = document.getElementById('compare-prompt-text')?.textContent || window.lastSentQuestion || '';
+  const clean = prompt.replace(/\s+/g, ' ').trim();
+  if (!clean || clean.includes('尚未發送問題')) return 'AI Zoo 智慧比對';
+  return clean.length > 60 ? `${clean.slice(0, 60)}...` : clean;
+}
+
+function getSafeFilenamePart(text) {
+  const cleaned = String(text || '')
+    .replace(/[\\/:*?"<>|]+/g, ' ')
+    .replace(/\s+/g, '-')
+    .replace(/^-+|-+$/g, '')
+    .slice(0, 60);
+
+  return cleaned || 'ai-zoo-compare';
+}
+
+function formatShareTimestamp(date = new Date()) {
+  const pad = value => String(value).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())} ${pad(date.getHours())}:${pad(date.getMinutes())}`;
+}
+
+function formatMarkdownMessage(message) {
+  const role = message.role === 'user' ? 'You' : 'AI';
+  const content = String(message.content || '').trim();
+  if (!content) return '';
+  return `### ${role}\n\n${content}`;
+}
+
+function buildCompareShareMarkdown() {
+  const title = getShareTitle();
+  const promptText = document.getElementById('compare-prompt-text')?.textContent?.trim() || '';
+  const hasPrompt = promptText && !promptText.includes('尚未發送問題');
+  const lines = [
+    `# ${title}`,
+    '',
+    `Generated: ${formatShareTimestamp()}`,
+    '',
+    '## Status',
+    ''
+  ];
+
+  platforms.forEach(platform => {
+    lines.push(`- ${platform}: ${getCompareStatusLabel(platform)}`);
+  });
+
+  if (hasPrompt) {
+    lines.push('', '## Latest Question', '', promptText);
+  }
+
+  platforms.forEach(platform => {
+    const messages = compareLatestHistories[platform] || [];
+    lines.push('', `## ${platform}`, '');
+
+    if (!messages.length) {
+      lines.push(getCompareStatusLabel(platform));
+      return;
+    }
+
+    messages.forEach(message => {
+      const block = formatMarkdownMessage(message);
+      if (block) lines.push(block, '');
+    });
+  });
+
+  lines.push('', '---', 'Shared from AI Zoo Smart Compare');
+  return lines.join('\n').replace(/\n{4,}/g, '\n\n\n').trim() + '\n';
+}
+
+function setShareActionStatus(message) {
+  const subtitle = document.querySelector('.share-subtitle');
+  if (!subtitle) return;
+  subtitle.textContent = message;
+}
+
+function openSharePanel() {
+  const panel = document.getElementById('share-panel');
+  const output = document.getElementById('share-output');
+  if (!panel || !output) return;
+
+  output.value = buildCompareShareMarkdown();
+  panel.classList.remove('hidden');
+  setShareActionStatus('已整理成 Markdown，可先複製或下載，不會自動上傳。');
+  setTimeout(() => output.focus(), 50);
+}
+
+function closeSharePanel() {
+  document.getElementById('share-panel')?.classList.add('hidden');
+}
+
+async function copyShareText() {
+  const output = document.getElementById('share-output');
+  if (!output) return;
+
+  try {
+    await navigator.clipboard.writeText(output.value);
+    setShareActionStatus('已複製到剪貼簿。');
+  } catch (error) {
+    output.select();
+    document.execCommand('copy');
+    setShareActionStatus('已嘗試用備援方式複製。');
+  }
+}
+
+function downloadShareMarkdown() {
+  const output = document.getElementById('share-output');
+  if (!output) return;
+
+  const filename = `${getSafeFilenamePart(getShareTitle())}.md`;
+  const blob = new Blob([output.value], { type: 'text/markdown;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = filename;
+  document.body.appendChild(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  setShareActionStatus(`已下載 ${filename}`);
+}
+
+async function nativeShareCompareText() {
+  const output = document.getElementById('share-output');
+  if (!output) return;
+
+  if (!navigator.share) {
+    setShareActionStatus('這個瀏覽器環境不支援系統分享，請用複製或下載。');
+    return;
+  }
+
+  try {
+    await navigator.share({
+      title: getShareTitle(),
+      text: output.value
+    });
+    setShareActionStatus('已開啟系統分享。');
+  } catch (error) {
+    if (error && error.name === 'AbortError') return;
+    setShareActionStatus('系統分享失敗，請改用複製或下載。');
+  }
+}
+
+function requestPlatformHistory(platform) {
+  const iframe = iframes[platform];
+  if (!iframe || !iframe.contentWindow) return false;
+
+  iframe.contentWindow.postMessage({
+    type: 'AI_SCRAPE_HISTORY_REQUEST',
+    platform: platform,
+    source: 'popup'
+  }, '*');
+  return true;
+}
+
+function findQuestionAnswer(history, question) {
+  const target = normalizeCompareText(question);
+  if (!target || !Array.isArray(history)) return { questionIndex: -1, answer: null };
+
+  let questionIndex = -1;
+  for (let i = history.length - 1; i >= 0; i--) {
+    const message = history[i];
+    if (!message || message.role !== 'user') continue;
+
+    const content = normalizeCompareText(message.content);
+    if (content === target || content.includes(target) || target.includes(content)) {
+      questionIndex = i;
+      break;
+    }
+  }
+
+  if (questionIndex < 0) return { questionIndex: -1, answer: null };
+
+  const answer = history.slice(questionIndex + 1).find(message => (
+    message && message.role === 'assistant' && String(message.content || '').trim()
+  )) || null;
+
+  return { questionIndex, answer };
+}
+
+function markComparePlatformPending(platform, message = '回覆中...') {
+  const state = compareWatchState[platform];
+  if (!state || state.complete || !isComparePanelVisible()) return;
+
+  const colTextEl = document.getElementById(`compare-text-${platform}`);
+  if (colTextEl && (!colTextEl.innerText || colTextEl.innerText.includes('讀取對話紀錄中'))) {
+    renderCompareHistory(platform, [{ role: 'user', content: state.question }], message);
+  }
+}
+
+function completeComparePlatform(platform, history) {
+  if (compareWatchState[platform]) {
+    compareWatchState[platform].complete = true;
+  }
+
+  renderCompareHistory(platform, history);
+  updateStatus(platform, '✅', '完成');
+  stopComparePollTimerIfDone();
+}
+
+function updateCompareFromHistory(platform, history, isGenerating = false, options = {}) {
+  const state = compareWatchState[platform];
+  const messages = Array.isArray(history) ? history : [];
+
+  if (!state) {
+    renderCompareHistory(platform, messages);
+    const userMsgs = messages.filter(m => m.role === 'user');
+    if (userMsgs.length > 0) {
+      const latestUserMsg = userMsgs[userMsgs.length - 1].content;
+      const promptEl = document.getElementById('compare-prompt-text');
+      if (promptEl) promptEl.textContent = latestUserMsg;
+      if (!window.lastSentQuestion) window.lastSentQuestion = latestUserMsg;
+    }
+    return;
+  }
+
+  const elapsed = Date.now() - state.startedAt;
+  const result = findQuestionAnswer(messages, state.question);
+
+  if (result.questionIndex < 0) {
+    renderCompareHistory(platform, messages.concat([{ role: 'user', content: state.question }]), '回覆中...');
+    if (elapsed > COMPARE_MAX_WATCH_MS) {
+      state.complete = true;
+      renderCompareHistory(platform, messages, '等待平台回應逾時');
+      updateStatus(platform, '⚠️', '等待平台回應逾時');
+      stopComparePollTimerIfDone();
+    }
+    return;
+  }
+
+  const answerText = result.answer ? String(result.answer.content || '').trim() : '';
+  if (!answerText) {
+    renderCompareHistory(platform, messages, '回覆中...');
+    return;
+  }
+
+  if (answerText === state.lastAnswerText) {
+    state.stableCount += 1;
+  } else {
+    state.lastAnswerText = answerText;
+    state.stableCount = 0;
+  }
+
+  const isStable = state.stableCount >= COMPARE_STABLE_POLLS_REQUIRED;
+  const isDone = options.forceComplete || (!isGenerating && isStable);
+
+  if (isDone) {
+    completeComparePlatform(platform, messages);
+  } else {
+    renderCompareHistory(platform, messages, '回覆中...');
+    updateStatus(platform, '🔄', isGenerating ? '正在回應...' : '確認回覆完成中...');
+  }
+}
+
+function pollActiveCompareHistories() {
+  const now = Date.now();
+  platforms.forEach(platform => {
+    const state = compareWatchState[platform];
+    if (!state || state.complete) return;
+
+    if (now - state.startedAt > COMPARE_MAX_WATCH_MS) {
+      state.complete = true;
+      renderCompareHistory(platform, [], '等待平台回應逾時');
+      updateStatus(platform, '⚠️', '等待平台回應逾時');
+      return;
+    }
+
+    requestPlatformHistory(platform);
+  });
+
+  stopComparePollTimerIfDone();
+}
+
+function stopComparePollTimerIfDone() {
+  const hasActive = platforms.some(platform => compareWatchState[platform] && !compareWatchState[platform].complete);
+  if (!hasActive && comparePollTimer) {
+    clearInterval(comparePollTimer);
+    comparePollTimer = null;
+  }
+}
+
+function ensureComparePollTimer() {
+  if (comparePollTimer) return;
+  comparePollTimer = setInterval(pollActiveCompareHistories, COMPARE_POLL_INTERVAL_MS);
+}
+
+function startCompareWatch(question) {
+  showComparePanel();
+  const promptEl = document.getElementById('compare-prompt-text');
+  if (promptEl) promptEl.textContent = question;
+
+  platforms.forEach(platform => {
+    if (!isPlatformEnabled(platform)) {
+      delete compareWatchState[platform];
+      const textEl = document.getElementById(`compare-text-${platform}`);
+      if (textEl) textEl.textContent = '此平台已停用';
+      return;
+    }
+
+    compareWatchState[platform] = {
+      question,
+      startedAt: Date.now(),
+      complete: false,
+      lastAnswerText: '',
+      stableCount: 0
+    };
+
+    renderCompareHistory(platform, [{ role: 'user', content: question }], '回覆中...');
+    requestPlatformHistory(platform);
+  });
+
+  ensureComparePollTimer();
+}
+
+function openComparePanel() {
+  showComparePanel();
 
   platforms.forEach(platform => {
     const textEl = document.getElementById(`compare-text-${platform}`);
     if (!textEl) return;
 
     if (isPlatformEnabled(platform)) {
-      textEl.textContent = '讀取對話紀錄中...';
+      if (!compareWatchState[platform] || compareWatchState[platform].complete) {
+        textEl.textContent = '讀取對話紀錄中...';
+      }
 
-      const iframe = iframes[platform];
-      if (iframe && iframe.contentWindow) {
-        iframe.contentWindow.postMessage({
-          type: 'AI_SCRAPE_HISTORY_REQUEST',
-          platform: platform,
-          source: 'popup'
-        }, '*');
-      } else {
+      if (!requestPlatformHistory(platform)) {
         textEl.textContent = '平台尚未準備就緒';
       }
     } else {
       textEl.textContent = '此平台已停用';
     }
   });
+
+  setTimeout(() => {
+    document.getElementById('compare-question-input')?.focus();
+  }, 80);
 }
 
 console.log('[AI Multi-Chat] Popup script loaded');

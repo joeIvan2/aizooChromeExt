@@ -33,12 +33,21 @@
 
     if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'chatgpt') {
       console.log('[ChatGPT] Received scrape history request');
-      const history = config.scrapeHistory ? config.scrapeHistory() : [];
-      sendMessageToPopup({
-        type: 'AI_SCRAPE_HISTORY_RESPONSE',
-        platform: 'chatgpt',
-        history: history
-      });
+      let history = [];
+      try {
+        history = await window.InjectionCore.scrapeHistory(config);
+      } catch (e) {
+        console.error('[ChatGPT] Scrape history error:', e);
+      }
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'AI_SCRAPE_HISTORY_RESPONSE',
+          platform: 'chatgpt',
+          history: history,
+          isGenerating: window.InjectionCore.isGenerating(config),
+          source: 'content-script'
+        }, '*');
+      }
     }
   });
 

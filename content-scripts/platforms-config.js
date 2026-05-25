@@ -5,6 +5,221 @@
  */
 const ANDROID_USER_AGENT = 'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/116.0.0.0 Mobile Safari/537.36';
 
+function cleanScrapedHistoryText(text) {
+  if (!text) return '';
+
+  var rawText = String(text)
+    .replace(/\u00a0/g, ' ')
+    .replace(/(?:Thought for|思考了)\s*\d+\s*(?:s|sec|secs|seconds|秒)?/gi, '\n')
+    .replace(/^\s*(?:Thinking|思考中|正在思考)\s*$/gim, '')
+    .replace(/^\s*(?:(?:Thinking|思考中|正在思考)\s*)+/i, '');
+
+  var blockedLines = [
+    'Copy', 'Copy response', 'Copy message', 'Copy table', 'Edit', 'Edit message',
+    'Retry', 'Regenerate', 'Share', 'Sources', 'More actions', 'Response actions',
+    'Good response', 'Bad response', 'Switch model', 'Start dictation', 'Start Voice',
+    '複製', '編輯', '重做', '分享及匯出', '答得好', '有待加強', '更多選項',
+    '建立分享連結', '讚', '踩', '顯示更多選項', '複製提示詞'
+  ];
+
+  var lines = rawText
+    .split('\n')
+    .map(function(line) { return line.trim(); })
+    .filter(function(line) {
+      if (!line) return false;
+      if (blockedLines.indexOf(line) !== -1) return false;
+      if (/^(Thinking|思考中|正在思考)$/i.test(line)) return false;
+      if (/^Thought process$/i.test(line)) return false;
+      if (/^(Thought for|思考了)\s*\d+/i.test(line)) return false;
+      if (/^\d+\s+sources$/i.test(line)) return false;
+      if (/^清晨\d+:\d+$/.test(line)) return false;
+      return true;
+    });
+
+  if (lines.length > 2 && lines[0] === lines[1] && lines[0].length <= 80) {
+    lines.splice(0, 2);
+  }
+
+  return lines.join('\n')
+    .replace(/^你說了\s*/i, '')
+    .replace(/^Gemini 說了\s*/i, '')
+    .replace(/^You said:\s*/i, '')
+    .replace(/^Claude responded:\s*/i, '')
+    .trim();
+}
+
+function normalizeScrapedHistory(messages) {
+  var normalized = [];
+  (messages || []).forEach(function(message) {
+    var content = cleanScrapedHistoryText(message && message.content);
+    if (!content) return;
+
+    var previous = normalized[normalized.length - 1];
+    if (previous && previous.role === message.role && previous.content === content) return;
+
+    normalized.push({
+      role: message.role === 'user' ? 'user' : 'assistant',
+      content: content
+    });
+  });
+  return normalized;
+}
+
+function textUntilNextConversationHeading(heading) {
+  var chunks = [];
+  var node = heading.nextElementSibling;
+
+  while (node) {
+    if (node.matches && node.matches('h1, h2')) {
+      var headingText = (node.innerText || node.textContent || '').trim();
+      if (/^(You said:|Claude responded:|你說了|Gemini 說了)/i.test(headingText)) break;
+    }
+
+    if (node.querySelector && node.querySelector('textarea, [contenteditable="true"], form')) break;
+
+    var text = node.innerText || node.textContent || '';
+    text = cleanScrapedHistoryText(text);
+    if (text) chunks.push(text);
+    node = node.nextElementSibling;
+  }
+
+  return chunks.join('\n\n').trim();
+}
+
+function isElementAfter(anchor, element) {
+  if (!anchor || !element || anchor === element) return false;
+  return !!(anchor.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING);
+}
+
+function getNormalizedTextKey(text) {
+  return String(text || '')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase();
+}
+
+function findLatestClaudeUserElement() {
+  var users = Array.from(document.querySelectorAll(
+    'div[data-testid="user-message"], .font-user-message, [class*="font-user-message"]'
+  )).filter(function(element) {
+    return !element.closest('nav, aside, header, footer, button, [contenteditable="true"], textarea, input');
+  });
+  return users[users.length - 1] || null;
+}
+
+function appendLatestClaudeStreamingMessage(messages, latestUserElement) {
+  if (!Array.isArray(messages) || messages.length === 0) return messages || [];
+  if (messages[messages.length - 1].role !== 'user') return messages;
+
+  var streamingText = findLatestClaudeStreamingText(latestUserElement || findLatestClaudeUserElement(), messages);
+  if (streamingText) {
+    messages.push({
+      role: 'assistant',
+      content: streamingText
+    });
+  }
+
+  return messages;
+}
+
+function findLatestClaudeStreamingText(anchorElement, knownMessages) {
+  if (!anchorElement) return '';
+
+  var latestUserText = cleanScrapedHistoryText(anchorElement.innerText || anchorElement.textContent || '');
+  var latestUserKey = getNormalizedTextKey(latestUserText);
+  var knownAssistantKeys = {};
+
+  (knownMessages || []).forEach(function(message) {
+    if (!message || message.role !== 'assistant') return;
+    knownAssistantKeys[getNormalizedTextKey(message.content)] = true;
+  });
+
+  var selectors = [
+    'div[data-testid="claude-message"]',
+    'div[data-testid="assistant-message"]',
+    '[data-testid*="assistant"]',
+    '[data-testid*="response"]',
+    '[data-is-streaming="true"]',
+    '[aria-live="polite"]',
+    '.font-claude-message',
+    '[class*="font-claude-message"]',
+    '.prose',
+    '[class*="prose"]'
+  ];
+
+  var candidates = Array.from(document.querySelectorAll(selectors.join(',')));
+  var bestText = '';
+
+  candidates.forEach(function(element) {
+    var isAssistantContainer = element.matches && element.matches(
+      'div[data-testid="claude-message"], div[data-testid="assistant-message"], [data-testid*="assistant"], [data-testid*="response"], [data-is-streaming="true"], .font-claude-message, [class*="font-claude-message"]'
+    );
+    if (!isElementAfter(anchorElement, element) && !(isAssistantContainer && element.closest('main'))) return;
+    if (element.closest('nav, aside, header, footer')) return;
+    if (element.matches && element.matches('button, textarea, input, [contenteditable="true"]')) return;
+    if (element.closest('div[data-testid="user-message"], .font-user-message, [class*="font-user-message"]')) return;
+    if (element.getAttribute('role') === 'status') return;
+    if (element.getAttribute('aria-live')) return;
+    if (element.classList && element.classList.contains('sr-only')) return;
+
+    if (!isAssistantContainer && element.closest('button, [contenteditable="true"], textarea, input')) return;
+
+    var textSource = isAssistantContainer ? element : (
+      element.querySelector('[data-testid="message-content"], .font-claude-message, [class*="font-claude-message"], .prose, [class*="prose"]') || element
+    );
+    if (textSource.getAttribute && textSource.getAttribute('role') === 'status') return;
+    if (textSource.getAttribute && textSource.getAttribute('aria-live')) return;
+    if (textSource.classList && textSource.classList.contains('sr-only')) return;
+
+    var text = cleanScrapedHistoryText(textSource.innerText || textSource.textContent || '');
+    var key = getNormalizedTextKey(text);
+
+    if (!key) return;
+    if (latestUserKey && (key === latestUserKey || key.indexOf(latestUserKey) !== -1)) return;
+    if (knownAssistantKeys[key]) return;
+    if (/^(Claude can make mistakes|Claude is generating|Use shift|Press enter)/i.test(text)) return;
+
+    if (text.length > bestText.length) {
+      bestText = text;
+    }
+  });
+
+  if (bestText) return bestText;
+
+  var broadCandidates = Array.from(document.querySelectorAll('main div, main section, main p, main li, main pre, main code, [role="presentation"] div'));
+  broadCandidates.forEach(function(element) {
+    if (!isElementAfter(anchorElement, element)) return;
+    if (element.closest('nav, aside, header, footer, button, [contenteditable="true"], textarea, input')) return;
+    if (element.closest('div[data-testid="user-message"], .font-user-message, [class*="font-user-message"]')) return;
+    if (element.getAttribute('role') === 'status') return;
+    if (element.getAttribute('aria-live')) return;
+    if (element.classList && element.classList.contains('sr-only')) return;
+
+    var style = window.getComputedStyle ? window.getComputedStyle(element) : null;
+    if (style && (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0')) return;
+
+    var childBlocks = Array.from(element.children || []).filter(function(child) {
+      var childText = cleanScrapedHistoryText(child.innerText || child.textContent || '');
+      return childText && childText.length > 30;
+    });
+    if (childBlocks.length > 2) return;
+
+    var text = cleanScrapedHistoryText(element.innerText || element.textContent || '');
+    var key = getNormalizedTextKey(text);
+
+    if (!key || text.length < 8) return;
+    if (latestUserKey && (key === latestUserKey || key.indexOf(latestUserKey) !== -1)) return;
+    if (knownAssistantKeys[key]) return;
+    if (/^(Claude can make mistakes|Claude is generating|Use shift|Press enter|识别|匯總|汇总|整合|分析師|綜合多方)/i.test(text)) return;
+
+    if (text.length > bestText.length) {
+      bestText = text;
+    }
+  });
+
+  return bestText;
+}
+
 const PLATFORM_CONFIGS = {
   grok: {
     id: 'grok',
@@ -30,6 +245,9 @@ const PLATFORM_CONFIGS = {
       }
 
       return false;
+    },
+    detectGenerating: function() {
+      return !!document.querySelector('button[aria-label*="Stop"], button[aria-label*="stop"], button[aria-label*="停止"]');
     },
     getContent: function() {
       var editor = document.querySelector('.tiptap[contenteditable="true"]');
@@ -93,13 +311,13 @@ const PLATFORM_CONFIGS = {
     },
     scrapeHistory: function() {
       var bubbles = Array.from(document.querySelectorAll('.message-bubble'));
-      return bubbles.map(function(el) {
+      return normalizeScrapedHistory(bubbles.map(function(el) {
         var isUser = el.className.includes('bg-surface-l1') || el.className.includes('bg-surface-l');
         return {
           role: isUser ? 'user' : 'assistant',
           content: el.innerText.trim()
         };
-      }).filter(function(m) { return m.content; });
+      }));
     },
     waitAfterFill: 2000
   },
@@ -121,6 +339,11 @@ const PLATFORM_CONFIGS = {
 
       var ariaDisabled = btn.getAttribute('aria-disabled');
       return ariaDisabled !== 'true' && !btn.disabled;
+    },
+    detectGenerating: function() {
+      return !!document.querySelector(
+        'button[aria-label*="停止生成"], button[aria-label*="Stop generating"], button[aria-label*="Stop response"], mat-icon[data-mat-icon-name="stop"]'
+      );
     },
     getContent: function() {
       var editor = document.querySelector('.ql-editor[contenteditable="true"]');
@@ -175,19 +398,28 @@ const PLATFORM_CONFIGS = {
       return '(解析失敗)';
     },
     scrapeHistory: function() {
-      var userQueries = Array.from(document.querySelectorAll('user-query, .query-text, .user-query-content'));
-      var assistantResponses = Array.from(document.querySelectorAll('message-content, .message-content, .model-response'));
-      var history = [];
-      var maxLen = Math.max(userQueries.length, assistantResponses.length);
-      for (var i = 0; i < maxLen; i++) {
-        if (userQueries[i]) {
-          history.push({ role: 'user', content: userQueries[i].innerText.trim() });
-        }
-        if (assistantResponses[i]) {
-          history.push({ role: 'assistant', content: assistantResponses[i].innerText.trim() });
-        }
+      var userQueries = Array.from(document.querySelectorAll('user-query'));
+      var assistantResponses = Array.from(document.querySelectorAll('message-content'));
+
+      if (userQueries.length > 0 || assistantResponses.length > 0) {
+        var all = Array.from(document.querySelectorAll('user-query, message-content'));
+        return normalizeScrapedHistory(all.map(function(el) {
+          var isUser = el.tagName === 'USER-QUERY';
+          return {
+            role: isUser ? 'user' : 'assistant',
+            content: el.innerText.trim()
+          };
+        }));
       }
-      return history;
+
+      var fallbacks = Array.from(document.querySelectorAll('.query-text, .user-query-content, .message-content, .model-response'));
+      return normalizeScrapedHistory(fallbacks.map(function(el) {
+        var isUser = el.className.includes('query-text') || el.className.includes('user-query-content');
+        return {
+          role: isUser ? 'user' : 'assistant',
+          content: el.innerText.trim()
+        };
+      }));
     },
     waitAfterFill: 2000
   },
@@ -203,6 +435,18 @@ const PLATFORM_CONFIGS = {
     },
     detectButton: function() {
       return !!document.querySelector('button[aria-label="Send message"]');
+    },
+    detectGenerating: function() {
+      if (document.querySelector(
+        'button[data-testid*="stop"], [data-testid*="stop"], button[aria-label*="Stop"], button[aria-label*="stop"], button[aria-label*="Cancel"], button[aria-label*="Interrupt"], button[aria-label*="停止"], button[aria-label*="停止生成"]'
+      )) {
+        return true;
+      }
+
+      return Array.from(document.querySelectorAll('button')).some(function(button) {
+        var text = (button.innerText || button.textContent || '').trim().toLowerCase();
+        return text === 'stop' || text === 'cancel' || text === '停止' || text === '停止生成';
+      });
     },
     getContent: function() {
       var inputArea = document.querySelector('div[contenteditable="true"][data-testid="chat-input"]');
@@ -261,14 +505,54 @@ const PLATFORM_CONFIGS = {
       return allTexts.join('');
     },
     scrapeHistory: function() {
-      var messages = Array.from(document.querySelectorAll('.font-user-message, .font-claude-message, div[data-testid="user-message"], div[data-testid="claude-message"]'));
-      return messages.map(function(el) {
-        var isUser = el.classList.contains('font-user-message') || el.getAttribute('data-testid') === 'user-message';
+      var all = Array.from(document.querySelectorAll('div[data-testid="user-message"], div[data-testid="claude-message"]'));
+      if (all.length > 0) {
+        var latestUserElement = null;
+        var directMessages = normalizeScrapedHistory(all.map(function(el) {
+          var isUser = el.getAttribute('data-testid') === 'user-message';
+          if (isUser) latestUserElement = el;
+          return {
+            role: isUser ? 'user' : 'assistant',
+            content: el.innerText.trim()
+          };
+        }));
+
+        appendLatestClaudeStreamingMessage(directMessages, latestUserElement);
+
+        if (directMessages.length > 1) return directMessages;
+      }
+
+      var headingMessages = [];
+      Array.from(document.querySelectorAll('h1, h2')).forEach(function(heading) {
+        var headingText = cleanScrapedHistoryText(heading.innerText || heading.textContent || '');
+        if (/^You said:/i.test(heading.innerText || heading.textContent || '')) {
+          headingMessages.push({ role: 'user', content: headingText || textUntilNextConversationHeading(heading) });
+        } else if (/^Claude responded:/i.test(heading.innerText || heading.textContent || '')) {
+          var headingOnly = headingText;
+          var sectionText = textUntilNextConversationHeading(heading);
+          headingMessages.push({ role: 'assistant', content: sectionText || headingOnly });
+        }
+      });
+      if (headingMessages.length > 0) {
+        headingMessages = normalizeScrapedHistory(headingMessages);
+        appendLatestClaudeStreamingMessage(headingMessages, findLatestClaudeUserElement());
+        return headingMessages;
+      }
+
+      var fallbacks = Array.from(document.querySelectorAll('.font-user-message, .font-claude-message'));
+      var latestFallbackUserElement = null;
+      var fallbackMessages = normalizeScrapedHistory(fallbacks.map(function(el) {
+        var isUser = el.className.includes('font-user-message');
+        if (isUser) latestFallbackUserElement = el;
         return {
           role: isUser ? 'user' : 'assistant',
           content: el.innerText.trim()
         };
-      }).filter(function(m) { return m.content; });
+      }));
+
+      appendLatestClaudeStreamingMessage(fallbackMessages, latestFallbackUserElement);
+
+      return fallbackMessages;
     },
     waitAfterFill: 1000
   },
@@ -284,6 +568,11 @@ const PLATFORM_CONFIGS = {
     },
     detectButton: function() {
       return !!document.querySelector('button[data-testid="send-button"]');
+    },
+    detectGenerating: function() {
+      return !!document.querySelector(
+        'button[data-testid="stop-button"], button[aria-label*="Stop"], button[aria-label*="stop"]'
+      );
     },
     getContent: function() {
       var textarea = document.querySelector('#prompt-textarea');
@@ -328,8 +617,40 @@ const PLATFORM_CONFIGS = {
       return lastContent;
     },
     scrapeHistory: function() {
-      var turns = Array.from(document.querySelectorAll('[data-testid^="conversation-turn"]'));
-      return turns.map(function(turn) {
+      var turnMessages = [];
+      var turns = Array.from(document.querySelectorAll('[data-testid^="conversation-turn"], article'));
+      turns.forEach(function(turn) {
+        var roleEl = turn.querySelector('[data-message-author-role]');
+        var role = roleEl ? roleEl.getAttribute('data-message-author-role') : '';
+        var textEl = roleEl ? (roleEl.querySelector('.markdown, .whitespace-pre-wrap') || roleEl) : null;
+        var rawText = textEl ? textEl.innerText : turn.innerText;
+        var isUser = role === 'user' || /Your message actions|Copy message|Edit message/.test(rawText || '');
+        var isAssistant = role === 'assistant' || /Response actions|Copy response|Good response|Bad response/.test(rawText || '');
+        if (isUser || isAssistant) {
+          turnMessages.push({
+            role: isUser ? 'user' : 'assistant',
+            content: rawText
+          });
+        }
+      });
+      turnMessages = normalizeScrapedHistory(turnMessages);
+      if (turnMessages.length > 1 && turnMessages.some(function(m) { return m.role === 'user'; })) {
+        return turnMessages;
+      }
+
+      var all = Array.from(document.querySelectorAll('[data-message-author-role]'));
+      if (all.length > 0) {
+        return normalizeScrapedHistory(all.map(function(el) {
+          var role = el.getAttribute('data-message-author-role');
+          var textEl = el.querySelector('.markdown, .whitespace-pre-wrap') || el;
+          return {
+            role: role === 'user' ? 'user' : 'assistant',
+            content: textEl.innerText.trim()
+          };
+        }));
+      }
+
+      return normalizeScrapedHistory(turns.map(function(turn) {
         var isUser = turn.querySelector('div.bg-token-main-surface-secondary') || turn.querySelector('.justify-end') || !turn.querySelector('.markdown');
         var markdownEl = turn.querySelector('.markdown');
         var text = markdownEl ? markdownEl.innerText : turn.innerText;
@@ -337,7 +658,7 @@ const PLATFORM_CONFIGS = {
           role: isUser ? 'user' : 'assistant',
           content: text.trim()
         };
-      }).filter(function(m) { return m.content; });
+      }));
     },
     waitAfterFill: 500
   }

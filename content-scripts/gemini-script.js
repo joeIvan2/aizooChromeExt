@@ -33,12 +33,21 @@
 
     if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'gemini') {
       console.log('[Gemini] Received scrape history request');
-      const history = config.scrapeHistory ? config.scrapeHistory() : [];
-      sendMessageToPopup({
-        type: 'AI_SCRAPE_HISTORY_RESPONSE',
-        platform: 'gemini',
-        history: history
-      });
+      let history = [];
+      try {
+        history = await window.InjectionCore.scrapeHistory(config);
+      } catch (e) {
+        console.error('[Gemini] Scrape history error:', e);
+      }
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'AI_SCRAPE_HISTORY_RESPONSE',
+          platform: 'gemini',
+          history: history,
+          isGenerating: window.InjectionCore.isGenerating(config),
+          source: 'content-script'
+        }, '*');
+      }
     }
   });
 

@@ -32,8 +32,104 @@
     } catch (error) {}
   }
 
+  function getShortText(element, limit = 260) {
+    if (!element) return '';
+    return (element.innerText || element.textContent || '')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .slice(0, limit);
+  }
+
+  function collectClaudeDomSamples(selector, limit = 8) {
+    return Array.from(document.querySelectorAll(selector)).slice(-limit).map((element) => ({
+      tag: element.tagName,
+      className: typeof element.className === 'string' ? element.className.slice(0, 180) : '',
+      dataTestId: element.getAttribute('data-testid'),
+      ariaLive: element.getAttribute('aria-live'),
+      ariaLabel: element.getAttribute('aria-label'),
+      role: element.getAttribute('role'),
+      text: getShortText(element)
+    }));
+  }
+
+  function collectClaudeAfterLastUserSamples(limit = 12) {
+    const users = Array.from(document.querySelectorAll('div[data-testid="user-message"], .font-user-message, [class*="font-user-message"]'));
+    const lastUser = users[users.length - 1];
+    if (!lastUser) return [];
+
+    return Array.from(document.querySelectorAll('main div, main section, main p, main li, main pre, main code, [role="presentation"] div'))
+      .filter((element) => {
+        if (element === lastUser) return false;
+        if (!(lastUser.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING)) return false;
+        if (element.closest('nav, aside, header, footer, button, [contenteditable="true"], textarea, input')) return false;
+        if (element.closest('div[data-testid="user-message"], .font-user-message, [class*="font-user-message"]')) return false;
+        if (element.getAttribute('role') === 'status') return false;
+        if (element.getAttribute('aria-live')) return false;
+        if (element.classList && element.classList.contains('sr-only')) return false;
+
+        const style = getComputedStyle(element);
+        if (style.display === 'none' || style.visibility === 'hidden' || style.opacity === '0') return false;
+
+        const text = getShortText(element, 900);
+        return text.length >= 8;
+      })
+      .map((element) => ({
+        tag: element.tagName,
+        className: typeof element.className === 'string' ? element.className.slice(0, 220) : '',
+        dataTestId: element.getAttribute('data-testid'),
+        role: element.getAttribute('role'),
+        textLength: (element.innerText || element.textContent || '').trim().length,
+        text: getShortText(element, 420)
+      }))
+      .sort((a, b) => b.textLength - a.textLength)
+      .slice(0, limit);
+  }
+
+  function getClaudeScrapeDiagnostics() {
+    const selectors = {
+      userMessage: 'div[data-testid="user-message"], .font-user-message, [class*="font-user-message"]',
+      claudeMessage: 'div[data-testid="claude-message"], .font-claude-message, [class*="font-claude-message"]',
+      assistantLike: '[data-testid*="assistant"], [data-testid*="response"], [data-is-streaming="true"]',
+      prose: '.prose, [class*="prose"]',
+      ariaLive: '[aria-live]',
+      articles: 'article',
+      stopButtons: 'button[data-testid*="stop"], [data-testid*="stop"], button[aria-label*="Stop"], button[aria-label*="stop"], button[aria-label*="Cancel"], button[aria-label*="Interrupt"], button[aria-label*="停止"]'
+    };
+
+    const counts = Object.fromEntries(Object.entries(selectors).map(([key, selector]) => [
+      key,
+      document.querySelectorAll(selector).length
+    ]));
+
+    let scrapedHistory = [];
+    try {
+      scrapedHistory = config.scrapeHistory ? config.scrapeHistory() : [];
+    } catch (error) {
+      scrapedHistory = [{ role: 'error', content: error.message }];
+    }
+
+    return {
+      counts,
+      isGenerating: window.InjectionCore.isGenerating(config),
+      scrapedHistoryLength: Array.isArray(scrapedHistory) ? scrapedHistory.length : 0,
+      scrapedHistoryTail: Array.isArray(scrapedHistory) ? scrapedHistory.slice(-4) : scrapedHistory,
+      samples: {
+        userMessage: collectClaudeDomSamples(selectors.userMessage),
+        claudeMessage: collectClaudeDomSamples(selectors.claudeMessage),
+        assistantLike: collectClaudeDomSamples(selectors.assistantLike),
+        prose: collectClaudeDomSamples(selectors.prose),
+        ariaLive: collectClaudeDomSamples(selectors.ariaLive),
+        articles: collectClaudeDomSamples(selectors.articles, 4),
+        stopButtons: collectClaudeDomSamples(selectors.stopButtons),
+        afterLastUser: collectClaudeAfterLastUserSamples()
+      }
+    };
+  }
+
   try {
-    if (sessionStorage.getItem(CLAUDE_PROTECT_ENABLED_KEY) === 'true') {
+    if (window.self !== window.top && location.hostname === 'claude.ai') {
+      refreshClaudeProtectionWindow(8000);
+    } else if (sessionStorage.getItem(CLAUDE_PROTECT_ENABLED_KEY) === 'true') {
       refreshClaudeProtectionWindow(5000);
     }
   } catch (error) {}
@@ -79,12 +175,21 @@
 
     if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'claude') {
       console.log('[Claude] Received scrape history request');
-      const history = config.scrapeHistory ? config.scrapeHistory() : [];
-      sendMessageToPopup({
-        type: 'AI_SCRAPE_HISTORY_RESPONSE',
-        platform: 'claude',
-        history: history
-      });
+      let history = [];
+      try {
+        history = await window.InjectionCore.scrapeHistory(config);
+      } catch (e) {
+        console.error('[Claude] Scrape history error:', e);
+      }
+      if (window.parent !== window) {
+        window.parent.postMessage({
+          type: 'AI_SCRAPE_HISTORY_RESPONSE',
+          platform: 'claude',
+          history: history,
+          isGenerating: window.InjectionCore.isGenerating(config),
+          source: 'content-script'
+        }, '*');
+      }
     }
 
     if (data.type === 'AI_SET_SIDEBAR_PROTECTION' && data.platform === 'claude') {
@@ -120,6 +225,8 @@
     if (data.type === 'AI_DIAGNOSTICS_REQUEST' && data.platform === 'claude') {
       const sidebarToggle = document.querySelector('[data-testid="pin-sidebar-toggle"], button[aria-label="Open sidebar"], button[aria-label="Close sidebar"]');
       const sidebarNav = document.querySelector('nav[aria-label="Sidebar"]');
+      const customReopenButton = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
+      const customCloseHitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
       const sidebarStorageKeys = Object.keys(localStorage).filter((key) => /sidebar|nav|recents|drawer|collapsed|panel/i.test(key));
 
       window.parent.postMessage({
@@ -148,7 +255,29 @@
           } : {
             exists: false
           },
-          localStorageSubset: Object.fromEntries(sidebarStorageKeys.map((key) => [key, localStorage.getItem(key)]))
+          customSidebar: {
+            enabled: CLAUDE_CUSTOM_SIDEBAR_ENABLED,
+            collapsed: claudeSidebarCollapsed,
+            autoCollapsedOnce: claudeSidebarAutoCollapsedOnce,
+            expandedOnce: claudeSidebarExpandedOnce,
+            userExpanded: claudeSidebarUserExpanded,
+            primedOnce: claudeSidebarPrimedOnce,
+            htmlExpandedFlag: document.documentElement.dataset.aiMultichatClaudeSidebarExpanded || null,
+            reopenButton: customReopenButton ? {
+              display: getComputedStyle(customReopenButton).display,
+              visibility: getComputedStyle(customReopenButton).visibility,
+              opacity: getComputedStyle(customReopenButton).opacity,
+              ariaLabel: customReopenButton.getAttribute('aria-label')
+            } : null,
+            closeHitArea: customCloseHitArea ? {
+              display: getComputedStyle(customCloseHitArea).display,
+              visibility: getComputedStyle(customCloseHitArea).visibility,
+              opacity: getComputedStyle(customCloseHitArea).opacity,
+              ariaLabel: customCloseHitArea.getAttribute('aria-label')
+            } : null
+          },
+          localStorageSubset: Object.fromEntries(sidebarStorageKeys.map((key) => [key, localStorage.getItem(key)])),
+          scrape: getClaudeScrapeDiagnostics()
         }
       }, '*');
     }
@@ -163,9 +292,14 @@
   }
 
   let claudeSidebarExpandedOnce = false;
+  let claudeSidebarCollapsed = false;
+  let claudeSidebarAutoCollapsedOnce = false;
+  let claudeSidebarUserExpanded = false;
+  let claudeSidebarPrimedOnce = false;
   const CLAUDE_IFRAME_SIDEBAR_STYLE_ID = 'ai-multichat-claude-sidebar-style';
   const CLAUDE_LIVE_REOPEN_BUTTON_ID = 'ai-multichat-claude-live-reopen-btn';
   const CLAUDE_CLOSE_HITAREA_ID = 'ai-multichat-claude-close-hitarea';
+  const CLAUDE_CUSTOM_SIDEBAR_ENABLED = true;
 
   function nodeMatchesClaudeSidebar(node) {
     if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;
@@ -276,8 +410,8 @@
       #${CLAUDE_LIVE_REOPEN_BUTTON_ID}:hover {
         background: rgba(39, 39, 42, 0.92) !important;
       }
-      div.shrink-0:has(> div.fixed.lg\\:sticky.z-sidebar),
-      div.shrink-0:has(nav[aria-label="Sidebar"]) {
+      html[data-ai-multichat-claude-sidebar-expanded="true"] div.shrink-0:has(> div.fixed.lg\\:sticky.z-sidebar),
+      html[data-ai-multichat-claude-sidebar-expanded="true"] div.shrink-0:has(nav[aria-label="Sidebar"]) {
         width: 18rem !important;
         min-width: 18rem !important;
         max-width: 18rem !important;
@@ -286,14 +420,14 @@
         visibility: visible !important;
         overflow: visible !important;
       }
-      div.fixed.lg\\:sticky.z-sidebar {
+      html[data-ai-multichat-claude-sidebar-expanded="true"] div.fixed.lg\\:sticky.z-sidebar {
         width: 18rem !important;
         min-width: 18rem !important;
         max-width: 18rem !important;
         opacity: 1 !important;
         visibility: visible !important;
       }
-      nav[aria-label="Sidebar"] {
+      html[data-ai-multichat-claude-sidebar-expanded="true"] nav[aria-label="Sidebar"] {
         width: 288px !important;
         min-width: 288px !important;
         max-width: 288px !important;
@@ -304,6 +438,12 @@
       }
     `;
     document.head.appendChild(style);
+  }
+
+  function setClaudeSidebarExpandedFlag(isExpanded) {
+    try {
+      document.documentElement.dataset.aiMultichatClaudeSidebarExpanded = isExpanded ? 'true' : 'false';
+    } catch (error) {}
   }
 
   function getClaudeSidebarElements() {
@@ -320,6 +460,72 @@
     return { nav, sticky, wrapper };
   }
 
+  function getClaudeNativeSidebarToggle() {
+    return Array.from(document.querySelectorAll('[data-testid="pin-sidebar-toggle"], button[aria-label="Open sidebar"], button[aria-label="Close sidebar"]'))
+      .find((button) => button.id !== CLAUDE_LIVE_REOPEN_BUTTON_ID && button.id !== CLAUDE_CLOSE_HITAREA_ID) || null;
+  }
+
+  function isClaudeNativeSidebarClosed() {
+    const toggle = getClaudeNativeSidebarToggle();
+    if (!toggle) return false;
+
+    const label = toggle.getAttribute('aria-label') || '';
+    const state = toggle.getAttribute('data-state') || '';
+    return /open sidebar/i.test(label) || state === 'closed';
+  }
+
+  function openClaudeNativeSidebar() {
+    const openSidebarButton = Array.from(document.querySelectorAll(
+      '[data-testid="pin-sidebar-toggle"][data-state="closed"], button[aria-label="Open sidebar"]'
+    )).find((button) => button.id !== CLAUDE_LIVE_REOPEN_BUTTON_ID && button.id !== CLAUDE_CLOSE_HITAREA_ID);
+    if (!openSidebarButton) return false;
+
+    console.log('[Claude] Expanding native sidebar inside iframe...');
+    claudeSidebarExpandedOnce = true;
+    openSidebarButton.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+    try {
+      openSidebarButton.focus({ preventScroll: true });
+    } catch (error) {}
+    ['pointerdown', 'mousedown', 'pointerup', 'mouseup', 'click'].forEach((eventType) => {
+      try {
+        const EventConstructor = eventType.startsWith('pointer') && typeof PointerEvent === 'function' ? PointerEvent : MouseEvent;
+        openSidebarButton.dispatchEvent(new EventConstructor(eventType, {
+          bubbles: true,
+          cancelable: true,
+          view: window,
+          pointerType: 'mouse',
+          button: 0,
+          buttons: eventType.endsWith('down') ? 1 : 0
+        }));
+      } catch (error) {}
+    });
+    openSidebarButton.click();
+    return true;
+  }
+
+  function clearClaudeCollapsedInlineStyles() {
+    const { nav, sticky, wrapper } = getClaudeSidebarElements();
+
+    [wrapper, sticky, nav].filter(Boolean).forEach((element) => {
+      [
+        'width', 'min-width', 'max-width', 'flex', 'flex-basis', 'flex-grow', 'flex-shrink',
+        'overflow', 'opacity', 'visibility', 'pointer-events', 'transform'
+      ].forEach((property) => {
+        element.style.removeProperty(property);
+      });
+    });
+  }
+
+  function isClaudeSidebarContentReady() {
+    const { nav } = getClaudeSidebarElements();
+    if (!nav) return false;
+
+    const text = (nav.innerText || nav.textContent || '').replace(/\s+/g, ' ').trim();
+    if (text.length >= 8) return true;
+
+    return !!nav.querySelector('a[href], [role="link"], [data-testid], button:not(#ai-multichat-claude-live-reopen-btn):not(#ai-multichat-claude-close-hitarea)');
+  }
+
   function ensureClaudeReopenButton() {
     if (window.self === window.top) return;
     if (location.hostname !== 'claude.ai') return;
@@ -330,6 +536,7 @@
       button.id = CLAUDE_LIVE_REOPEN_BUTTON_ID;
       button.type = 'button';
       button.title = 'Open sidebar';
+      button.setAttribute('aria-label', 'AI Multi-Chat open Claude sidebar');
       button.style.cssText = `
         position: fixed;
         left: 12px;
@@ -365,7 +572,7 @@
       button.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        restoreClaudeSidebar();
+        restoreClaudeSidebar({ userInitiated: true });
       }, true);
       document.body.appendChild(button);
     }
@@ -381,6 +588,7 @@
       hitArea.id = CLAUDE_CLOSE_HITAREA_ID;
       hitArea.type = 'button';
       hitArea.title = 'Collapse sidebar';
+      hitArea.setAttribute('aria-label', 'Collapse sidebar');
       hitArea.style.cssText = `
         position: fixed;
         left: 250px;
@@ -396,28 +604,76 @@
       hitArea.addEventListener('click', (event) => {
         event.preventDefault();
         event.stopPropagation();
-        collapseClaudeSidebar();
+        collapseClaudeSidebar({ auto: false });
       }, true);
       document.body.appendChild(hitArea);
     }
   }
 
-  function collapseClaudeSidebar() {
+  function collapseClaudeSidebar(options = {}) {
     const { nav, sticky, wrapper } = getClaudeSidebarElements();
+    if (!nav && !sticky && !wrapper) return false;
 
-    if (nav) nav.style.setProperty('display', 'none', 'important');
-    if (sticky) sticky.style.setProperty('display', 'none', 'important');
-    if (wrapper) wrapper.style.setProperty('display', 'none', 'important');
+    claudeSidebarCollapsed = true;
+    claudeSidebarUserExpanded = false;
+    setClaudeSidebarExpandedFlag(false);
+    if (options.auto) {
+      claudeSidebarAutoCollapsedOnce = true;
+    }
+
+    if (wrapper) {
+      wrapper.style.display = '';
+      wrapper.style.setProperty('width', '0px', 'important');
+      wrapper.style.setProperty('min-width', '0px', 'important');
+      wrapper.style.setProperty('max-width', '0px', 'important');
+      wrapper.style.setProperty('flex', '0 0 0px', 'important');
+      wrapper.style.setProperty('flex-basis', '0px', 'important');
+      wrapper.style.setProperty('overflow', 'hidden', 'important');
+      wrapper.style.setProperty('opacity', '0', 'important');
+      wrapper.style.setProperty('visibility', 'hidden', 'important');
+      wrapper.style.setProperty('pointer-events', 'none', 'important');
+    }
+
+    if (sticky) {
+      sticky.style.display = '';
+      sticky.style.setProperty('width', '0px', 'important');
+      sticky.style.setProperty('min-width', '0px', 'important');
+      sticky.style.setProperty('max-width', '0px', 'important');
+      sticky.style.setProperty('overflow', 'hidden', 'important');
+      sticky.style.setProperty('opacity', '0', 'important');
+      sticky.style.setProperty('visibility', 'hidden', 'important');
+      sticky.style.setProperty('pointer-events', 'none', 'important');
+    }
+
+    if (nav) {
+      nav.style.display = '';
+      nav.style.setProperty('width', '0px', 'important');
+      nav.style.setProperty('min-width', '0px', 'important');
+      nav.style.setProperty('max-width', '0px', 'important');
+      nav.style.setProperty('overflow', 'hidden', 'important');
+      nav.style.setProperty('opacity', '0', 'important');
+      nav.style.setProperty('visibility', 'hidden', 'important');
+      nav.style.setProperty('pointer-events', 'none', 'important');
+      nav.style.setProperty('transform', 'translateX(-100%)', 'important');
+    }
 
     const button = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
     if (button) button.style.display = 'flex';
 
     const hitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
     if (hitArea) hitArea.style.display = 'none';
+
+    return true;
   }
 
-  function restoreClaudeSidebar() {
+  function restoreClaudeSidebar(options = {}) {
     const { nav, sticky, wrapper } = getClaudeSidebarElements();
+    claudeSidebarCollapsed = false;
+    setClaudeSidebarExpandedFlag(true);
+    if (options.userInitiated) {
+      claudeSidebarAutoCollapsedOnce = true;
+      claudeSidebarUserExpanded = true;
+    }
 
     if (wrapper) {
       wrapper.style.display = '';
@@ -428,6 +684,7 @@
       wrapper.style.setProperty('opacity', '1', 'important');
       wrapper.style.setProperty('visibility', 'visible', 'important');
       wrapper.style.setProperty('overflow', 'visible', 'important');
+      wrapper.style.setProperty('pointer-events', 'auto', 'important');
     }
 
     if (sticky) {
@@ -437,16 +694,19 @@
       sticky.style.setProperty('max-width', '18rem', 'important');
       sticky.style.setProperty('opacity', '1', 'important');
       sticky.style.setProperty('visibility', 'visible', 'important');
+      sticky.style.setProperty('overflow', 'visible', 'important');
+      sticky.style.setProperty('pointer-events', 'auto', 'important');
     }
 
     if (nav) {
-      nav.style.setProperty('display', 'flex', 'important');
+      nav.style.display = '';
       nav.style.setProperty('width', '18rem', 'important');
       nav.style.setProperty('min-width', '18rem', 'important');
       nav.style.setProperty('max-width', '18rem', 'important');
       nav.style.setProperty('opacity', '1', 'important');
       nav.style.setProperty('visibility', 'visible', 'important');
       nav.style.setProperty('transform', 'none', 'important');
+      nav.style.setProperty('pointer-events', 'auto', 'important');
     }
 
     const button = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
@@ -454,6 +714,16 @@
 
     const hitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
     if (hitArea) hitArea.style.display = 'block';
+
+    if (options.userInitiated && isClaudeNativeSidebarClosed()) {
+      requestAnimationFrame(() => {
+        openClaudeNativeSidebar();
+        setTimeout(() => {
+          clearClaudeCollapsedInlineStyles();
+          restoreClaudeSidebar({ userInitiated: false });
+        }, 350);
+      });
+    }
   }
 
   function ensureClaudeSidebarOpen() {
@@ -463,6 +733,55 @@
     ensureClaudeSidebarStyle();
     ensureClaudeReopenButton();
     ensureClaudeCloseHitArea();
+
+    const sidebarElements = getClaudeSidebarElements();
+    const sidebarIsRebuilt = !!(sidebarElements.nav && (sidebarElements.sticky || sidebarElements.wrapper));
+    const nativeSidebarClosed = isClaudeNativeSidebarClosed();
+
+    if (nativeSidebarClosed && !claudeSidebarUserExpanded && !claudeSidebarPrimedOnce) {
+      claudeSidebarPrimedOnce = true;
+      claudeSidebarCollapsed = false;
+      setClaudeSidebarExpandedFlag(true);
+      clearClaudeCollapsedInlineStyles();
+      openClaudeNativeSidebar();
+      setTimeout(() => {
+        if (!claudeSidebarUserExpanded) {
+          collapseClaudeSidebar({ auto: true });
+        }
+      }, 1800);
+      return;
+    }
+
+    if (nativeSidebarClosed && !claudeSidebarUserExpanded) {
+      collapseClaudeSidebar({ auto: true });
+      return;
+    }
+
+    if (sidebarIsRebuilt && !claudeSidebarAutoCollapsedOnce && !claudeSidebarUserExpanded) {
+      if (!isClaudeSidebarContentReady()) {
+        return;
+      }
+
+      requestAnimationFrame(() => {
+        setTimeout(() => {
+          if (!claudeSidebarAutoCollapsedOnce) {
+            console.log('[Claude] Sidebar rebuilt, auto-collapsing by default...');
+            collapseClaudeSidebar({ auto: true });
+          }
+        }, 120);
+      });
+      return;
+    }
+
+    if (claudeSidebarCollapsed) {
+      setClaudeSidebarExpandedFlag(false);
+      const button = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
+      if (button) button.style.display = 'flex';
+
+      const hitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
+      if (hitArea) hitArea.style.display = 'none';
+      return;
+    }
 
     const sidebarSticky = document.querySelector('div.fixed.lg\\:sticky.z-sidebar');
     if (sidebarSticky) {
@@ -504,19 +823,9 @@
     }
 
     if (claudeSidebarExpandedOnce) return;
-
-    const openSidebarButton = document.querySelector(
-      '[data-testid="pin-sidebar-toggle"][data-state="closed"], button[aria-label="Open sidebar"]'
-    );
-
-    if (!openSidebarButton) return;
-
-    console.log('[Claude] Expanding collapsed sidebar inside iframe...');
-    claudeSidebarExpandedOnce = true;
-    openSidebarButton.click();
   }
 
-  if (window.self !== window.top) {
+  if (window.self !== window.top && CLAUDE_CUSTOM_SIDEBAR_ENABLED) {
     const sidebarObserver = new MutationObserver((mutations) => {
       inspectClaudeSidebarMutations(mutations);
       ensureClaudeSidebarOpen();
