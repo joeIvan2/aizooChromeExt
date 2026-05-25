@@ -621,9 +621,25 @@ const PLATFORM_CONFIGS = {
       var turns = Array.from(document.querySelectorAll('[data-testid^="conversation-turn"], article'));
       turns.forEach(function(turn) {
         var roleEl = turn.querySelector('[data-message-author-role]');
-        var role = roleEl ? roleEl.getAttribute('data-message-author-role') : '';
-        var textEl = roleEl ? (roleEl.querySelector('.markdown, .whitespace-pre-wrap') || roleEl) : null;
-        var rawText = textEl ? textEl.innerText : turn.innerText;
+        var role = turn.getAttribute('data-turn') || (roleEl ? roleEl.getAttribute('data-message-author-role') : '');
+        var rawText = '';
+
+        if (role === 'assistant') {
+          var assistantParts = Array.from(turn.querySelectorAll('[data-message-author-role="assistant"]'))
+            .map(function(el) {
+              var textEl = el.querySelector('.markdown, .whitespace-pre-wrap') || el;
+              return textEl ? textEl.innerText : '';
+            })
+            .filter(function(text) { return cleanScrapedHistoryText(text); });
+
+          rawText = assistantParts.length > 0
+            ? assistantParts.join('\n\n')
+            : ((turn.querySelector('.markdown, .whitespace-pre-wrap') || turn).innerText || '');
+        } else {
+          var textEl = roleEl ? (roleEl.querySelector('.markdown, .whitespace-pre-wrap') || roleEl) : null;
+          rawText = textEl ? textEl.innerText : turn.innerText;
+        }
+
         var isUser = role === 'user' || /Your message actions|Copy message|Edit message/.test(rawText || '');
         var isAssistant = role === 'assistant' || /Response actions|Copy response|Good response|Bad response/.test(rawText || '');
         if (isUser || isAssistant) {
