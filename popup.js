@@ -14,8 +14,10 @@ const SESSION_CAPTURE_WINDOW_MS = 2 * 60 * 1000;
 const COMPARE_POLL_INTERVAL_MS = 1500;
 const COMPARE_MAX_WATCH_MS = 3 * 60 * 1000;
 const COMPARE_STABLE_POLLS_REQUIRED = 2;
+const COMPARE_OPEN_REFRESH_DELAYS_MS = [1200, 3500, 8000, 15000, 30000];
 let activeSessionDraft = null;
 let comparePollTimer = null;
+let compareOpenRefreshTimers = [];
 const compareWatchState = {};
 const compareLatestHistories = {};
 
@@ -152,6 +154,7 @@ document.addEventListener('DOMContentLoaded', () => {
       const panel = document.getElementById('compare-panel');
       if (panel) panel.classList.add('hidden');
       setCompareInputDocked(false);
+      clearCompareOpenRefreshTimers();
     });
   }
 
@@ -1736,6 +1739,27 @@ function findQuestionAnswer(history, question) {
   return { questionIndex, answer };
 }
 
+function isLikelyIncompleteAssistantAnswer(platform, text) {
+  const value = String(text || '').replace(/\s+/g, ' ').trim();
+  if (platform !== 'chatgpt' || !value || value.length > 520) return false;
+
+  return /^(i['’]ll|i will|let me|i’m going to|i am going to)\b/i.test(value) &&
+    /(break|verify|check|look up|research|judge|analy[sz]e|compare|separate|before)/i.test(value);
+}
+
+function findLatestMessage(history, role) {
+  if (!Array.isArray(history)) return null;
+
+  for (let i = history.length - 1; i >= 0; i--) {
+    const message = history[i];
+    if (message && message.role === role && String(message.content || '').trim()) {
+      return message;
+    }
+  }
+
+  return null;
+}
+
 function markComparePlatformPending(platform, message = t('compareResponding', 'Responding...')) {
   const state = compareWatchState[platform];
   if (!state || state.complete || !isComparePanelVisible()) return;
@@ -1778,12 +1802,26 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
 
   if (!state) {
     renderCompareHistory(platform, messages);
-    const userMsgs = messages.filter(m => m.role === 'user');
-    if (userMsgs.length > 0) {
-      const latestUserMsg = userMsgs[userMsgs.length - 1].content;
+    const latestUser = findLatestMessage(messages, 'user');
+    const latestAssistant = findLatestMessage(messages, 'assistant');
+    if (latestUser) {
+      const latestUserMsg = latestUser.content;
       const promptEl = document.getElementById('compare-prompt-text');
       if (promptEl) promptEl.textContent = latestUserMsg;
       if (!window.lastSentQuestion) window.lastSentQuestion = latestUserMsg;
+
+      if (isLikelyIncompleteAssistantAnswer(platform, latestAssistant?.content)) {
+        compareWatchState[platform] = {
+          question: latestUserMsg,
+          startedAt: Date.now(),
+          complete: false,
+          lastAnswerText: String(latestAssistant?.content || '').trim(),
+          stableCount: 0
+        };
+        renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
+        updateStatus(platform, '🔄', t('statusResponding', 'Responding...'));
+        ensureComparePollTimer();
+      }
     }
     return;
   }
@@ -1802,6 +1840,14 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
   const answerText = result.answer ? String(result.answer.content || '').trim() : '';
   if (!answerText) {
     renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
+    return;
+  }
+
+  if (isLikelyIncompleteAssistantAnswer(platform, answerText)) {
+    state.lastAnswerText = answerText;
+    state.stableCount = 0;
+    renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
+    updateStatus(platform, '🔄', t('statusResponding', 'Responding...'));
     return;
   }
 
@@ -1853,6 +1899,27 @@ function ensureComparePollTimer() {
   comparePollTimer = setInterval(pollActiveCompareHistories, COMPARE_POLL_INTERVAL_MS);
 }
 
+function clearCompareOpenRefreshTimers() {
+  compareOpenRefreshTimers.forEach(timer => clearTimeout(timer));
+  compareOpenRefreshTimers = [];
+}
+
+function scheduleCompareOpenRefresh() {
+  clearCompareOpenRefreshTimers();
+
+  compareOpenRefreshTimers = COMPARE_OPEN_REFRESH_DELAYS_MS.map(delay => (
+    setTimeout(() => {
+      if (!isComparePanelVisible()) return;
+
+      platforms.forEach(platform => {
+        if (isPlatformEnabled(platform)) {
+          requestPlatformHistory(platform);
+        }
+      });
+    }, delay)
+  ));
+}
+
 function startCompareWatch(question) {
   showComparePanel();
   const promptEl = document.getElementById('compare-prompt-text');
@@ -1889,7 +1956,12 @@ function openComparePanel() {
     if (!textEl) return;
 
     if (isPlatformEnabled(platform)) {
-      if (!compareWatchState[platform] || compareWatchState[platform].complete) {
+      const state = compareWatchState[platform];
+      if (state && state.complete) {
+        delete compareWatchState[platform];
+      }
+
+      if (!compareWatchState[platform]) {
         textEl.textContent = t('loadingConversationHistory', 'Loading conversation history...');
       }
 
@@ -1904,6 +1976,8 @@ function openComparePanel() {
   setTimeout(() => {
     document.getElementById('question-input')?.focus();
   }, 80);
+
+  scheduleCompareOpenRefresh();
 }
 
 console.log('[AI Multi-Chat] Popup script loaded');
