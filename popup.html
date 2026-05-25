@@ -96,17 +96,16 @@
     <!-- 智慧對比對照面板 -->
     <div id="compare-panel" class="compare-panel hidden">
       <div class="compare-header">
-        <span class="compare-title">✨ 智慧答案橫向比對面版</span>
+        <div class="compare-prompt-area">
+          <span class="compare-prompt-label">最新問題：</span>
+          <span id="compare-prompt-text">尚未發送問題，或正在等待平台回應...</span>
+        </div>
         <div class="compare-header-actions">
           <button id="share-compare-btn" type="button" title="整理並分享所有 LLM 內容">分享</button>
           <button id="close-compare-btn" type="button" aria-label="Close comparison">×</button>
         </div>
       </div>
       <div class="compare-content">
-        <div class="compare-prompt-area">
-          <span class="compare-prompt-label">💬 最新問題：</span>
-          <span id="compare-prompt-text">尚未發送問題，或正在等待平台回應...</span>
-        </div>
         <div class="compare-grid">
           <div class="compare-col" data-platform="grok">
             <div class="col-title grok-title">Grok</div>

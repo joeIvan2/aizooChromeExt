@@ -1291,7 +1291,7 @@ function handleLoginMessage(data) {
 }
 
 // ==========================================
-// ✨ 智慧對比對照面板輔助函數
+// 智慧對比對照面板輔助函數
 // ==========================================
 
 // 全局紀錄最新發送的問題，初始化為空字串
@@ -1483,7 +1483,7 @@ function showComparePanel() {
 
 function buildCompareBubble(message, options = {}) {
   const role = message.role === 'user' ? 'user' : 'assistant';
-  const label = role === 'user' ? '👤 <b>你：</b>' : '🤖 <b>AI：</b>';
+  const label = role === 'user' ? '<b>你：</b>' : '<b>AI：</b>';
   const isPending = !!options.pending;
   const bubbleBg = role === 'user'
     ? 'rgba(255, 255, 255, 0.04)'
