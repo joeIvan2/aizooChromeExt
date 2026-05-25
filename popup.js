@@ -1539,7 +1539,7 @@ function buildCompareShareMarkdown() {
     });
   });
 
-  lines.push('', '---', 'Shared from AI Zoo Smart Compare');
+  lines.push('', '---', 'Shared from AI Zoo Extension: https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid');
   return lines.join('\n').replace(/\n{4,}/g, '\n\n\n').trim() + '\n';
 }
 
@@ -1673,6 +1673,22 @@ function completeComparePlatform(platform, history) {
   stopComparePollTimerIfDone();
 }
 
+function timeoutComparePlatform(platform) {
+  const state = compareWatchState[platform];
+  if (state) {
+    state.complete = true;
+  }
+
+  const latestHistory = compareLatestHistories[platform] || [];
+  const fallbackHistory = latestHistory.length > 0
+    ? latestHistory
+    : (state?.question ? [{ role: 'user', content: state.question }] : []);
+
+  renderCompareHistory(platform, fallbackHistory);
+  updateStatus(platform, '⚠️', '等待平台回應逾時');
+  stopComparePollTimerIfDone();
+}
+
 function updateCompareFromHistory(platform, history, isGenerating = false, options = {}) {
   const state = compareWatchState[platform];
   const messages = Array.isArray(history) ? history : [];
@@ -1695,10 +1711,7 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
   if (result.questionIndex < 0) {
     renderCompareHistory(platform, messages.concat([{ role: 'user', content: state.question }]), '回覆中...');
     if (elapsed > COMPARE_MAX_WATCH_MS) {
-      state.complete = true;
-      renderCompareHistory(platform, messages, '等待平台回應逾時');
-      updateStatus(platform, '⚠️', '等待平台回應逾時');
-      stopComparePollTimerIfDone();
+      timeoutComparePlatform(platform);
     }
     return;
   }
@@ -1734,9 +1747,7 @@ function pollActiveCompareHistories() {
     if (!state || state.complete) return;
 
     if (now - state.startedAt > COMPARE_MAX_WATCH_MS) {
-      state.complete = true;
-      renderCompareHistory(platform, [], '等待平台回應逾時');
-      updateStatus(platform, '⚠️', '等待平台回應逾時');
+      timeoutComparePlatform(platform);
       return;
     }
 
