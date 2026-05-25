@@ -123,12 +123,6 @@ html, body {
 }
 
 .input-section.compare-docked {
-  position: fixed !important;
-  left: max(48px, calc(50vw - 280px)) !important;
-  top: auto !important;
-  bottom: 42px !important;
-  width: min(560px, calc(100vw - 96px));
-  transform: none;
   z-index: 10010;
 }
 
@@ -367,12 +361,6 @@ select:disabled {
 }
 
 .input-section.compare-docked + .session-switcher {
-  position: fixed !important;
-  left: max(48px, calc(50vw - 280px)) !important;
-  top: auto !important;
-  bottom: 205px !important;
-  width: min(560px, calc(100vw - 96px));
-  transform: none !important;
   z-index: 10011;
 }
 
