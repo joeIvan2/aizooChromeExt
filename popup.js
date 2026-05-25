@@ -33,12 +33,26 @@ const conversationUrlPatterns = {
   chatgpt: /^https:\/\/chatgpt\.com\/c\/[^/?#]+/
 };
 
+function t(key, fallback = '', substitutions) {
+  const message = chrome?.i18n?.getMessage(key, substitutions);
+  let text = message || fallback || '';
+  const values = Array.isArray(substitutions)
+    ? substitutions
+    : (substitutions === undefined ? [] : [substitutions]);
+
+  values.forEach((value, index) => {
+    text = text.replaceAll(`$${index + 1}`, String(value));
+  });
+
+  return text;
+}
+
 // i18n 初始化函數
 function initI18n() {
   // 處理 data-i18n 屬性（設置 textContent）
   document.querySelectorAll('[data-i18n]').forEach(element => {
     const key = element.getAttribute('data-i18n');
-    const message = chrome.i18n.getMessage(key);
+    const message = t(key);
     if (message) {
       element.textContent = message;
     }
@@ -47,7 +61,7 @@ function initI18n() {
   // 處理 data-i18n-placeholder 屬性（設置 placeholder）
   document.querySelectorAll('[data-i18n-placeholder]').forEach(element => {
     const key = element.getAttribute('data-i18n-placeholder');
-    const message = chrome.i18n.getMessage(key);
+    const message = t(key);
     if (message) {
       element.placeholder = message;
     }
@@ -56,9 +70,17 @@ function initI18n() {
   // 處理 data-i18n-title 屬性（設置 title）
   document.querySelectorAll('[data-i18n-title]').forEach(element => {
     const key = element.getAttribute('data-i18n-title');
-    const message = chrome.i18n.getMessage(key);
+    const message = t(key);
     if (message) {
       element.title = message;
+    }
+  });
+
+  document.querySelectorAll('[data-i18n-aria-label]').forEach(element => {
+    const key = element.getAttribute('data-i18n-aria-label');
+    const message = t(key);
+    if (message) {
+      element.setAttribute('aria-label', message);
     }
   });
 
@@ -88,7 +110,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (iframes[platform]) {
       iframes[platform].addEventListener('load', () => {
         console.log(`[${platform}] iframe loaded`);
-        updateStatus(platform, '⏳', '等待準備...');
+        updateStatus(platform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
 
         // iframe 載入後重新聚焦到目前可用的輸入框（防止焦點被 iframe 內部搶走）
         setTimeout(() => {
@@ -103,7 +125,7 @@ document.addEventListener('DOMContentLoaded', () => {
           const state = compareWatchState[platform];
           if (!state || state.complete) {
             const textEl = document.getElementById(`compare-text-${platform}`);
-            if (textEl) textEl.textContent = '讀取對話紀錄中...';
+            if (textEl) textEl.textContent = t('loadingConversationHistory', 'Loading conversation history...');
             setTimeout(() => requestPlatformHistory(platform), 800);
           }
         }
@@ -287,7 +309,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 更新按鈕圖標和提示
       btn.textContent = '⤢';
-      btn.title = '放大';
+    btn.title = t('maximizeTitle', 'Maximize');
 
       currentMaximizedPlatform = null;
     } else {
@@ -298,7 +320,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (prevWrapper) prevWrapper.classList.remove('maximized');
         if (prevBtn) {
           prevBtn.textContent = '⤢';
-          prevBtn.title = '放大';
+      prevBtn.title = t('maximizeTitle', 'Maximize');
         }
       }
 
@@ -315,7 +337,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
       // 更新按鈕圖標和提示
       btn.textContent = '⤡';
-      btn.title = '縮小';
+    btn.title = t('restoreTitle', 'Restore');
 
       currentMaximizedPlatform = platform;
     }
@@ -493,7 +515,7 @@ function sendQuestionToAll(sourceInput = document.getElementById('question-input
   const questionInput = sourceInput || document.getElementById('question-input');
   const question = questionInput.value.trim();
   if (!question) {
-    alert('請輸入問題');
+    alert(t('alertEnterQuestion', 'Please enter a question'));
     questionInput.focus();
     return;
   }
@@ -513,7 +535,7 @@ function sendQuestionToAll(sourceInput = document.getElementById('question-input
 
 // 開啟所有平台的新對話
 function startNewChatForAll() {
-  if (!confirm('確定要開始新對話嗎？這將重置所有 AI 的當前會話。')) {
+  if (!confirm(t('confirmNewChat', 'Start a new chat? This will reset the current conversation on all AI platforms.'))) {
     return;
   }
   
@@ -534,7 +556,7 @@ function startNewChatForAll() {
         platform: platform,
         source: 'popup'
       }, '*');
-      updateStatus(platform, '🔄', '重置中...');
+    updateStatus(platform, '🔄', t('statusResetting', 'Resetting...'));
     }
   });
 }
@@ -543,14 +565,14 @@ function startNewChatForAll() {
 function sendQuestionToPlatform(platform, question) {
   if (!isPlatformEnabled(platform)) {
     console.log(`[${platform}] Platform disabled, skipping question send`);
-    updateStatus(platform, '⏸️', '已停用，不發送');
+    updateStatus(platform, '⏸️', t('statusDisabledNotSending', 'Disabled, not sending'));
     return;
   }
 
   const iframe = iframes[platform];
   if (!iframe) {
     console.error(`[${platform}] iframe not found`);
-    updateStatus(platform, '❌', 'iframe 未找到');
+    updateStatus(platform, '❌', t('statusIframeNotFound', 'iframe not found'));
     return;
   }
 
@@ -570,10 +592,10 @@ function sendQuestionToPlatform(platform, question) {
     }, '*');
 
     // 更新狀態
-    updateStatus(platform, '🔄', '發送中...');
+    updateStatus(platform, '🔄', t('statusSending'));
   } catch (error) {
     console.error(`[${platform}] Error sending message:`, error);
-    updateStatus(platform, '❌', '發送失敗');
+    updateStatus(platform, '❌', t('statusSendFailed', 'Send failed'));
   }
 }
 
@@ -601,30 +623,30 @@ function handleMessage(event) {
   console.log(`[popup] Received message from ${platform}:`, data.type);
 
   if (!isPlatformEnabled(platform)) {
-    updateStatus(platform, '⏸️', '已停用');
+      updateStatus(platform, '⏸️', t('statusDisabled', 'Disabled'));
     return;
   }
 
   switch (data.type) {
     case 'AI_READY':
       console.log(`[${platform}] Ready`);
-      updateStatus(platform, '✅', '準備就緒');
+        updateStatus(platform, '✅', t('statusReady'));
       break;
 
     case 'AI_QUESTION_SENT':
       console.log(`[${platform}] Question sent successfully`);
-      updateStatus(platform, '🔄', '等待回應...');
-      markComparePlatformPending(platform, '回覆中...');
+      updateStatus(platform, '🔄', t('statusWaiting'));
+      markComparePlatformPending(platform, t('compareResponding', 'Responding...'));
       requestPlatformHistory(platform);
       break;
 
     case 'AI_RESPONSE_START':
       console.log(`[${platform}] Response started`);
-      updateStatus(platform, '🔄', '正在回應...');
+      updateStatus(platform, '🔄', t('statusResponding', 'Responding...'));
       if (Array.isArray(data.history)) {
         updateCompareFromHistory(platform, data.history, !!data.isGenerating);
       }
-      markComparePlatformPending(platform, '回覆中...');
+        markComparePlatformPending(platform, t('compareResponding', 'Responding...'));
       break;
 
     case 'AI_RESPONSE_RECEIVED':
@@ -632,10 +654,10 @@ function handleMessage(event) {
       if (Array.isArray(data.history)) {
         updateCompareFromHistory(platform, data.history, false, { forceComplete: true });
       } else if (compareWatchState[platform] && !compareWatchState[platform].complete) {
-        updateStatus(platform, '🔄', '同步回覆中...');
+      updateStatus(platform, '🔄', t('statusSyncingResponse', 'Syncing response...'));
         requestPlatformHistory(platform);
       } else {
-        updateStatus(platform, '✅', '完成');
+        updateStatus(platform, '✅', t('statusComplete', 'Complete'));
       }
       break;
 
@@ -711,7 +733,7 @@ function saveSessionList(sessions) {
 
 function makeSessionTitle(question) {
   const text = (question || '').replace(/\s+/g, ' ').trim();
-  if (!text) return '未命名對話';
+  if (!text) return t('untitledConversation', 'Untitled conversation');
   return text.length > 48 ? text.substring(0, 48) + '...' : text;
 }
 
@@ -767,7 +789,7 @@ function formatSessionOption(session) {
     minute: '2-digit'
   });
   const platformCount = Object.keys(session.urls || {}).length;
-  return `${time} · ${platformCount} 個平台 · ${session.title}`;
+  return t('sessionOptionFormat', '$1 · $2 platforms · $3', [time, String(platformCount), session.title]);
 }
 
 function renderSessionList(selectedId) {
@@ -783,7 +805,7 @@ function renderSessionList(selectedId) {
   if (sessions.length === 0) {
     const option = document.createElement('option');
     option.value = '';
-    option.textContent = '尚無對話組';
+    option.textContent = t('noSessionGroups', 'No conversation groups');
     select.appendChild(option);
     select.disabled = true;
     loadButton.disabled = true;
@@ -879,7 +901,9 @@ function prepareComparePanelForSessionSwitch(session) {
 
   const promptEl = document.getElementById('compare-prompt-text');
   if (promptEl) {
-    promptEl.textContent = session?.title ? `歷史對話：${session.title}` : '正在切換歷史對話...';
+    promptEl.textContent = session?.title
+      ? t('historyConversationPrompt', 'History: $1', session.title)
+      : t('switchingHistoryConversation', 'Switching history conversation...');
   }
 
   if (!isComparePanelVisible()) return;
@@ -889,11 +913,11 @@ function prepareComparePanelForSessionSwitch(session) {
     if (!textEl) return;
 
     if (!isPlatformEnabled(platform)) {
-      textEl.textContent = '此平台已停用';
+      textEl.textContent = t('platformDisabled', 'This platform is disabled');
     } else if (session?.urls?.[platform]) {
-      textEl.textContent = '切換對話中...';
+      textEl.textContent = t('switchingConversation', 'Switching conversation...');
     } else {
-      textEl.textContent = '這組歷史對話沒有此平台網址。';
+      textEl.textContent = t('sessionMissingPlatformUrl', 'This history group has no URL for this platform.');
     }
   });
 }
@@ -911,7 +935,7 @@ function loadSelectedSession() {
 
     localStorage.setItem(`ai-chat-url-${platform}`, url);
     iframe.src = url;
-    updateStatus(platform, '⏳', '切換對話中...');
+    updateStatus(platform, '⏳', t('switchingConversation', 'Switching conversation...'));
   });
 
   if (isComparePanelVisible()) {
@@ -929,7 +953,7 @@ function deleteSelectedSession() {
   const session = getSelectedSession();
   if (!session) return;
 
-  if (!confirm(`刪除對話組「${session.title}」？`)) {
+  if (!confirm(t('confirmDeleteSession', 'Delete conversation group "$1"?', session.title))) {
     return;
   }
 
@@ -982,7 +1006,7 @@ function refreshIframe(platform) {
     console.log(`[${platform}] iframe refreshed`);
 
     // 更新狀態為載入中
-    updateStatus(platform, '⏳', chrome.i18n.getMessage('loadingTitle') || '載入中...');
+    updateStatus(platform, '⏳', t('loadingTitle', 'Loading...'));
   }, 50);
 }
 
@@ -1042,7 +1066,7 @@ async function runPlatformDiagnostics(platform) {
     return;
   }
 
-  renderDiagnostics(`${platform} diagnostics`, ['讀取中...']);
+  renderDiagnostics(`${platform} diagnostics`, [t('loading', 'Loading...')]);
 
   try {
     const diagnostics = await requestPlatformDiagnostics(platform);
@@ -1075,7 +1099,7 @@ async function runPlatformDiagnostics(platform) {
 function armPlatformBreakpoint(platform) {
   const iframe = iframes[platform];
   if (!iframe || !iframe.contentWindow) {
-    updateStatus(platform, '❌', '無法設定斷點');
+    updateStatus(platform, '❌', t('statusCannotSetBreakpoint', 'Cannot set breakpoint'));
     return;
   }
 
@@ -1086,21 +1110,21 @@ function armPlatformBreakpoint(platform) {
       source: 'popup'
     }, '*');
 
-    updateStatus(platform, '🧨', '已設定斷點，重新載入中...');
+    updateStatus(platform, '🧨', t('statusBreakpointSetReloading', 'Breakpoint set, reloading...'));
 
     setTimeout(() => {
       refreshIframe(platform);
     }, 150);
   } catch (error) {
     console.error(`[${platform}] Failed to arm breakpoint`, error);
-    updateStatus(platform, '❌', '斷點設定失敗');
+    updateStatus(platform, '❌', t('statusBreakpointFailed', 'Breakpoint setup failed'));
   }
 }
 
 function enablePlatformSidebarProtection(platform) {
   const iframe = iframes[platform];
   if (!iframe || !iframe.contentWindow) {
-    updateStatus(platform, '❌', '無法啟用保護');
+    updateStatus(platform, '❌', t('statusCannotEnableProtection', 'Cannot enable protection'));
     return;
   }
 
@@ -1112,14 +1136,14 @@ function enablePlatformSidebarProtection(platform) {
       source: 'popup'
     }, '*');
 
-    updateStatus(platform, '🛡️', '已啟用 5 秒 sidebar 保護，重新載入中...');
+    updateStatus(platform, '🛡️', t('statusSidebarProtectionReloading', 'Sidebar protection enabled for 5 seconds, reloading...'));
 
     setTimeout(() => {
       refreshIframe(platform);
     }, 150);
   } catch (error) {
     console.error(`[${platform}] Failed to enable sidebar protection`, error);
-    updateStatus(platform, '❌', '保護啟用失敗');
+    updateStatus(platform, '❌', t('statusProtectionFailed', 'Protection failed'));
   }
 }
 
@@ -1149,7 +1173,9 @@ function renderPlatformToggle(platform) {
 
   if (toggleButton) {
     toggleButton.textContent = enabled ? 'ON' : 'OFF';
-    toggleButton.title = enabled ? `停用 ${platform}` : `啟用 ${platform}`;
+  toggleButton.title = enabled
+    ? t('disablePlatformTitle', 'Disable $1', platform)
+    : t('enablePlatformTitle', 'Enable $1', platform);
     toggleButton.classList.toggle('enabled', enabled);
     toggleButton.classList.toggle('disabled', !enabled);
   }
@@ -1159,9 +1185,9 @@ function renderPlatformToggle(platform) {
   }
 
   if (!enabled) {
-    updateStatus(platform, '⏸️', '已停用');
+    updateStatus(platform, '⏸️', t('statusDisabled', 'Disabled'));
   } else {
-    updateStatus(platform, '⏳', '等待準備...');
+    updateStatus(platform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
   }
 }
 
@@ -1193,12 +1219,12 @@ function handleLoginMessage(data) {
       const platform = data.platform || 'grok';
       console.log(`[popup] ${platform} needs login:`, data.url);
       // 登入流程被檢測到，已經在 content script 中顯示提示
-      updateStatus(platform, '🔐', '需要登入驗證');
+      updateStatus(platform, '🔐', t('statusLoginRequired', 'Login verification required'));
       break;
 
     case 'CHATGPT_NEEDS_LOGIN':
       console.log('[popup] ChatGPT needs login:', data.url);
-      updateStatus('chatgpt', '🔐', '需要登入驗證');
+      updateStatus('chatgpt', '🔐', t('statusLoginRequired', 'Login verification required'));
       break;
 
     case 'OPEN_CHATGPT_LOGIN_WINDOW':
@@ -1212,7 +1238,7 @@ function handleLoginMessage(data) {
         'width=500,height=700,menubar=no,toolbar=no,location=no,status=no'
       );
 
-      updateStatus('chatgpt', '🔐', '登入視窗已開啟');
+        updateStatus('chatgpt', '🔐', t('statusLoginWindowOpened', 'Login window opened'));
 
       // 監聽視窗關閉
       if (loginWindow) {
@@ -1225,12 +1251,12 @@ function handleLoginMessage(data) {
             setTimeout(() => {
               const iframe = iframes.chatgpt;
               if (iframe) {
-                updateStatus('chatgpt', '🔄', '重新載入中...');
+            updateStatus('chatgpt', '🔄', t('statusReloading', 'Reloading...'));
                 iframe.src = chatgptConfig.homeUrl;
 
                 // 3 秒後重置狀態
                 setTimeout(() => {
-                  updateStatus('chatgpt', '⏳', '等待準備...');
+              updateStatus('chatgpt', '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
                 }, 3000);
               }
             }, 2000);
@@ -1256,7 +1282,7 @@ function handleLoginMessage(data) {
         active: true
       }, (tab) => {
         console.log('[popup] Login tab created:', tab.id);
-        updateStatus(loginPlatform, '🔐', '請在新分頁中完成登入');
+      updateStatus(loginPlatform, '🔐', t('statusCompleteLoginInNewTab', 'Complete login in the new tab'));
       });
       break;
 
@@ -1275,12 +1301,12 @@ function handleLoginMessage(data) {
       // 重新載入 iframe
       const iframe = iframes[reloadPlatform];
       if (iframe) {
-        updateStatus(reloadPlatform, '🔄', '重新載入中...');
+      updateStatus(reloadPlatform, '🔄', t('statusReloading', 'Reloading...'));
         iframe.src = reloadConfig.homeUrl;
 
         // 3 秒後重置狀態
         setTimeout(() => {
-          updateStatus(reloadPlatform, '⏳', '等待準備...');
+        updateStatus(reloadPlatform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
         }, 3000);
       }
       break;
@@ -1483,7 +1509,9 @@ function showComparePanel() {
 
 function buildCompareBubble(message, options = {}) {
   const role = message.role === 'user' ? 'user' : 'assistant';
-  const label = role === 'user' ? '<b>你：</b>' : '<b>AI：</b>';
+  const label = role === 'user'
+    ? `<b>${escapeHtml(t('compareUserLabel', 'You:'))}</b>`
+    : `<b>${escapeHtml(t('compareAiLabel', 'AI:'))}</b>`;
   const isPending = !!options.pending;
   const bubbleBg = role === 'user'
     ? 'rgba(255, 255, 255, 0.04)'
@@ -1503,7 +1531,7 @@ function renderCompareHistory(platform, history, pendingMessage = '') {
   const messages = Array.isArray(history) ? history.filter(m => m && m.content) : [];
   compareLatestHistories[platform] = messages;
   if (messages.length === 0 && !pendingMessage) {
-    colTextEl.textContent = '此平台尚無對話內容。';
+    colTextEl.textContent = t('platformNoConversation', 'This platform has no conversation content yet.');
     return;
   }
 
@@ -1520,17 +1548,19 @@ function renderCompareHistory(platform, history, pendingMessage = '') {
 }
 
 function getCompareStatusLabel(platform) {
-  if (!isPlatformEnabled(platform)) return '已停用';
+  if (!isPlatformEnabled(platform)) return t('statusDisabled', 'Disabled');
   const state = compareWatchState[platform];
-  if (state && !state.complete) return '回覆中';
-  if ((compareLatestHistories[platform] || []).length > 0) return '已整理';
-  return '尚無內容';
+  if (state && !state.complete) return t('compareRespondingShort', 'Responding');
+  if ((compareLatestHistories[platform] || []).length > 0) return t('compareOrganized', 'Organized');
+  return t('compareNoContent', 'No content yet');
 }
 
 function getShareTitle() {
   const prompt = document.getElementById('compare-prompt-text')?.textContent || window.lastSentQuestion || '';
   const clean = prompt.replace(/\s+/g, ' ').trim();
-  if (!clean || clean.includes('尚未發送問題')) return 'AI Zoo 智慧比對';
+  if (!clean || clean.includes(t('comparePromptWaiting', 'No question sent yet, or waiting for platform responses...'))) {
+    return t('shareDefaultTitle', 'AI Zoo Smart Compare');
+  }
   return clean.length > 60 ? `${clean.slice(0, 60)}...` : clean;
 }
 
@@ -1559,7 +1589,7 @@ function formatMarkdownMessage(message) {
 function buildCompareShareMarkdown() {
   const title = getShareTitle();
   const promptText = document.getElementById('compare-prompt-text')?.textContent?.trim() || '';
-  const hasPrompt = promptText && !promptText.includes('尚未發送問題');
+  const hasPrompt = promptText && !promptText.includes(t('comparePromptWaiting', 'No question sent yet'));
   const lines = [
     `# ${title}`,
     '',
@@ -1609,7 +1639,7 @@ function openSharePanel() {
 
   output.value = buildCompareShareMarkdown();
   panel.classList.remove('hidden');
-  setShareActionStatus('已整理成 Markdown，可先複製或下載，不會自動上傳。');
+    setShareActionStatus(t('sharePanelSubtitle', 'Organized as Markdown. You can copy or download it. Nothing is uploaded automatically.'));
   setTimeout(() => output.focus(), 50);
 }
 
@@ -1623,11 +1653,11 @@ async function copyShareText() {
 
   try {
     await navigator.clipboard.writeText(output.value);
-    setShareActionStatus('已複製到剪貼簿。');
+    setShareActionStatus(t('shareCopied', 'Copied to clipboard.'));
   } catch (error) {
     output.select();
     document.execCommand('copy');
-    setShareActionStatus('已嘗試用備援方式複製。');
+    setShareActionStatus(t('shareCopyFallback', 'Tried copying with the fallback method.'));
   }
 }
 
@@ -1645,7 +1675,7 @@ function downloadShareMarkdown() {
   link.click();
   link.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
-  setShareActionStatus(`已下載 ${filename}`);
+  setShareActionStatus(t('shareDownloaded', 'Downloaded $1', filename));
 }
 
 async function nativeShareCompareText() {
@@ -1653,7 +1683,7 @@ async function nativeShareCompareText() {
   if (!output) return;
 
   if (!navigator.share) {
-    setShareActionStatus('這個瀏覽器環境不支援系統分享，請用複製或下載。');
+    setShareActionStatus(t('shareNotSupported', 'System share is not supported here. Please copy or download instead.'));
     return;
   }
 
@@ -1662,10 +1692,10 @@ async function nativeShareCompareText() {
       title: getShareTitle(),
       text: output.value
     });
-    setShareActionStatus('已開啟系統分享。');
+    setShareActionStatus(t('shareOpened', 'System share opened.'));
   } catch (error) {
     if (error && error.name === 'AbortError') return;
-    setShareActionStatus('系統分享失敗，請改用複製或下載。');
+    setShareActionStatus(t('shareFailed', 'System share failed. Please copy or download instead.'));
   }
 }
 
@@ -1706,12 +1736,12 @@ function findQuestionAnswer(history, question) {
   return { questionIndex, answer };
 }
 
-function markComparePlatformPending(platform, message = '回覆中...') {
+function markComparePlatformPending(platform, message = t('compareResponding', 'Responding...')) {
   const state = compareWatchState[platform];
   if (!state || state.complete || !isComparePanelVisible()) return;
 
   const colTextEl = document.getElementById(`compare-text-${platform}`);
-  if (colTextEl && (!colTextEl.innerText || colTextEl.innerText.includes('讀取對話紀錄中'))) {
+  if (colTextEl && (!colTextEl.innerText || colTextEl.innerText.includes(t('loadingConversationHistory', 'Loading conversation history')))) {
     renderCompareHistory(platform, [{ role: 'user', content: state.question }], message);
   }
 }
@@ -1722,7 +1752,7 @@ function completeComparePlatform(platform, history) {
   }
 
   renderCompareHistory(platform, history);
-  updateStatus(platform, '✅', '完成');
+  updateStatus(platform, '✅', t('statusComplete', 'Complete'));
   stopComparePollTimerIfDone();
 }
 
@@ -1738,7 +1768,7 @@ function timeoutComparePlatform(platform) {
     : (state?.question ? [{ role: 'user', content: state.question }] : []);
 
   renderCompareHistory(platform, fallbackHistory);
-  updateStatus(platform, '⚠️', '等待平台回應逾時');
+  updateStatus(platform, '⚠️', t('statusResponseTimeout', 'Timed out waiting for platform response'));
   stopComparePollTimerIfDone();
 }
 
@@ -1762,7 +1792,7 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
   const result = findQuestionAnswer(messages, state.question);
 
   if (result.questionIndex < 0) {
-    renderCompareHistory(platform, messages.concat([{ role: 'user', content: state.question }]), '回覆中...');
+    renderCompareHistory(platform, messages.concat([{ role: 'user', content: state.question }]), t('compareResponding', 'Responding...'));
     if (elapsed > COMPARE_MAX_WATCH_MS) {
       timeoutComparePlatform(platform);
     }
@@ -1771,7 +1801,7 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
 
   const answerText = result.answer ? String(result.answer.content || '').trim() : '';
   if (!answerText) {
-    renderCompareHistory(platform, messages, '回覆中...');
+    renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
     return;
   }
 
@@ -1788,8 +1818,8 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
   if (isDone) {
     completeComparePlatform(platform, messages);
   } else {
-    renderCompareHistory(platform, messages, '回覆中...');
-    updateStatus(platform, '🔄', isGenerating ? '正在回應...' : '確認回覆完成中...');
+    renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
+    updateStatus(platform, '🔄', isGenerating ? t('statusResponding', 'Responding...') : t('statusConfirmingResponseDone', 'Confirming response completion...'));
   }
 }
 
@@ -1832,7 +1862,7 @@ function startCompareWatch(question) {
     if (!isPlatformEnabled(platform)) {
       delete compareWatchState[platform];
       const textEl = document.getElementById(`compare-text-${platform}`);
-      if (textEl) textEl.textContent = '此平台已停用';
+      if (textEl) textEl.textContent = t('platformDisabled', 'This platform is disabled');
       return;
     }
 
@@ -1844,7 +1874,7 @@ function startCompareWatch(question) {
       stableCount: 0
     };
 
-    renderCompareHistory(platform, [{ role: 'user', content: question }], '回覆中...');
+    renderCompareHistory(platform, [{ role: 'user', content: question }], t('compareResponding', 'Responding...'));
     requestPlatformHistory(platform);
   });
 
@@ -1860,14 +1890,14 @@ function openComparePanel() {
 
     if (isPlatformEnabled(platform)) {
       if (!compareWatchState[platform] || compareWatchState[platform].complete) {
-        textEl.textContent = '讀取對話紀錄中...';
+        textEl.textContent = t('loadingConversationHistory', 'Loading conversation history...');
       }
 
       if (!requestPlatformHistory(platform)) {
-        textEl.textContent = '平台尚未準備就緒';
+        textEl.textContent = t('platformNotReady', 'Platform is not ready yet');
       }
     } else {
-      textEl.textContent = '此平台已停用';
+      textEl.textContent = t('platformDisabled', 'This platform is disabled');
     }
   });
 

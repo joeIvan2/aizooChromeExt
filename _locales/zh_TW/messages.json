@@ -82,5 +82,325 @@
   "infoWaitingButtonEnabled": {
     "message": "等待按鈕啟用...",
     "description": "資訊：等待按鈕啟用"
+  },
+  "compareButton": {
+    "message": "智慧對比",
+    "description": "智慧對比按鈕文字"
+  },
+  "compareButtonTitle": {
+    "message": "智慧對比所有答案",
+    "description": "智慧對比按鈕提示"
+  },
+  "historyButton": {
+    "message": "歷史對話",
+    "description": "歷史對話按鈕文字"
+  },
+  "historyButtonTitle": {
+    "message": "顯示歷史對話",
+    "description": "歷史對話按鈕提示"
+  },
+  "minimizeInputTitle": {
+    "message": "縮小控制面板",
+    "description": "縮小輸入控制面板提示"
+  },
+  "restoreTitle": {
+    "message": "縮小",
+    "description": "放大 iframe 後的還原按鈕提示"
+  },
+  "sessionSwitcherLabel": {
+    "message": "對話組清單",
+    "description": "歷史對話組面板 aria label"
+  },
+  "sessionSelectTitle": {
+    "message": "選擇已記錄的對話組",
+    "description": "歷史對話選單提示"
+  },
+  "noSessionGroups": {
+    "message": "尚無對話組",
+    "description": "沒有歷史對話組時顯示"
+  },
+  "loadSessionButton": {
+    "message": "切換",
+    "description": "切換歷史對話按鈕文字"
+  },
+  "loadSessionTitle": {
+    "message": "切換所有平台到這組對話",
+    "description": "切換歷史對話按鈕提示"
+  },
+  "deleteSessionButton": {
+    "message": "刪除",
+    "description": "刪除歷史對話按鈕文字"
+  },
+  "deleteSessionTitle": {
+    "message": "刪除這組對話紀錄",
+    "description": "刪除歷史對話按鈕提示"
+  },
+  "hideSessionButton": {
+    "message": "隱藏",
+    "description": "隱藏歷史對話面板按鈕文字"
+  },
+  "hideSessionTitle": {
+    "message": "隱藏歷史對話",
+    "description": "隱藏歷史對話面板按鈕提示"
+  },
+  "claudeDiagnoseTitle": {
+    "message": "Claude 診斷",
+    "description": "Claude 診斷按鈕提示"
+  },
+  "closeDiagnosticsLabel": {
+    "message": "關閉診斷面板",
+    "description": "關閉診斷面板 aria label"
+  },
+  "diagnosticsNotRun": {
+    "message": "尚未執行診斷",
+    "description": "診斷面板初始文字"
+  },
+  "latestQuestionLabel": {
+    "message": "最新問題：",
+    "description": "智慧比對最新問題標籤"
+  },
+  "comparePromptWaiting": {
+    "message": "尚未發送問題，或正在等待平台回應...",
+    "description": "智慧比對尚無問題提示"
+  },
+  "shareButton": {
+    "message": "分享",
+    "description": "分享按鈕文字"
+  },
+  "shareCompareTitle": {
+    "message": "整理並分享所有 LLM 內容",
+    "description": "智慧比對分享按鈕提示"
+  },
+  "closeCompareLabel": {
+    "message": "關閉智慧比對",
+    "description": "關閉智慧比對 aria label"
+  },
+  "loadingConversation": {
+    "message": "等待載入對話...",
+    "description": "等待載入對話初始文字"
+  },
+  "sharePanelTitle": {
+    "message": "整理分享",
+    "description": "分享面板標題"
+  },
+  "sharePanelSubtitle": {
+    "message": "已整理成 Markdown，可先複製或下載，不會自動上傳。",
+    "description": "分享面板副標題"
+  },
+  "closeShareLabel": {
+    "message": "關閉分享面板",
+    "description": "關閉分享面板 aria label"
+  },
+  "copyShareButton": {
+    "message": "複製文字",
+    "description": "複製分享文字按鈕"
+  },
+  "downloadShareButton": {
+    "message": "下載 .md",
+    "description": "下載 Markdown 按鈕"
+  },
+  "nativeShareButton": {
+    "message": "系統分享",
+    "description": "系統分享按鈕"
+  },
+  "statusWaitingReady": {
+    "message": "等待準備...",
+    "description": "等待平台準備狀態"
+  },
+  "loadingConversationHistory": {
+    "message": "讀取對話紀錄中...",
+    "description": "讀取對話紀錄狀態"
+  },
+  "alertEnterQuestion": {
+    "message": "請輸入問題",
+    "description": "未輸入問題時的提示"
+  },
+  "confirmNewChat": {
+    "message": "確定要開始新對話嗎？這將重置所有 AI 的當前會話。",
+    "description": "開始新對話確認"
+  },
+  "statusResetting": {
+    "message": "重置中...",
+    "description": "重置平台狀態"
+  },
+  "statusDisabledNotSending": {
+    "message": "已停用，不發送",
+    "description": "平台停用不發送狀態"
+  },
+  "statusIframeNotFound": {
+    "message": "iframe 未找到",
+    "description": "找不到 iframe 狀態"
+  },
+  "statusSendFailed": {
+    "message": "發送失敗",
+    "description": "發送失敗狀態"
+  },
+  "statusDisabled": {
+    "message": "已停用",
+    "description": "平台已停用狀態"
+  },
+  "compareResponding": {
+    "message": "回覆中...",
+    "description": "智慧比對等待回覆提示"
+  },
+  "statusResponding": {
+    "message": "正在回應...",
+    "description": "正在回應狀態"
+  },
+  "statusSyncingResponse": {
+    "message": "同步回覆中...",
+    "description": "同步回覆狀態"
+  },
+  "statusComplete": {
+    "message": "完成",
+    "description": "完成狀態"
+  },
+  "untitledConversation": {
+    "message": "未命名對話",
+    "description": "無標題對話"
+  },
+  "sessionOptionFormat": {
+    "message": "$1 · $2 個平台 · $3",
+    "description": "歷史對話選項格式"
+  },
+  "historyConversationPrompt": {
+    "message": "歷史對話：$1",
+    "description": "切換歷史對話時的最新問題列"
+  },
+  "switchingHistoryConversation": {
+    "message": "正在切換歷史對話...",
+    "description": "正在切換歷史對話狀態"
+  },
+  "platformDisabled": {
+    "message": "此平台已停用",
+    "description": "智慧比對平台停用文字"
+  },
+  "switchingConversation": {
+    "message": "切換對話中...",
+    "description": "正在切換對話狀態"
+  },
+  "sessionMissingPlatformUrl": {
+    "message": "這組歷史對話沒有此平台網址。",
+    "description": "歷史對話缺少平台網址"
+  },
+  "confirmDeleteSession": {
+    "message": "刪除對話組「$1」？",
+    "description": "刪除歷史對話確認"
+  },
+  "loading": {
+    "message": "讀取中...",
+    "description": "一般讀取中"
+  },
+  "statusCannotSetBreakpoint": {
+    "message": "無法設定斷點",
+    "description": "無法設定斷點狀態"
+  },
+  "statusBreakpointSetReloading": {
+    "message": "已設定斷點，重新載入中...",
+    "description": "斷點已設定狀態"
+  },
+  "statusBreakpointFailed": {
+    "message": "斷點設定失敗",
+    "description": "斷點設定失敗狀態"
+  },
+  "statusCannotEnableProtection": {
+    "message": "無法啟用保護",
+    "description": "無法啟用保護狀態"
+  },
+  "statusSidebarProtectionReloading": {
+    "message": "已啟用 5 秒 sidebar 保護，重新載入中...",
+    "description": "sidebar 保護狀態"
+  },
+  "statusProtectionFailed": {
+    "message": "保護啟用失敗",
+    "description": "保護啟用失敗狀態"
+  },
+  "disablePlatformTitle": {
+    "message": "停用 $1",
+    "description": "停用平台提示"
+  },
+  "enablePlatformTitle": {
+    "message": "啟用 $1",
+    "description": "啟用平台提示"
+  },
+  "statusLoginRequired": {
+    "message": "需要登入驗證",
+    "description": "需要登入狀態"
+  },
+  "statusLoginWindowOpened": {
+    "message": "登入視窗已開啟",
+    "description": "登入視窗已開啟狀態"
+  },
+  "statusReloading": {
+    "message": "重新載入中...",
+    "description": "重新載入狀態"
+  },
+  "statusCompleteLoginInNewTab": {
+    "message": "請在新分頁中完成登入",
+    "description": "新分頁登入提示"
+  },
+  "compareUserLabel": {
+    "message": "你：",
+    "description": "智慧比對使用者標籤"
+  },
+  "compareAiLabel": {
+    "message": "AI：",
+    "description": "智慧比對 AI 標籤"
+  },
+  "platformNoConversation": {
+    "message": "此平台尚無對話內容。",
+    "description": "平台尚無對話內容"
+  },
+  "compareRespondingShort": {
+    "message": "回覆中",
+    "description": "智慧比對短狀態：回覆中"
+  },
+  "compareOrganized": {
+    "message": "已整理",
+    "description": "智慧比對短狀態：已整理"
+  },
+  "compareNoContent": {
+    "message": "尚無內容",
+    "description": "智慧比對短狀態：尚無內容"
+  },
+  "shareDefaultTitle": {
+    "message": "AI Zoo 智慧比對",
+    "description": "分享預設標題"
+  },
+  "shareCopied": {
+    "message": "已複製到剪貼簿。",
+    "description": "分享已複製狀態"
+  },
+  "shareCopyFallback": {
+    "message": "已嘗試用備援方式複製。",
+    "description": "分享備援複製狀態"
+  },
+  "shareDownloaded": {
+    "message": "已下載 $1",
+    "description": "分享下載完成狀態"
+  },
+  "shareNotSupported": {
+    "message": "這個瀏覽器環境不支援系統分享，請用複製或下載。",
+    "description": "系統分享不支援"
+  },
+  "shareOpened": {
+    "message": "已開啟系統分享。",
+    "description": "系統分享已開啟"
+  },
+  "shareFailed": {
+    "message": "系統分享失敗，請改用複製或下載。",
+    "description": "系統分享失敗"
+  },
+  "statusResponseTimeout": {
+    "message": "等待平台回應逾時",
+    "description": "等待平台回應逾時"
+  },
+  "statusConfirmingResponseDone": {
+    "message": "確認回覆完成中...",
+    "description": "確認回覆完成狀態"
+  },
+  "platformNotReady": {
+    "message": "平台尚未準備就緒",
+    "description": "平台尚未準備就緒"
   }
 }

@@ -82,5 +82,325 @@
   "infoWaitingButtonEnabled": {
     "message": "Waiting for button to be enabled...",
     "description": "Info: Waiting for button to be enabled"
+  },
+  "compareButton": {
+    "message": "Smart Compare",
+    "description": "Smart compare button text"
+  },
+  "compareButtonTitle": {
+    "message": "Compare all answers",
+    "description": "Smart compare button tooltip"
+  },
+  "historyButton": {
+    "message": "History",
+    "description": "Conversation history button text"
+  },
+  "historyButtonTitle": {
+    "message": "Show conversation history",
+    "description": "Conversation history button tooltip"
+  },
+  "minimizeInputTitle": {
+    "message": "Minimize control panel",
+    "description": "Minimize input panel tooltip"
+  },
+  "restoreTitle": {
+    "message": "Restore",
+    "description": "Restore maximized iframe tooltip"
+  },
+  "sessionSwitcherLabel": {
+    "message": "Conversation group list",
+    "description": "Session switcher aria label"
+  },
+  "sessionSelectTitle": {
+    "message": "Select a saved conversation group",
+    "description": "Session select tooltip"
+  },
+  "noSessionGroups": {
+    "message": "No conversation groups",
+    "description": "Shown when there are no saved sessions"
+  },
+  "loadSessionButton": {
+    "message": "Switch",
+    "description": "Load session button text"
+  },
+  "loadSessionTitle": {
+    "message": "Switch all platforms to this conversation group",
+    "description": "Load session button tooltip"
+  },
+  "deleteSessionButton": {
+    "message": "Delete",
+    "description": "Delete session button text"
+  },
+  "deleteSessionTitle": {
+    "message": "Delete this conversation record",
+    "description": "Delete session button tooltip"
+  },
+  "hideSessionButton": {
+    "message": "Hide",
+    "description": "Hide session switcher button text"
+  },
+  "hideSessionTitle": {
+    "message": "Hide conversation history",
+    "description": "Hide session switcher button tooltip"
+  },
+  "claudeDiagnoseTitle": {
+    "message": "Claude diagnostics",
+    "description": "Claude diagnostics button tooltip"
+  },
+  "closeDiagnosticsLabel": {
+    "message": "Close diagnostics panel",
+    "description": "Close diagnostics panel aria label"
+  },
+  "diagnosticsNotRun": {
+    "message": "Diagnostics have not run yet",
+    "description": "Diagnostics panel initial text"
+  },
+  "latestQuestionLabel": {
+    "message": "Latest question:",
+    "description": "Smart compare latest question label"
+  },
+  "comparePromptWaiting": {
+    "message": "No question sent yet, or waiting for platform responses...",
+    "description": "Smart compare waiting prompt"
+  },
+  "shareButton": {
+    "message": "Share",
+    "description": "Share button text"
+  },
+  "shareCompareTitle": {
+    "message": "Format and share all LLM content",
+    "description": "Smart compare share button tooltip"
+  },
+  "closeCompareLabel": {
+    "message": "Close smart compare",
+    "description": "Close smart compare aria label"
+  },
+  "loadingConversation": {
+    "message": "Waiting to load conversation...",
+    "description": "Initial loading conversation text"
+  },
+  "sharePanelTitle": {
+    "message": "Format Share",
+    "description": "Share panel title"
+  },
+  "sharePanelSubtitle": {
+    "message": "Organized as Markdown. You can copy or download it. Nothing is uploaded automatically.",
+    "description": "Share panel subtitle"
+  },
+  "closeShareLabel": {
+    "message": "Close share panel",
+    "description": "Close share panel aria label"
+  },
+  "copyShareButton": {
+    "message": "Copy Text",
+    "description": "Copy share text button"
+  },
+  "downloadShareButton": {
+    "message": "Download .md",
+    "description": "Download Markdown button"
+  },
+  "nativeShareButton": {
+    "message": "System Share",
+    "description": "Native share button"
+  },
+  "statusWaitingReady": {
+    "message": "Waiting for readiness...",
+    "description": "Waiting for platform readiness status"
+  },
+  "loadingConversationHistory": {
+    "message": "Loading conversation history...",
+    "description": "Loading conversation history status"
+  },
+  "alertEnterQuestion": {
+    "message": "Please enter a question",
+    "description": "Alert shown when the input is empty"
+  },
+  "confirmNewChat": {
+    "message": "Start a new chat? This will reset the current conversation on all AI platforms.",
+    "description": "New chat confirmation"
+  },
+  "statusResetting": {
+    "message": "Resetting...",
+    "description": "Resetting platform status"
+  },
+  "statusDisabledNotSending": {
+    "message": "Disabled, not sending",
+    "description": "Disabled platform not sending status"
+  },
+  "statusIframeNotFound": {
+    "message": "iframe not found",
+    "description": "iframe not found status"
+  },
+  "statusSendFailed": {
+    "message": "Send failed",
+    "description": "Send failed status"
+  },
+  "statusDisabled": {
+    "message": "Disabled",
+    "description": "Platform disabled status"
+  },
+  "compareResponding": {
+    "message": "Responding...",
+    "description": "Smart compare pending response text"
+  },
+  "statusResponding": {
+    "message": "Responding...",
+    "description": "Responding status"
+  },
+  "statusSyncingResponse": {
+    "message": "Syncing response...",
+    "description": "Syncing response status"
+  },
+  "statusComplete": {
+    "message": "Complete",
+    "description": "Complete status"
+  },
+  "untitledConversation": {
+    "message": "Untitled conversation",
+    "description": "Untitled conversation"
+  },
+  "sessionOptionFormat": {
+    "message": "$1 · $2 platforms · $3",
+    "description": "Session option format"
+  },
+  "historyConversationPrompt": {
+    "message": "History: $1",
+    "description": "Latest question row while switching history"
+  },
+  "switchingHistoryConversation": {
+    "message": "Switching history conversation...",
+    "description": "Switching history conversation status"
+  },
+  "platformDisabled": {
+    "message": "This platform is disabled",
+    "description": "Smart compare platform disabled text"
+  },
+  "switchingConversation": {
+    "message": "Switching conversation...",
+    "description": "Switching conversation status"
+  },
+  "sessionMissingPlatformUrl": {
+    "message": "This history group has no URL for this platform.",
+    "description": "History group missing platform URL"
+  },
+  "confirmDeleteSession": {
+    "message": "Delete conversation group \"$1\"?",
+    "description": "Delete history group confirmation"
+  },
+  "loading": {
+    "message": "Loading...",
+    "description": "Generic loading text"
+  },
+  "statusCannotSetBreakpoint": {
+    "message": "Cannot set breakpoint",
+    "description": "Cannot set breakpoint status"
+  },
+  "statusBreakpointSetReloading": {
+    "message": "Breakpoint set, reloading...",
+    "description": "Breakpoint set status"
+  },
+  "statusBreakpointFailed": {
+    "message": "Breakpoint setup failed",
+    "description": "Breakpoint setup failed status"
+  },
+  "statusCannotEnableProtection": {
+    "message": "Cannot enable protection",
+    "description": "Cannot enable protection status"
+  },
+  "statusSidebarProtectionReloading": {
+    "message": "Sidebar protection enabled for 5 seconds, reloading...",
+    "description": "Sidebar protection status"
+  },
+  "statusProtectionFailed": {
+    "message": "Protection failed",
+    "description": "Protection failed status"
+  },
+  "disablePlatformTitle": {
+    "message": "Disable $1",
+    "description": "Disable platform tooltip"
+  },
+  "enablePlatformTitle": {
+    "message": "Enable $1",
+    "description": "Enable platform tooltip"
+  },
+  "statusLoginRequired": {
+    "message": "Login verification required",
+    "description": "Login required status"
+  },
+  "statusLoginWindowOpened": {
+    "message": "Login window opened",
+    "description": "Login window opened status"
+  },
+  "statusReloading": {
+    "message": "Reloading...",
+    "description": "Reloading status"
+  },
+  "statusCompleteLoginInNewTab": {
+    "message": "Complete login in the new tab",
+    "description": "New tab login prompt"
+  },
+  "compareUserLabel": {
+    "message": "You:",
+    "description": "Smart compare user label"
+  },
+  "compareAiLabel": {
+    "message": "AI:",
+    "description": "Smart compare AI label"
+  },
+  "platformNoConversation": {
+    "message": "This platform has no conversation content yet.",
+    "description": "Platform has no conversation content"
+  },
+  "compareRespondingShort": {
+    "message": "Responding",
+    "description": "Smart compare short status: responding"
+  },
+  "compareOrganized": {
+    "message": "Organized",
+    "description": "Smart compare short status: organized"
+  },
+  "compareNoContent": {
+    "message": "No content yet",
+    "description": "Smart compare short status: no content"
+  },
+  "shareDefaultTitle": {
+    "message": "AI Zoo Smart Compare",
+    "description": "Default share title"
+  },
+  "shareCopied": {
+    "message": "Copied to clipboard.",
+    "description": "Share copied status"
+  },
+  "shareCopyFallback": {
+    "message": "Tried copying with the fallback method.",
+    "description": "Share fallback copy status"
+  },
+  "shareDownloaded": {
+    "message": "Downloaded $1",
+    "description": "Share downloaded status"
+  },
+  "shareNotSupported": {
+    "message": "System share is not supported here. Please copy or download instead.",
+    "description": "Native share not supported"
+  },
+  "shareOpened": {
+    "message": "System share opened.",
+    "description": "Native share opened"
+  },
+  "shareFailed": {
+    "message": "System share failed. Please copy or download instead.",
+    "description": "Native share failed"
+  },
+  "statusResponseTimeout": {
+    "message": "Timed out waiting for platform response",
+    "description": "Response timeout status"
+  },
+  "statusConfirmingResponseDone": {
+    "message": "Confirming response completion...",
+    "description": "Confirming response completion status"
+  },
+  "platformNotReady": {
+    "message": "Platform is not ready yet",
+    "description": "Platform not ready"
   }
 }
