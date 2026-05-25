@@ -1527,18 +1527,34 @@ function buildCompareBubble(message, options = {}) {
   return `<div class="compare-msg-bubble msg-bubble-${role}${pendingClass}" style="margin-bottom: 14px; padding: 11px 12px; border-radius: 10px; background: ${bubbleBg}; border: 1px solid ${borderColor}; box-shadow: 0 4px 10px rgba(0,0,0,0.15)"><div class="compare-bubble-label">${label}</div><div class="compare-message-content">${formatCompareMessageContent(message.content, { allowHeadings: role === 'assistant' })}</div></div>`;
 }
 
+function filterPendingPlaceholderMessages(platform, messages, pendingMessage) {
+  if (!pendingMessage || messages.length === 0) return messages;
+
+  const lastIndex = messages.length - 1;
+  const lastMessage = messages[lastIndex];
+  if (
+    lastMessage?.role === 'assistant' &&
+    isLikelyIncompleteAssistantAnswer(platform, lastMessage.content)
+  ) {
+    return messages.slice(0, lastIndex);
+  }
+
+  return messages;
+}
+
 function renderCompareHistory(platform, history, pendingMessage = '') {
   const colTextEl = document.getElementById(`compare-text-${platform}`);
   if (!colTextEl) return;
 
   const messages = Array.isArray(history) ? history.filter(m => m && m.content) : [];
-  compareLatestHistories[platform] = messages;
+  const visibleMessages = filterPendingPlaceholderMessages(platform, messages, pendingMessage);
+  compareLatestHistories[platform] = visibleMessages;
   if (messages.length === 0 && !pendingMessage) {
     colTextEl.textContent = t('platformNoConversation', 'This platform has no conversation content yet.');
     return;
   }
 
-  let html = messages.map(m => buildCompareBubble(m)).join('');
+  let html = visibleMessages.map(m => buildCompareBubble(m)).join('');
   if (pendingMessage) {
     html += buildCompareBubble({ role: 'assistant', content: pendingMessage }, { pending: true });
   }
@@ -1732,19 +1748,27 @@ function findQuestionAnswer(history, question) {
 
   if (questionIndex < 0) return { questionIndex: -1, answer: null };
 
-  const answer = history.slice(questionIndex + 1).find(message => (
-    message && message.role === 'assistant' && String(message.content || '').trim()
-  )) || null;
+  let answer = null;
+  for (let i = history.length - 1; i > questionIndex; i--) {
+    const message = history[i];
+    if (message && message.role === 'assistant' && String(message.content || '').trim()) {
+      answer = message;
+      break;
+    }
+  }
 
   return { questionIndex, answer };
 }
 
 function isLikelyIncompleteAssistantAnswer(platform, text) {
   const value = String(text || '').replace(/\s+/g, ' ').trim();
-  if (platform !== 'chatgpt' || !value || value.length > 520) return false;
+  if (!platforms.includes(platform) || !value || value.length > 620) return false;
 
-  return /^(i['’]ll|i will|let me|i’m going to|i am going to)\b/i.test(value) &&
-    /(break|verify|check|look up|research|judge|analy[sz]e|compare|separate|before)/i.test(value);
+  const startsLikePlanning = /^(i['’]ll|i will|let me|i’m going to|i am going to|我(?:先|會|來|要|幫你|可以先)|讓我|先(?:查|看|分析|整理|確認)|以下(?:我會|先)|好的[,，]?\s*我)/i.test(value);
+  const containsPlanningAction = /(break|verify|check|look up|research|judge|analy[sz]e|compare|separate|before|查詢|查證|查看|搜尋|搜索|研究|分析|整理|確認|比較|拆解|判斷|評估|找資料|先看|網頁|來源)/i.test(value);
+  const hasSubstantialStructure = /(\n|#{1,6}\s|^[-*•]\s|\d+[.)、]\s|[。！？.!?].+[。！？.!?].+[。！？.!?])/m.test(String(text || '').trim());
+
+  return startsLikePlanning && containsPlanningAction && !hasSubstantialStructure;
 }
 
 function findLatestMessage(history, role) {
