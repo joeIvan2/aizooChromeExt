@@ -6,6 +6,22 @@ A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok,
 
 ---
 
+## 專案狀態
+
+- **正式上架**：[AI Zoo - Chrome Web Store](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW)
+- **目前安裝數**：410 位使用者
+- **專案類型**：開源 Chrome Extension / Manifest V3
+- **核心用途**：讓使用者在同一個工作區同步比較多個主流 AI 平台的回答，減少重複輸入、切換分頁與人工整理成本。
+
+## Project Status
+
+- **Published**: [AI Zoo - Chrome Web Store](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW)
+- **Current installs**: 410 users
+- **Project type**: Open-source Chrome Extension / Manifest V3
+- **Core purpose**: Help users compare responses from multiple leading AI platforms in one workspace, reducing repeated typing, tab switching, and manual synthesis work.
+
+---
+
 ## 功能特點
 
 - ✅ **4 個 AI 同時顯示**：Grok、Gemini、Claude、ChatGPT 並排顯示
@@ -26,9 +42,25 @@ A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok,
 
 ---
 
+## 維護與安全重點
+
+AI Zoo 會與多個第三方 AI 平台的網頁介面互動，因此需要持續維護 selectors、OAuth/login 流程、串流回應解析與跨 iframe 通訊。這類外掛特別需要安全審查，避免 XSS、DOM injection、不安全的 `postMessage` 來源驗證、content script 權限濫用、token/data leakage，以及 CSP/header 規則設定錯誤。
+
+## Maintenance and Security Focus
+
+AI Zoo interacts with several third-party AI web interfaces, so it requires ongoing maintenance for selectors, OAuth/login flows, streaming response parsing, and cross-iframe communication. This kind of extension needs careful security review to prevent XSS, DOM injection, unsafe `postMessage` origin handling, content script permission abuse, token/data leakage, and mistakes in CSP/header rules.
+
+---
+
 ## 安裝方式
 
-### 方法 1：開發者模式載入（推薦）
+### 方法 1：從 Chrome Web Store 安裝（推薦）
+
+1. 前往 [AI Zoo Chrome Web Store 頁面](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW)
+2. 點擊「加到 Chrome」
+3. 完成！擴充功能已安裝
+
+### 方法 2：開發者模式載入
 
 1. 打開 Chrome 瀏覽器
 2. 進入 `chrome://extensions/`
@@ -37,7 +69,7 @@ A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok,
 5. 選擇此資料夾
 6. 完成！擴充功能已安裝
 
-### 方法 2：打包成 .crx 檔案
+### 方法 3：打包成 .crx 檔案
 
 ```bash
 # 在 chrome://extensions/ 點擊「封裝擴充功能」
@@ -47,7 +79,13 @@ A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok,
 
 ## Installation
 
-### Method 1: Developer Mode (Recommended)
+### Method 1: Chrome Web Store (Recommended)
+
+1. Visit the [AI Zoo Chrome Web Store page](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW)
+2. Click "Add to Chrome"
+3. Done! Extension installed
+
+### Method 2: Developer Mode
 
 1. Open Chrome browser
 2. Navigate to `chrome://extensions/`
@@ -56,7 +94,7 @@ A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok,
 5. Select this folder
 6. Done! Extension installed
 
-### Method 2: Pack as .crx File
+### Method 3: Pack as .crx File
 
 ```bash
 # In chrome://extensions/, click "Pack extension"
