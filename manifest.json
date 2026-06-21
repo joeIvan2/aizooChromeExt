@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "__MSG_extensionName__",
-  "version": "1.1.0",
+  "version": "1.2.1",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
   "permissions": [
@@ -29,7 +29,10 @@
   },
   "content_scripts": [
     {
-      "matches": ["*://grok.com/*", "*://accounts.x.ai/*"],
+      "matches": [
+        "*://grok.com/*",
+        "*://accounts.x.ai/*"
+      ],
       "js": [
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
@@ -39,7 +42,9 @@
       "all_frames": true
     },
     {
-      "matches": ["*://gemini.google.com/*"],
+      "matches": [
+        "*://gemini.google.com/*"
+      ],
       "js": [
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
@@ -49,7 +54,20 @@
       "all_frames": true
     },
     {
-      "matches": ["*://claude.ai/*"],
+      "matches": [
+        "*://claude.ai/*"
+      ],
+      "js": [
+        "content-scripts/claude-page-hook.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true,
+      "world": "MAIN"
+    },
+    {
+      "matches": [
+        "*://claude.ai/*"
+      ],
       "js": [
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
@@ -59,7 +77,10 @@
       "all_frames": true
     },
     {
-      "matches": ["*://chatgpt.com/*", "*://auth.openai.com/*"],
+      "matches": [
+        "*://chatgpt.com/*",
+        "*://auth.openai.com/*"
+      ],
       "js": [
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
