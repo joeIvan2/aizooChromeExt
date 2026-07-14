@@ -1,382 +1,382 @@
 {
   "extensionName": {
     "message": "AI Zoo",
-    "description": "擴充功能名稱"
+    "description": "拡張機能名称"
   },
   "extensionDescription": {
-    "message": "並排比較多個熱門 AI 平台與聊天機器人，實現同步發送與一鍵對比摘要",
-    "description": "擴充功能描述"
+    "message": "複数の主要AIチャットボットを1つの統合されたワークスペースで並べて比較",
+    "description": "拡張機能描述"
   },
   "extensionActionTitle": {
-    "message": "AI Zoo - 點擊開啟",
+    "message": "AI Zoo - クリックして開く",
     "description": "滑鼠移到擴充功能圖示時的提示文字"
   },
   "inputPlaceholder": {
-    "message": "輸入問題，一次發送到所有 AI... (Ctrl+Enter 發送)",
-    "description": "輸入框的提示文字"
+    "message": "質問を入力して、すべてのAIに一度に送信... (Ctrl+Enterで送信)",
+    "description": "入力框的提示文字"
   },
   "sendToAllButton": {
-    "message": "發送到所有 AI",
+    "message": "すべてのAIに送信",
     "description": "發送按鈕文字"
   },
   "sendOneButton": {
-    "message": "單AI",
+    "message": "単一AI",
     "description": "發送到單一 AI 按鈕文字"
   },
   "sendOneTitle": {
-    "message": "選擇一個 AI 發送",
+    "message": "送信先のAIを1つ選択",
     "description": "發送到單一 AI 按鈕提示"
   },
   "sendOnePlatformMenuLabel": {
-    "message": "選擇要發送的平台",
+    "message": "送信先プラットフォームを選択",
     "description": "單一 AI 發送平台選單 aria label"
   },
   "newChatButton": {
-    "message": "新對話 +",
+    "message": "新しいチャット +",
     "description": "新對話按鈕文字"
   },
   "refreshTitle": {
-    "message": "重新整理",
+    "message": "更新",
     "description": "重新整理按鈕提示"
   },
   "maximizeTitle": {
-    "message": "放大",
+    "message": "最大化",
     "description": "放大按鈕提示"
   },
   "loadingTitle": {
-    "message": "載入中...",
+    "message": "読み込み中...",
     "description": "載入狀態提示"
   },
   "statusReady": {
-    "message": "就緒",
+    "message": "準備完了",
     "description": "狀態：就緒"
   },
   "statusSending": {
-    "message": "發送中...",
+    "message": "送信中...",
     "description": "狀態：正在發送問題"
   },
   "statusWaiting": {
-    "message": "等待回應...",
+    "message": "応答を待機中...",
     "description": "狀態：等待 AI 回應"
   },
   "statusReceived": {
-    "message": "已收到回應",
+    "message": "応答を受信完了",
     "description": "狀態：已收到回應"
   },
   "statusError": {
-    "message": "錯誤",
+    "message": "エラー",
     "description": "狀態：發生錯誤"
   },
   "errorTextareaNotFound": {
-    "message": "❌ Textarea 未找到（超時）",
+    "message": "❌ テキストエリアが見つかりません（タイムアウト）",
     "description": "錯誤：找不到輸入框"
   },
   "errorFillFailed": {
-    "message": "❌ 填充問題失敗",
+    "message": "❌ 質問の入力に失敗しました",
     "description": "錯誤：無法填入問題"
   },
   "errorVerifyFailed": {
-    "message": "❌ 內容覆蓋驗證失敗，文字未正確填入",
+    "message": "❌ 内容の検証に失敗しました。テキストが正しく入力されていません",
     "description": "錯誤：內容驗證失敗"
   },
   "errorButtonClickFailed": {
-    "message": "❌ 按鈕點擊失敗（超時）",
+    "message": "❌ ボタンのクリックに失敗しました（タイムアウト）",
     "description": "錯誤：無法點擊提交按鈕"
   },
   "infoWaitingTextarea": {
-    "message": "等待 textarea 準備好...",
+    "message": "テキストエリアの準備完了を待機中...",
     "description": "資訊：等待輸入框"
   },
   "infoWaitingButton": {
-    "message": "等待發送按鈕準備好...",
+    "message": "送信ボタンの準備完了を待機中...",
     "description": "資訊：等待按鈕"
   },
   "infoWaitingButtonEnabled": {
-    "message": "等待按鈕啟用...",
+    "message": "ボタンが有効になるのを待機中...",
     "description": "資訊：等待按鈕啟用"
   },
   "compareButton": {
-    "message": "智慧對比",
+    "message": "スマート比較",
     "description": "智慧對比按鈕文字"
   },
   "compareButtonTitle": {
-    "message": "智慧對比所有答案",
+    "message": "すべての回答をスマートに比較",
     "description": "智慧對比按鈕提示"
   },
   "historyButton": {
-    "message": "歷史對話",
+    "message": "会話履歴",
     "description": "歷史對話按鈕文字"
   },
   "historyButtonTitle": {
-    "message": "顯示歷史對話",
+    "message": "会話履歴を表示",
     "description": "歷史對話按鈕提示"
   },
   "minimizeInputTitle": {
-    "message": "縮小控制面板",
+    "message": "コントロールパネルを最小化",
     "description": "縮小輸入控制面板提示"
   },
   "restoreTitle": {
-    "message": "縮小",
+    "message": "元に戻す",
     "description": "放大 iframe 後的還原按鈕提示"
   },
   "sessionSwitcherLabel": {
-    "message": "對話組清單",
+    "message": "会話グループリスト",
     "description": "歷史對話組面板 aria label"
   },
   "sessionSelectTitle": {
-    "message": "選擇已記錄的對話組",
+    "message": "保存された会話グループを選択",
     "description": "歷史對話選單提示"
   },
   "noSessionGroups": {
-    "message": "尚無對話組",
+    "message": "会話グループはありません",
     "description": "沒有歷史對話組時顯示"
   },
   "loadSessionButton": {
-    "message": "切換",
+    "message": "切り替え",
     "description": "切換歷史對話按鈕文字"
   },
   "loadSessionTitle": {
-    "message": "切換所有平台到這組對話",
+    "message": "すべてのプラットフォームをこの会話グループに切り替える",
     "description": "切換歷史對話按鈕提示"
   },
   "deleteSessionButton": {
-    "message": "刪除",
+    "message": "削除",
     "description": "刪除歷史對話按鈕文字"
   },
   "deleteSessionTitle": {
-    "message": "刪除這組對話紀錄",
+    "message": "この会話履歴を削除",
     "description": "刪除歷史對話按鈕提示"
   },
   "hideSessionButton": {
-    "message": "隱藏",
+    "message": "非表示",
     "description": "隱藏歷史對話面板按鈕文字"
   },
   "hideSessionTitle": {
-    "message": "隱藏歷史對話",
+    "message": "会話履歴を非表示にする",
     "description": "隱藏歷史對話面板按鈕提示"
   },
   "claudeDiagnoseTitle": {
-    "message": "Claude 診斷",
+    "message": "Claude 診断",
     "description": "Claude 診斷按鈕提示"
   },
   "closeDiagnosticsLabel": {
-    "message": "關閉診斷面板",
+    "message": "診断パネルを閉じる",
     "description": "關閉診斷面板 aria label"
   },
   "diagnosticsNotRun": {
-    "message": "尚未執行診斷",
+    "message": "診断はまだ実行されていません",
     "description": "診斷面板初始文字"
   },
   "latestQuestionLabel": {
-    "message": "最新問題：",
+    "message": "最新の質問：",
     "description": "智慧比對最新問題標籤"
   },
   "comparePromptWaiting": {
-    "message": "尚未發送問題，或正在等待平台回應...",
+    "message": "質問はまだ送信されていないか、プラットフォームの応答を待機しています...",
     "description": "智慧比對尚無問題提示"
   },
   "shareButton": {
-    "message": "分享",
+    "message": "共有",
     "description": "分享按鈕文字"
   },
   "shareCompareTitle": {
-    "message": "整理並分享所有 LLM 內容",
+    "message": "すべてのLLMコンテンツを整理して共有",
     "description": "智慧比對分享按鈕提示"
   },
   "summaryCompareButton": {
-    "message": "AI摘要",
+    "message": "AI要約",
     "description": "將智慧比對內容送到指定平台摘要的按鈕文字"
   },
   "summaryCompareTitle": {
-    "message": "選擇一個 LLM 來摘要所有對比內容",
+    "message": "比較コンテンツを要約するLLMを1つ選択",
     "description": "送交摘要按鈕提示"
   },
   "summaryPlatformMenuLabel": {
-    "message": "選擇摘要平台",
+    "message": "要約プラットフォームを選択",
     "description": "摘要平台選單 aria label"
   },
   "summaryPromptLabel": {
-    "message": "摘要 Prompt",
+    "message": "要約プロンプト",
     "description": "可編輯 AI 摘要 prompt 標籤"
   },
   "summaryPromptPlaceholder": {
-    "message": "可編輯摘要指令...",
+    "message": "要約指示を編集...",
     "description": "可編輯 AI 摘要 prompt 提示"
   },
   "summaryPromptDefault": {
-    "message": "請統整大家的說法，整理相同與相異之處，並給出清楚結論。",
+    "message": "全員の意見をまとめ、共通点と相違点を比較し、明確な結論を出してください。",
     "description": "AI 摘要預設可編輯 prompt"
   },
   "closeCompareLabel": {
-    "message": "關閉智慧比對",
+    "message": "スマート比較を閉じる",
     "description": "關閉智慧比對 aria label"
   },
   "loadingConversation": {
-    "message": "等待載入對話...",
+    "message": "会話の読み込みを待機中...",
     "description": "等待載入對話初始文字"
   },
   "sharePanelTitle": {
-    "message": "整理分享",
+    "message": "整理して共有",
     "description": "分享面板標題"
   },
   "sharePanelSubtitle": {
-    "message": "已整理成 Markdown，可先複製或下載，不會自動上傳。",
+    "message": "Markdown形式で整理されています。コピーまたはダウンロードできます。自動的にアップロードされることはありません。",
     "description": "分享面板副標題"
   },
   "closeShareLabel": {
-    "message": "關閉分享面板",
+    "message": "共有パネルを閉じる",
     "description": "關閉分享面板 aria label"
   },
   "copyShareButton": {
-    "message": "複製文字",
+    "message": "テキストをコピー",
     "description": "複製分享文字按鈕"
   },
   "downloadShareButton": {
-    "message": "下載 .md",
+    "message": ".mdをダウンロード",
     "description": "下載 Markdown 按鈕"
   },
   "nativeShareButton": {
-    "message": "系統分享",
+    "message": "システム共有",
     "description": "系統分享按鈕"
   },
   "statusWaitingReady": {
-    "message": "等待準備...",
+    "message": "準備中...",
     "description": "等待平台準備狀態"
   },
   "loadingConversationHistory": {
-    "message": "讀取對話紀錄中...",
+    "message": "会話履歴を読み込み中...",
     "description": "讀取對話紀錄狀態"
   },
   "alertEnterQuestion": {
-    "message": "請輸入問題",
+    "message": "質問を入力してください",
     "description": "未輸入問題時的提示"
   },
   "confirmNewChat": {
-    "message": "確定要開始新對話嗎？這將重置所有 AI 的當前會話。",
+    "message": "新しいチャットを開始しますか？これにより、すべてのAIプラットフォームの現在の会話がリセットされます。",
     "description": "開始新對話確認"
   },
   "statusResetting": {
-    "message": "重置中...",
+    "message": "リセット中...",
     "description": "重置平台狀態"
   },
   "statusDisabledNotSending": {
-    "message": "已停用，不發送",
+    "message": "無効、送信しません",
     "description": "平台停用不發送狀態"
   },
   "statusIframeNotFound": {
-    "message": "iframe 未找到",
+    "message": "iframe が見つかりません",
     "description": "找不到 iframe 狀態"
   },
   "statusSendFailed": {
-    "message": "發送失敗",
+    "message": "送信失敗",
     "description": "發送失敗狀態"
   },
   "statusDisabled": {
-    "message": "已停用",
+    "message": "無効",
     "description": "平台已停用狀態"
   },
   "compareResponding": {
-    "message": "回覆中...",
+    "message": "応答中...",
     "description": "智慧比對等待回覆提示"
   },
   "statusResponding": {
-    "message": "正在回應...",
+    "message": "応答中...",
     "description": "正在回應狀態"
   },
   "statusSyncingResponse": {
-    "message": "同步回覆中...",
+    "message": "応答を同期中...",
     "description": "同步回覆狀態"
   },
   "statusComplete": {
-    "message": "完成",
+    "message": "完了",
     "description": "完成狀態"
   },
   "untitledConversation": {
-    "message": "未命名對話",
+    "message": "無題の会話",
     "description": "無標題對話"
   },
   "sessionOptionFormat": {
-    "message": "$1 · $2 個平台 · $3",
+    "message": "$1 · $2個のプラットフォーム · $3",
     "description": "歷史對話選項格式"
   },
   "historyConversationPrompt": {
-    "message": "歷史對話：$1",
+    "message": "履歴：$1",
     "description": "切換歷史對話時的最新問題列"
   },
   "switchingHistoryConversation": {
-    "message": "正在切換歷史對話...",
+    "message": "履歴会話に切り替え中...",
     "description": "正在切換歷史對話狀態"
   },
   "platformDisabled": {
-    "message": "此平台已停用",
+    "message": "このプラットフォームは無効です",
     "description": "智慧比對平台停用文字"
   },
   "switchingConversation": {
-    "message": "切換對話中...",
+    "message": "会話を切り替え中...",
     "description": "正在切換對話狀態"
   },
   "sessionMissingPlatformUrl": {
-    "message": "這組歷史對話沒有此平台網址。",
+    "message": "この履歴グループには、このプラットフォーム用のURLがありません。",
     "description": "歷史對話缺少平台網址"
   },
   "confirmDeleteSession": {
-    "message": "刪除對話組「$1」？",
+    "message": "会話グループ「$1」を削除しますか？",
     "description": "刪除歷史對話確認"
   },
   "loading": {
-    "message": "讀取中...",
+    "message": "読み込み中...",
     "description": "一般讀取中"
   },
   "statusCannotSetBreakpoint": {
-    "message": "無法設定斷點",
+    "message": "ブレークポイントを設定できません",
     "description": "無法設定斷點狀態"
   },
   "statusBreakpointSetReloading": {
-    "message": "已設定斷點，重新載入中...",
+    "message": "ブレークポイントを設定しました。再読み込み中...",
     "description": "斷點已設定狀態"
   },
   "statusBreakpointFailed": {
-    "message": "斷點設定失敗",
+    "message": "ブレークポイントの設定に失敗しました",
     "description": "斷點設定失敗狀態"
   },
   "statusCannotEnableProtection": {
-    "message": "無法啟用保護",
+    "message": "保護を有効にできません",
     "description": "無法啟用保護狀態"
   },
   "statusSidebarProtectionReloading": {
-    "message": "已啟用 5 秒 sidebar 保護，重新載入中...",
+    "message": "5秒間のサイドバー保護を有効にしました。再読み込み中...",
     "description": "sidebar 保護狀態"
   },
   "statusProtectionFailed": {
-    "message": "保護啟用失敗",
+    "message": "保護の有効化に失敗しました",
     "description": "保護啟用失敗狀態"
   },
   "disablePlatformTitle": {
-    "message": "停用 $1",
+    "message": "$1 を無効にする",
     "description": "停用平台提示"
   },
   "enablePlatformTitle": {
-    "message": "啟用 $1",
+    "message": "$1 を有効にする",
     "description": "啟用平台提示"
   },
   "statusLoginRequired": {
-    "message": "需要登入驗證",
+    "message": "ログイン認証が必要です",
     "description": "需要登入狀態"
   },
   "statusLoginWindowOpened": {
-    "message": "登入視窗已開啟",
+    "message": "ログインウィンドウが開かれました",
     "description": "登入視窗已開啟狀態"
   },
   "statusReloading": {
-    "message": "重新載入中...",
+    "message": "再読み込み中...",
     "description": "重新載入狀態"
   },
   "statusCompleteLoginInNewTab": {
-    "message": "請在新分頁中完成登入",
+    "message": "新しいタブでログインを完了してください",
     "description": "新分頁登入提示"
   },
   "compareUserLabel": {
-    "message": "你：",
+    "message": "あなた：",
     "description": "智慧比對使用者標籤"
   },
   "compareAiLabel": {
@@ -384,83 +384,83 @@
     "description": "智慧比對 AI 標籤"
   },
   "platformNoConversation": {
-    "message": "此平台尚無對話內容。",
+    "message": "このプラットフォームには、まだ会話コンテンツがありません。",
     "description": "平台尚無對話內容"
   },
   "compareRespondingShort": {
-    "message": "回覆中",
+    "message": "応答中",
     "description": "智慧比對短狀態：回覆中"
   },
   "compareOrganized": {
-    "message": "已整理",
+    "message": "整理済み",
     "description": "智慧比對短狀態：已整理"
   },
   "compareNoContent": {
-    "message": "尚無內容",
+    "message": "コンテンツなし",
     "description": "智慧比對短狀態：尚無內容"
   },
   "shareDefaultTitle": {
-    "message": "AI Zoo 智慧比對",
+    "message": "AI Zoo スマート比較",
     "description": "分享預設標題"
   },
   "shareCopied": {
-    "message": "已複製到剪貼簿。",
+    "message": "クリップボードにコピーされました。",
     "description": "分享已複製狀態"
   },
   "shareCopyFallback": {
-    "message": "已嘗試用備援方式複製。",
+    "message": "予備のコピー方法を試しました。",
     "description": "分享備援複製狀態"
   },
   "shareDownloaded": {
-    "message": "已下載 $1",
+    "message": "$1 をダウンロードしました",
     "description": "分享下載完成狀態"
   },
   "shareNotSupported": {
-    "message": "這個瀏覽器環境不支援系統分享，請用複製或下載。",
+    "message": "このブラウザ環境はシステム共有をサポートしていません。代わりにコピーまたはダウンロードしてください。",
     "description": "系統分享不支援"
   },
   "shareOpened": {
-    "message": "已開啟系統分享。",
+    "message": "システム共有が開かれました。",
     "description": "系統分享已開啟"
   },
   "shareFailed": {
-    "message": "系統分享失敗，請改用複製或下載。",
+    "message": "システム共有に失敗しました。代わりにコピーまたはダウンロードしてください。",
     "description": "系統分享失敗"
   },
   "statusResponseTimeout": {
-    "message": "等待平台回應逾時",
+    "message": "プラットフォームの応答待機がタイムアウトしました",
     "description": "等待平台回應逾時"
   },
   "statusConfirmingResponseDone": {
-    "message": "確認回覆完成中...",
+    "message": "応答完了を確認中...",
     "description": "確認回覆完成狀態"
   },
   "platformNotReady": {
-    "message": "平台尚未準備就緒",
+    "message": "プラットフォームの準備がまだできていません",
     "description": "平台尚未準備就緒"
   },
   "prevPlatformTitle": {
-    "message": "上一個平台 (Ctrl + 左方向鍵)",
+    "message": "前のプラットフォーム (Ctrl + 左矢印)",
     "description": "最大化模式下切換至上一個平台的按鈕提示"
   },
   "nextPlatformTitle": {
-    "message": "下一個平台 (Ctrl + 右方向鍵)",
+    "message": "次のプラットフォーム (Ctrl + 右矢印)",
     "description": "最大化模式下切換至下一個平台的按鈕提示"
   },
   "sendQuestionToPlatformTitle": {
-    "message": "僅發送問題至 $1",
+    "message": "$1 にのみ質問を送信",
     "description": "點擊僅發送問題至特定平台的提示"
   },
   "sendCompareToPlatformTitle": {
-    "message": "將對比內容發送至 $1",
+    "message": "比較コンテンツを $1 に送信",
     "description": "將對比摘要內容發送至特定平台的提示"
   },
   "languageButtonTitle": {
-    "message": "選擇語言",
+    "message": "言語を選択",
     "description": "介面語言按鈕提示"
   },
   "languageMenuLabel": {
-    "message": "選擇介面語言",
+    "message": "インターフェース言語を選択",
     "description": "語言選單無障礙標籤"
   }
 }

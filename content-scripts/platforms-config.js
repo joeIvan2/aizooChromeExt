@@ -18,6 +18,7 @@ function cleanScrapedHistoryText(text) {
     'Copy', 'Copy response', 'Copy message', 'Copy table', 'Edit', 'Edit message',
     'Retry', 'Regenerate', 'Share', 'Sources', 'More actions', 'Response actions',
     'Good response', 'Bad response', 'Switch model', 'Start dictation', 'Start Voice',
+    'Searched the web',
     '複製', '編輯', '重做', '分享及匯出', '答得好', '有待加強', '更多選項',
     '建立分享連結', '讚', '踩', '顯示更多選項', '複製提示詞'
   ];
@@ -30,7 +31,7 @@ function cleanScrapedHistoryText(text) {
       if (blockedLines.indexOf(line) !== -1) return false;
       if (/^(Thinking|思考中|正在思考)$/i.test(line)) return false;
       if (/^Thought process$/i.test(line)) return false;
-      if (/^(Thought for|思考了)\s*\d+/i.test(line)) return false;
+      if (/^(Thought for|Worked for|思考了)\s*\d+/i.test(line)) return false;
       if (/^\d+\s+sources$/i.test(line)) return false;
       if (/^清晨\d+:\d+$/.test(line)) return false;
       return true;
@@ -48,19 +49,66 @@ function cleanScrapedHistoryText(text) {
     .trim();
 }
 
+function getScrapedLinkLabel(text) {
+  var lines = String(text || '')
+    .replace(/\u2060/g, ' ')
+    .split('\n')
+    .map(function(line) { return line.replace(/\s+/g, ' ').trim(); })
+    .filter(function(line) { return line && !/^\+\d+$/.test(line); });
+
+  return (lines[0] || '')
+    .replace(/\s+\+\d+(?:\s+.*)?$/, '')
+    .trim();
+}
+
+function normalizeScrapedLinks(links) {
+  return (Array.isArray(links) ? links : []).map(function(link) {
+    var text = getScrapedLinkLabel(link && link.text);
+    var rawHref = link && link.href;
+    if (!text || !rawHref) return null;
+
+    try {
+      var url = new URL(rawHref, location.href);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+      return { text: text, href: url.href };
+    } catch (error) {
+      return null;
+    }
+  }).filter(Boolean);
+}
+
+function collectScrapedLinks(element) {
+  if (!element || !element.querySelectorAll) return [];
+
+  return normalizeScrapedLinks(Array.from(element.querySelectorAll('a[href]')).map(function(anchor) {
+    return {
+      text: anchor.innerText || anchor.textContent || '',
+      href: anchor.href || anchor.getAttribute('href') || ''
+    };
+  }));
+}
+
 function normalizeScrapedHistory(messages) {
   var normalized = [];
   (messages || []).forEach(function(message) {
     var content = cleanScrapedHistoryText(message && message.content);
+    var links = normalizeScrapedLinks(message && message.links);
     if (!content) return;
 
     var previous = normalized[normalized.length - 1];
-    if (previous && previous.role === message.role && previous.content === content) return;
+    if (previous && previous.role === message.role && previous.content === content) {
+      if (links.length > 0 && (!previous.links || previous.links.length === 0)) {
+        previous.links = links;
+      }
+      return;
+    }
 
-    normalized.push({
+    var normalizedMessage = {
       role: message.role === 'user' ? 'user' : 'assistant',
       content: content
-    });
+    };
+    if (links.length > 0) normalizedMessage.links = links;
+    normalized.push(normalizedMessage);
   });
   return normalized;
 }
@@ -107,6 +155,45 @@ function findLatestClaudeUserElement() {
   return users[users.length - 1] || null;
 }
 
+function scrapeClaudeArticleHistory() {
+  var articles = Array.from(document.querySelectorAll('article, [role="article"]'));
+  var messages = [];
+
+  articles.forEach(function(article) {
+    var heading = article.querySelector('h1, h2');
+    var rawHeadingText = (heading && (heading.innerText || heading.textContent) || '').trim();
+    var userElement = article.querySelector(
+      'div[data-testid="user-message"], .font-user-message, [class*="font-user-message"]'
+    );
+    var assistantElement = article.querySelector('.font-claude-response') || article.querySelector(
+      'div[data-testid="claude-message"], div[data-testid="assistant-message"], .font-claude-message, [data-is-streaming]'
+    );
+    var role = null;
+
+    if (/^You said:/i.test(rawHeadingText) || (userElement && !/^Claude responded:/i.test(rawHeadingText))) {
+      role = 'user';
+    } else if (/^Claude responded:/i.test(rawHeadingText) || assistantElement) {
+      role = 'assistant';
+    }
+
+    if (!role) return;
+
+    var textElement = role === 'user' ? userElement : assistantElement;
+    var content = cleanScrapedHistoryText(
+      textElement ? (textElement.innerText || textElement.textContent || '') : rawHeadingText
+    );
+
+    if (!content) return;
+    messages.push({
+      role: role,
+      content: content,
+      links: collectScrapedLinks(textElement || article)
+    });
+  });
+
+  return normalizeScrapedHistory(messages);
+}
+
 function appendLatestClaudeStreamingMessage(messages, latestUserElement) {
   if (!Array.isArray(messages) || messages.length === 0) return messages || [];
   if (messages[messages.length - 1].role !== 'user') return messages;
@@ -139,8 +226,9 @@ function findLatestClaudeStreamingText(anchorElement, knownMessages) {
     'div[data-testid="assistant-message"]',
     '[data-testid*="assistant"]',
     '[data-testid*="response"]',
-    '[data-is-streaming="true"]',
+    '[data-is-streaming]',
     '[aria-live="polite"]',
+    '.font-claude-response',
     '.font-claude-message',
     '[class*="font-claude-message"]',
     '.prose',
@@ -152,7 +240,7 @@ function findLatestClaudeStreamingText(anchorElement, knownMessages) {
 
   candidates.forEach(function(element) {
     var isAssistantContainer = element.matches && element.matches(
-      'div[data-testid="claude-message"], div[data-testid="assistant-message"], [data-testid*="assistant"], [data-testid*="response"], [data-is-streaming="true"], .font-claude-message, [class*="font-claude-message"]'
+      'div[data-testid="claude-message"], div[data-testid="assistant-message"], [data-testid*="assistant"], [data-testid*="response"], [data-is-streaming], .font-claude-response, .font-claude-message, [class*="font-claude-message"]'
     );
     if (!isElementAfter(anchorElement, element) && !(isAssistantContainer && element.closest('main'))) return;
     if (element.closest('nav, aside, header, footer')) return;
@@ -164,9 +252,9 @@ function findLatestClaudeStreamingText(anchorElement, knownMessages) {
 
     if (!isAssistantContainer && element.closest('button, [contenteditable="true"], textarea, input')) return;
 
-    var textSource = isAssistantContainer ? element : (
-      element.querySelector('[data-testid="message-content"], .font-claude-message, [class*="font-claude-message"], .prose, [class*="prose"]') || element
-    );
+    var textSource = element.querySelector(
+      '.font-claude-response, [data-testid="message-content"], .font-claude-message, [class*="font-claude-message"], .prose, [class*="prose"]'
+    ) || element;
     if (textSource.getAttribute && textSource.getAttribute('role') === 'status') return;
     if (textSource.getAttribute && textSource.getAttribute('aria-live')) return;
     if (textSource.classList && textSource.classList.contains('sr-only')) return;
@@ -310,12 +398,22 @@ const PLATFORM_CONFIGS = {
       return '';
     },
     scrapeHistory: function() {
-      var bubbles = Array.from(document.querySelectorAll('.message-bubble'));
+      var bubbles = Array.from(document.querySelectorAll(
+        '[data-testid="user-message"], [data-testid="assistant-message"]'
+      ));
+      if (bubbles.length === 0) {
+        bubbles = Array.from(document.querySelectorAll('.message-bubble'));
+      }
+
       return normalizeScrapedHistory(bubbles.map(function(el) {
-        var isUser = el.className.includes('bg-surface-l1') || el.className.includes('bg-surface-l');
+        var testId = el.getAttribute('data-testid');
+        var isUser = testId === 'user-message' || (
+          !testId && (el.className.includes('bg-surface-l1') || el.className.includes('bg-surface-l'))
+        );
         return {
           role: isUser ? 'user' : 'assistant',
-          content: el.innerText.trim()
+          content: el.innerText.trim(),
+          links: collectScrapedLinks(el)
         };
       }));
     },
@@ -407,7 +505,8 @@ const PLATFORM_CONFIGS = {
           var isUser = el.tagName === 'USER-QUERY';
           return {
             role: isUser ? 'user' : 'assistant',
-            content: el.innerText.trim()
+            content: el.innerText.trim(),
+            links: collectScrapedLinks(el)
           };
         }));
       }
@@ -417,7 +516,8 @@ const PLATFORM_CONFIGS = {
         var isUser = el.className.includes('query-text') || el.className.includes('user-query-content');
         return {
           role: isUser ? 'user' : 'assistant',
-          content: el.innerText.trim()
+          content: el.innerText.trim(),
+          links: collectScrapedLinks(el)
         };
       }));
     },
@@ -505,7 +605,14 @@ const PLATFORM_CONFIGS = {
       return allTexts.join('');
     },
     scrapeHistory: function() {
-      var all = Array.from(document.querySelectorAll('div[data-testid="user-message"], div[data-testid="claude-message"]'));
+      var articleMessages = scrapeClaudeArticleHistory();
+      if (articleMessages.some(function(message) { return message.role === 'assistant'; })) {
+        return articleMessages;
+      }
+
+      var all = Array.from(document.querySelectorAll(
+        'div[data-testid="user-message"], div[data-testid="claude-message"], .font-claude-response'
+      ));
       if (all.length > 0) {
         var latestUserElement = null;
         var directMessages = normalizeScrapedHistory(all.map(function(el) {
@@ -513,13 +620,16 @@ const PLATFORM_CONFIGS = {
           if (isUser) latestUserElement = el;
           return {
             role: isUser ? 'user' : 'assistant',
-            content: el.innerText.trim()
+            content: el.innerText.trim(),
+            links: collectScrapedLinks(el)
           };
         }));
 
         appendLatestClaudeStreamingMessage(directMessages, latestUserElement);
 
-        if (directMessages.length > 1) return directMessages;
+        if (directMessages.some(function(message) { return message.role === 'assistant'; })) {
+          return directMessages;
+        }
       }
 
       var headingMessages = [];
@@ -539,20 +649,23 @@ const PLATFORM_CONFIGS = {
         return headingMessages;
       }
 
-      var fallbacks = Array.from(document.querySelectorAll('.font-user-message, .font-claude-message'));
+      var fallbacks = Array.from(document.querySelectorAll(
+        '.font-user-message, .font-claude-response, .font-claude-message'
+      ));
       var latestFallbackUserElement = null;
       var fallbackMessages = normalizeScrapedHistory(fallbacks.map(function(el) {
         var isUser = el.className.includes('font-user-message');
         if (isUser) latestFallbackUserElement = el;
         return {
           role: isUser ? 'user' : 'assistant',
-          content: el.innerText.trim()
+          content: el.innerText.trim(),
+          links: collectScrapedLinks(el)
         };
       }));
 
       appendLatestClaudeStreamingMessage(fallbackMessages, latestFallbackUserElement);
 
-      return fallbackMessages;
+      return fallbackMessages.length > 0 ? fallbackMessages : articleMessages;
     },
     waitAfterFill: 1000
   },
@@ -618,7 +731,11 @@ const PLATFORM_CONFIGS = {
     },
     scrapeHistory: function() {
       var turnMessages = [];
-      var turns = Array.from(document.querySelectorAll('[data-testid^="conversation-turn"], article'));
+      var turns = Array.from(document.querySelectorAll('[data-testid^="conversation-turn"]'));
+      if (turns.length === 0) {
+        turns = Array.from(document.querySelectorAll('article'));
+      }
+
       turns.forEach(function(turn) {
         var roleEl = turn.querySelector('[data-message-author-role]');
         var role = turn.getAttribute('data-turn') || (roleEl ? roleEl.getAttribute('data-message-author-role') : '');
@@ -645,12 +762,16 @@ const PLATFORM_CONFIGS = {
         if (isUser || isAssistant) {
           turnMessages.push({
             role: isUser ? 'user' : 'assistant',
-            content: rawText
+            content: rawText,
+            links: collectScrapedLinks(roleEl || turn)
           });
         }
       });
       turnMessages = normalizeScrapedHistory(turnMessages);
-      if (turnMessages.length > 1 && turnMessages.some(function(m) { return m.role === 'user'; })) {
+      if (
+        turnMessages.some(function(message) { return message.role === 'user'; }) &&
+        turnMessages.some(function(message) { return message.role === 'assistant'; })
+      ) {
         return turnMessages;
       }
 
@@ -661,7 +782,8 @@ const PLATFORM_CONFIGS = {
           var textEl = el.querySelector('.markdown, .whitespace-pre-wrap') || el;
           return {
             role: role === 'user' ? 'user' : 'assistant',
-            content: textEl.innerText.trim()
+            content: textEl.innerText.trim(),
+            links: collectScrapedLinks(el)
           };
         }));
       }
@@ -672,7 +794,8 @@ const PLATFORM_CONFIGS = {
         var text = markdownEl ? markdownEl.innerText : turn.innerText;
         return {
           role: isUser ? 'user' : 'assistant',
-          content: text.trim()
+          content: text.trim(),
+          links: collectScrapedLinks(turn)
         };
       }));
     },

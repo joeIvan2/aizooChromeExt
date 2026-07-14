@@ -4,463 +4,463 @@
     "description": "Name of the extension"
   },
   "extensionDescription": {
-    "message": "Compare multiple leading AI chatbots side-by-side in a single, unified workspace",
+    "message": "Comparez plusieurs chatbots IA de premier plan côte à côte dans un espace de travail unique et unifié",
     "description": "Description of the extension"
   },
   "extensionActionTitle": {
-    "message": "AI Zoo - Click to Open",
+    "message": "AI Zoo - Cliquez pour ouvrir",
     "description": "Tooltip when hovering over extension icon"
   },
   "inputPlaceholder": {
-    "message": "Enter your question, send to all AI at once... (Ctrl+Enter to send)",
+    "message": "Saisissez votre question, envoyez à toutes les IA en même temps... (Ctrl+Entrée pour envoyer)",
     "description": "Placeholder text for input textarea"
   },
   "sendToAllButton": {
-    "message": "Send to All AI",
+    "message": "Envoyer à toutes les IA",
     "description": "Send button text"
   },
   "sendOneButton": {
-    "message": "One AI",
+    "message": "Une IA",
     "description": "Send to one AI button text"
   },
   "sendOneTitle": {
-    "message": "Choose one AI to send",
+    "message": "Choisissez une IA pour l'envoi",
     "description": "Send to one AI button tooltip"
   },
   "sendOnePlatformMenuLabel": {
-    "message": "Choose platform to send",
+    "message": "Choisir la plateforme d'envoi",
     "description": "Send to one AI platform menu aria label"
   },
   "newChatButton": {
-    "message": "New Chat +",
+    "message": "Nouveau chat +",
     "description": "New chat button text"
   },
   "refreshTitle": {
-    "message": "Refresh",
+    "message": "Actualiser",
     "description": "Refresh button tooltip"
   },
   "maximizeTitle": {
-    "message": "Maximize",
+    "message": "Maximiser",
     "description": "Maximize button tooltip"
   },
   "loadingTitle": {
-    "message": "Loading...",
+    "message": "Chargement...",
     "description": "Loading status tooltip"
   },
   "statusReady": {
-    "message": "Ready",
+    "message": "Prêt",
     "description": "Status: Ready"
   },
   "statusSending": {
-    "message": "Sending...",
+    "message": "Envoi...",
     "description": "Status: Sending question"
   },
   "statusWaiting": {
-    "message": "Waiting for response...",
+    "message": "En attente de réponse...",
     "description": "Status: Waiting for AI response"
   },
   "statusReceived": {
-    "message": "Response received",
+    "message": "Réponse reçue",
     "description": "Status: Response received"
   },
   "statusError": {
-    "message": "Error",
+    "message": "Erreur",
     "description": "Status: Error occurred"
   },
   "errorTextareaNotFound": {
-    "message": "❌ Textarea not found (timeout)",
+    "message": "❌ Zone de texte introuvable (délai dépassé)",
     "description": "Error: Cannot find input textarea"
   },
   "errorFillFailed": {
-    "message": "❌ Failed to fill question",
+    "message": "❌ Échec du remplissage de la question",
     "description": "Error: Cannot fill question into textarea"
   },
   "errorVerifyFailed": {
-    "message": "❌ Content verification failed, text not properly filled",
+    "message": "❌ Échec de la vérification du contenu, le texte n'a pas été rempli correctement",
     "description": "Error: Content verification failed"
   },
   "errorButtonClickFailed": {
-    "message": "❌ Button click failed (timeout)",
+    "message": "❌ Échec du clic sur le bouton (délai dépassé)",
     "description": "Error: Cannot click submit button"
   },
   "infoWaitingTextarea": {
-    "message": "Waiting for textarea to be ready...",
+    "message": "En attente de la zone de texte...",
     "description": "Info: Waiting for textarea"
   },
   "infoWaitingButton": {
-    "message": "Waiting for send button to be ready...",
+    "message": "En attente du bouton d'envoi...",
     "description": "Info: Waiting for button"
   },
   "infoWaitingButtonEnabled": {
-    "message": "Waiting for button to be enabled...",
+    "message": "En attente de l'activation du bouton...",
     "description": "Info: Waiting for button to be enabled"
   },
   "compareButton": {
-    "message": "Smart Compare",
+    "message": "Comparaison intelligente",
     "description": "Smart compare button text"
   },
   "compareButtonTitle": {
-    "message": "Compare all answers",
+    "message": "Comparer toutes les réponses intelligemment",
     "description": "Smart compare button tooltip"
   },
   "historyButton": {
-    "message": "History",
+    "message": "Historique",
     "description": "Conversation history button text"
   },
   "historyButtonTitle": {
-    "message": "Show conversation history",
+    "message": "Afficher l'historique des conversations",
     "description": "Conversation history button tooltip"
   },
   "minimizeInputTitle": {
-    "message": "Minimize control panel",
+    "message": "Minimiser le panneau de contrôle",
     "description": "Minimize input panel tooltip"
   },
   "restoreTitle": {
-    "message": "Restore",
+    "message": "Restaurer",
     "description": "Restore maximized iframe tooltip"
   },
   "sessionSwitcherLabel": {
-    "message": "Conversation group list",
+    "message": "Liste des groupes de conversation",
     "description": "Session switcher aria label"
   },
   "sessionSelectTitle": {
-    "message": "Select a saved conversation group",
+    "message": "Sélectionner un groupe de conversation enregistré",
     "description": "Session select tooltip"
   },
   "noSessionGroups": {
-    "message": "No conversation groups",
+    "message": "Aucun groupe de conversation",
     "description": "Shown when there are no saved sessions"
   },
   "loadSessionButton": {
-    "message": "Switch",
+    "message": "Basculer",
     "description": "Load session button text"
   },
   "loadSessionTitle": {
-    "message": "Switch all platforms to this conversation group",
+    "message": "Basculer toutes les plateformes vers ce groupe de conversation",
     "description": "Load session button tooltip"
   },
   "deleteSessionButton": {
-    "message": "Delete",
+    "message": "Supprimer",
     "description": "Delete session button text"
   },
   "deleteSessionTitle": {
-    "message": "Delete this conversation record",
+    "message": "Supprimer cet historique de conversation",
     "description": "Delete session button tooltip"
   },
   "hideSessionButton": {
-    "message": "Hide",
+    "message": "Masquer",
     "description": "Hide session switcher button text"
   },
   "hideSessionTitle": {
-    "message": "Hide conversation history",
+    "message": "Masquer l'historique des conversations",
     "description": "Hide session switcher button tooltip"
   },
   "claudeDiagnoseTitle": {
-    "message": "Claude diagnostics",
+    "message": "Diagnostic de Claude",
     "description": "Claude diagnostics button tooltip"
   },
   "closeDiagnosticsLabel": {
-    "message": "Close diagnostics panel",
+    "message": "Fermer le panneau de diagnostic",
     "description": "Close diagnostics panel aria label"
   },
   "diagnosticsNotRun": {
-    "message": "Diagnostics have not run yet",
+    "message": "Les diagnostics n'ont pas encore été exécutés",
     "description": "Diagnostics panel initial text"
   },
   "latestQuestionLabel": {
-    "message": "Latest question:",
+    "message": "Dernière question :",
     "description": "Smart compare latest question label"
   },
   "comparePromptWaiting": {
-    "message": "No question sent yet, or waiting for platform responses...",
+    "message": "Aucune question envoyée pour le moment, ou en attente des réponses...",
     "description": "Smart compare waiting prompt"
   },
   "shareButton": {
-    "message": "Share",
+    "message": "Partager",
     "description": "Share button text"
   },
   "shareCompareTitle": {
-    "message": "Format and share all LLM content",
+    "message": "Organiser et partager tout le contenu des LLM",
     "description": "Smart compare share button tooltip"
   },
   "summaryCompareButton": {
-    "message": "AI Summary",
-    "description": "Button text for sending smart compare content to a selected platform for summary"
+    "message": "AI Résumé",
+    "description": "Button text for sending smart compare content to a chosen platform for summarization"
   },
   "summaryCompareTitle": {
-    "message": "Choose one LLM to summarize all compare content",
-    "description": "Summary button tooltip"
+    "message": "Choisissez un LLM pour résumer tout le contenu comparé",
+    "description": "Send summary button tooltip"
   },
   "summaryPlatformMenuLabel": {
-    "message": "Choose summary platform",
+    "message": "Choisir la plateforme de résumé",
     "description": "Summary platform menu aria label"
   },
   "summaryPromptLabel": {
-    "message": "Summary Prompt",
-    "description": "Editable AI summary prompt label"
+    "message": "Prompt de synthèse",
+    "description": "Label for editable AI summary prompt"
   },
   "summaryPromptPlaceholder": {
-    "message": "Edit summary instruction...",
-    "description": "Editable AI summary prompt placeholder"
+    "message": "Modifier les consignes de synthèse...",
+    "description": "Placeholder for editable AI summary prompt"
   },
   "summaryPromptDefault": {
-    "message": "Synthesize everyone's points, compare similarities and differences, and provide a clear conclusion.",
-    "description": "Default editable AI summary prompt"
+    "message": "Synthétisez les points de chacun, comparez les similitudes et différences, puis donnez une conclusion claire.",
+    "description": "Default editable prompt for AI summary"
   },
   "closeCompareLabel": {
-    "message": "Close smart compare",
+    "message": "Fermer la comparaison intelligente",
     "description": "Close smart compare aria label"
   },
   "loadingConversation": {
-    "message": "Waiting to load conversation...",
+    "message": "En attente du chargement de la conversation...",
     "description": "Initial loading conversation text"
   },
   "sharePanelTitle": {
-    "message": "Format Share",
+    "message": "Partager le format",
     "description": "Share panel title"
   },
   "sharePanelSubtitle": {
-    "message": "Organized as Markdown. You can copy or download it. Nothing is uploaded automatically.",
+    "message": "Organisé en Markdown. Vous pouvez le copier ou le télécharger. Rien n'est téléversé automatiquement.",
     "description": "Share panel subtitle"
   },
   "closeShareLabel": {
-    "message": "Close share panel",
+    "message": "Fermer le panneau de partage",
     "description": "Close share panel aria label"
   },
   "copyShareButton": {
-    "message": "Copy Text",
+    "message": "Copier le texte",
     "description": "Copy share text button"
   },
   "downloadShareButton": {
-    "message": "Download .md",
+    "message": "Télécharger .md",
     "description": "Download Markdown button"
   },
   "nativeShareButton": {
-    "message": "System Share",
+    "message": "Partage système",
     "description": "Native share button"
   },
   "statusWaitingReady": {
-    "message": "Waiting for readiness...",
+    "message": "En attente de préparation...",
     "description": "Waiting for platform readiness status"
   },
   "loadingConversationHistory": {
-    "message": "Loading conversation history...",
+    "message": "Chargement de l'historique...",
     "description": "Loading conversation history status"
   },
   "alertEnterQuestion": {
-    "message": "Please enter a question",
+    "message": "Veuillez saisir une question",
     "description": "Alert shown when the input is empty"
   },
   "confirmNewChat": {
-    "message": "Start a new chat? This will reset the current conversation on all AI platforms.",
+    "message": "Démarrer un nouveau chat ? Cela réinitialisera la conversation actuelle sur toutes les plateformes IA.",
     "description": "New chat confirmation"
   },
   "statusResetting": {
-    "message": "Resetting...",
+    "message": "Réinitialisation...",
     "description": "Resetting platform status"
   },
   "statusDisabledNotSending": {
-    "message": "Disabled, not sending",
+    "message": "Désactivé, envoi annulé",
     "description": "Disabled platform not sending status"
   },
   "statusIframeNotFound": {
-    "message": "iframe not found",
+    "message": "iframe introuvable",
     "description": "iframe not found status"
   },
   "statusSendFailed": {
-    "message": "Send failed",
+    "message": "Échec de l'envoi",
     "description": "Send failed status"
   },
   "statusDisabled": {
-    "message": "Disabled",
+    "message": "Désactivé",
     "description": "Platform disabled status"
   },
   "compareResponding": {
-    "message": "Responding...",
+    "message": "Réponse en cours...",
     "description": "Smart compare pending response text"
   },
   "statusResponding": {
-    "message": "Responding...",
+    "message": "Réponse en cours...",
     "description": "Responding status"
   },
   "statusSyncingResponse": {
-    "message": "Syncing response...",
+    "message": "Synchronisation de la réponse...",
     "description": "Syncing response status"
   },
   "statusComplete": {
-    "message": "Complete",
+    "message": "Terminé",
     "description": "Complete status"
   },
   "untitledConversation": {
-    "message": "Untitled conversation",
+    "message": "Conversation sans titre",
     "description": "Untitled conversation"
   },
   "sessionOptionFormat": {
-    "message": "$1 · $2 platforms · $3",
+    "message": "$1 · $2 plateformes · $3",
     "description": "Session option format"
   },
   "historyConversationPrompt": {
-    "message": "History: $1",
+    "message": "Historique : $1",
     "description": "Latest question row while switching history"
   },
   "switchingHistoryConversation": {
-    "message": "Switching history conversation...",
+    "message": "Bascule de la conversation de l'historique...",
     "description": "Switching history conversation status"
   },
   "platformDisabled": {
-    "message": "This platform is disabled",
+    "message": "Cette plateforme est désactivée",
     "description": "Smart compare platform disabled text"
   },
   "switchingConversation": {
-    "message": "Switching conversation...",
+    "message": "Bascule de la conversation...",
     "description": "Switching conversation status"
   },
   "sessionMissingPlatformUrl": {
-    "message": "This history group has no URL for this platform.",
+    "message": "Ce groupe d'historique n'a pas d'URL pour cette plateforme.",
     "description": "History group missing platform URL"
   },
   "confirmDeleteSession": {
-    "message": "Delete conversation group \"$1\"?",
+    "message": "Supprimer le groupe de conversation \"$1\" ?",
     "description": "Delete history group confirmation"
   },
   "loading": {
-    "message": "Loading...",
+    "message": "Chargement...",
     "description": "Generic loading text"
   },
   "statusCannotSetBreakpoint": {
-    "message": "Cannot set breakpoint",
+    "message": "Impossible de définir le point d'arrêt",
     "description": "Cannot set breakpoint status"
   },
   "statusBreakpointSetReloading": {
-    "message": "Breakpoint set, reloading...",
+    "message": "Point d'arrêt défini, rechargement...",
     "description": "Breakpoint set status"
   },
   "statusBreakpointFailed": {
-    "message": "Breakpoint setup failed",
+    "message": "Échec de la configuration du point d'arrêt",
     "description": "Breakpoint setup failed status"
   },
   "statusCannotEnableProtection": {
-    "message": "Cannot enable protection",
+    "message": "Impossible d'activer la protection",
     "description": "Cannot enable protection status"
   },
   "statusSidebarProtectionReloading": {
-    "message": "Sidebar protection enabled for 5 seconds, reloading...",
+    "message": "Protection de la barre latérale activée pendant 5 secondes, rechargement...",
     "description": "Sidebar protection status"
   },
   "statusProtectionFailed": {
-    "message": "Protection failed",
+    "message": "Échec de la protection",
     "description": "Protection failed status"
   },
   "disablePlatformTitle": {
-    "message": "Disable $1",
+    "message": "Désactiver $1",
     "description": "Disable platform tooltip"
   },
   "enablePlatformTitle": {
-    "message": "Enable $1",
+    "message": "Activer $1",
     "description": "Enable platform tooltip"
   },
   "statusLoginRequired": {
-    "message": "Login verification required",
+    "message": "Vérification de connexion requise",
     "description": "Login required status"
   },
   "statusLoginWindowOpened": {
-    "message": "Login window opened",
+    "message": "Fenêtre de connexion ouverte",
     "description": "Login window opened status"
   },
   "statusReloading": {
-    "message": "Reloading...",
+    "message": "Rechargement...",
     "description": "Reloading status"
   },
   "statusCompleteLoginInNewTab": {
-    "message": "Complete login in the new tab",
+    "message": "Connectez-vous dans le nouvel onglet",
     "description": "New tab login prompt"
   },
   "compareUserLabel": {
-    "message": "You:",
+    "message": "Vous :",
     "description": "Smart compare user label"
   },
   "compareAiLabel": {
-    "message": "AI:",
+    "message": "IA :",
     "description": "Smart compare AI label"
   },
   "platformNoConversation": {
-    "message": "This platform has no conversation content yet.",
+    "message": "Cette plateforme n'a pas encore de contenu de conversation.",
     "description": "Platform has no conversation content"
   },
   "compareRespondingShort": {
-    "message": "Responding",
+    "message": "Réponse en cours",
     "description": "Smart compare short status: responding"
   },
   "compareOrganized": {
-    "message": "Organized",
+    "message": "Organisé",
     "description": "Smart compare short status: organized"
   },
   "compareNoContent": {
-    "message": "No content yet",
+    "message": "Aucun contenu",
     "description": "Smart compare short status: no content"
   },
   "shareDefaultTitle": {
-    "message": "AI Zoo Smart Compare",
+    "message": "Comparaison Intelligente AI Zoo",
     "description": "Default share title"
   },
   "shareCopied": {
-    "message": "Copied to clipboard.",
+    "message": "Copié dans le presse-papiers.",
     "description": "Share copied status"
   },
   "shareCopyFallback": {
-    "message": "Tried copying with the fallback method.",
+    "message": "Tentative de copie par la méthode de secours.",
     "description": "Share fallback copy status"
   },
   "shareDownloaded": {
-    "message": "Downloaded $1",
+    "message": "Téléchargé $1",
     "description": "Share downloaded status"
   },
   "shareNotSupported": {
-    "message": "System share is not supported here. Please copy or download instead.",
+    "message": "Le partage système n'est pas pris en charge ici. Veuillez copier ou télécharger à la place.",
     "description": "Native share not supported"
   },
   "shareOpened": {
-    "message": "System share opened.",
+    "message": "Partage système ouvert.",
     "description": "Native share opened"
   },
   "shareFailed": {
-    "message": "System share failed. Please copy or download instead.",
+    "message": "Échec du partage système. Veuillez copier ou télécharger à la place.",
     "description": "Native share failed"
   },
   "statusResponseTimeout": {
-    "message": "Timed out waiting for platform response",
+    "message": "Délai d'attente dépassé pour la réponse de la plateforme",
     "description": "Response timeout status"
   },
   "statusConfirmingResponseDone": {
-    "message": "Confirming response completion...",
+    "message": "Confirmation de la fin de la réponse...",
     "description": "Confirming response completion status"
   },
   "platformNotReady": {
-    "message": "Platform is not ready yet",
+    "message": "La plateforme n'est pas encore prête",
     "description": "Platform not ready"
   },
   "prevPlatformTitle": {
-    "message": "Previous platform (Ctrl + Left Arrow)",
-    "description": "Button tooltip for switching to previous platform in maximized mode"
+    "message": "Plateforme précédente (Ctrl + Flèche gauche)",
+    "description": "Tooltip for previous platform button in maximized mode"
   },
   "nextPlatformTitle": {
-    "message": "Next platform (Ctrl + Right Arrow)",
-    "description": "Button tooltip for switching to next platform in maximized mode"
+    "message": "Plateforme suivante (Ctrl + Flèche droite)",
+    "description": "Tooltip for next platform button in maximized mode"
   },
   "sendQuestionToPlatformTitle": {
-    "message": "Send question to $1 only",
-    "description": "Tooltip for sending a question to a specific platform only"
+    "message": "Envoyer la question uniquement à $1",
+    "description": "Tooltip to send a question to a specific platform"
   },
   "sendCompareToPlatformTitle": {
-    "message": "Send compare content to $1",
-    "description": "Tooltip for sending compare summary content to a specific platform"
+    "message": "Envoyer le contenu comparé à $1",
+    "description": "Tooltip to send compare summary to a specific platform"
   },
   "languageButtonTitle": {
-    "message": "Choose language",
-    "description": "Interface language button tooltip"
+    "message": "Choisir la langue",
+    "description": "Tooltip for the interface language button"
   },
   "languageMenuLabel": {
-    "message": "Choose interface language",
-    "description": "Language menu accessibility label"
+    "message": "Choisir la langue de l'interface",
+    "description": "Language menu aria label"
   }
 }

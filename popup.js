@@ -15,18 +15,64 @@ const COMPARE_POLL_INTERVAL_MS = 1500;
 const COMPARE_MAX_WATCH_MS = 3 * 60 * 1000;
 const COMPARE_STABLE_POLLS_REQUIRED = 2;
 const COMPARE_OPEN_REFRESH_DELAYS_MS = [1200, 3500, 8000, 15000, 30000];
+const COMPARE_SEND_HISTORY_REFRESH_DELAYS_MS = [700, 2200, 5000, 10000, 20000, 35000];
+const COMPARE_HISTORY_REQUEST_MIN_GAP_MS = 900;
+const COMPARE_HISTORY_REQUEST_STALE_MS = 8000;
+const COMPARE_HISTORY_SCRAPE_TIMEOUT_MS = 1500;
 let activeSessionDraft = null;
 let comparePollTimer = null;
 let compareOpenRefreshTimers = [];
+let compareHistoryRequestId = 0;
+let compareIgnoreScrapeResponsesUntil = 0;
 const compareWatchState = {};
 const compareLatestHistories = {};
+const compareHistoryRequestState = {};
+const LANGUAGE_STORAGE_KEY = 'ai-zoo-language';
+const DEFAULT_LANGUAGE = 'auto';
+const SUMMARY_PROMPT_STORAGE_KEY = 'ai-zoo-summary-prompt';
+const SUMMARY_PROMPT_CUSTOMIZED_STORAGE_KEY = 'ai-zoo-summary-prompt-customized';
+const RESIZE_HINT_STORAGE_KEYS = {
+  minimize: 'ai-zoo-resize-minimize-seen',
+  maximize: 'ai-zoo-resize-maximize-seen',
+  restore: 'ai-zoo-resize-restore-seen',
+  panelRestore: 'ai-zoo-resize-panel-restore-seen'
+};
+const supportedLanguages = [
+  { code: 'auto', label: 'Auto' },
+  { code: 'de', label: 'Deutsch' },
+  { code: 'en', label: 'English' },
+  { code: 'es', label: 'Español' },
+  { code: 'fr', label: 'Français' },
+  { code: 'ja', label: '日本語' },
+  { code: 'zh_CN', label: '简体中文' },
+  { code: 'zh_TW', label: '繁體中文' }
+];
+let selectedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY) || DEFAULT_LANGUAGE;
+let selectedLanguageMessages = null;
+const languageMessageCache = {};
+
+const CLAUDE_NEW_CHAT_URL = 'https://claude.ai/new';
 
 const defaultUrls = {
   grok: 'https://grok.com/',
   gemini: 'https://gemini.google.com/app',
-  claude: 'https://claude.ai/new',
+  claude: CLAUDE_NEW_CHAT_URL,
   chatgpt: 'https://chatgpt.com/'
 };
+
+function normalizePlatformUrl(platform, url) {
+  if (platform !== 'claude' || !url) return url;
+
+  try {
+    const parsed = new URL(url);
+    if (parsed.hostname === 'claude.ai' && parsed.pathname === '/new') {
+      parsed.searchParams.delete('model');
+      return parsed.toString();
+    }
+  } catch (error) {}
+
+  return url;
+}
 
 const conversationUrlPatterns = {
   grok: /^https:\/\/grok\.com\/(?:chat|c)\//,
@@ -35,22 +81,64 @@ const conversationUrlPatterns = {
   chatgpt: /^https:\/\/chatgpt\.com\/c\/[^/?#]+/
 };
 
-function t(key, fallback = '', substitutions) {
-  const message = chrome?.i18n?.getMessage(key, substitutions);
-  let text = message || fallback || '';
+function applySubstitutions(text, substitutions) {
+  let result = text || '';
   const values = Array.isArray(substitutions)
     ? substitutions
     : (substitutions === undefined ? [] : [substitutions]);
 
   values.forEach((value, index) => {
-    text = text.replaceAll(`$${index + 1}`, String(value));
+    result = result.replaceAll(`$${index + 1}`, String(value));
   });
+
+  return result;
+}
+
+function t(key, fallback = '', substitutions) {
+  const overrideMessage = selectedLanguageMessages?.[key]?.message;
+  if (overrideMessage) {
+    return applySubstitutions(overrideMessage, substitutions);
+  }
+
+  const message = (typeof chrome !== 'undefined' && chrome?.i18n)
+    ? chrome.i18n.getMessage(key, substitutions)
+    : '';
+  let text = message || fallback || '';
 
   return text;
 }
 
 // i18n 初始化函數
-function initI18n() {
+async function loadLanguageMessages(languageCode) {
+  if (!languageCode || languageCode === DEFAULT_LANGUAGE) {
+    selectedLanguageMessages = null;
+    return;
+  }
+
+  if (!supportedLanguages.some(language => language.code === languageCode)) {
+    selectedLanguageMessages = null;
+    selectedLanguage = DEFAULT_LANGUAGE;
+    localStorage.setItem(LANGUAGE_STORAGE_KEY, DEFAULT_LANGUAGE);
+    return;
+  }
+
+  if (!languageMessageCache[languageCode]) {
+    try {
+      const response = await fetch(chrome.runtime.getURL(`_locales/${languageCode}/messages.json`));
+      languageMessageCache[languageCode] = await response.json();
+    } catch (error) {
+      console.error('[AI Multi-Chat] Failed to load language messages:', languageCode, error);
+      selectedLanguageMessages = null;
+      return;
+    }
+  }
+
+  selectedLanguageMessages = languageMessageCache[languageCode];
+}
+
+async function initI18n() {
+  await loadLanguageMessages(selectedLanguage);
+
   // 處理 data-i18n 屬性（設置 textContent）
   document.querySelectorAll('[data-i18n]').forEach(element => {
     const key = element.getAttribute('data-i18n');
@@ -86,15 +174,18 @@ function initI18n() {
     }
   });
 
+  syncSummaryPromptInput();
+  syncLanguageMenu();
   console.log('[AI Multi-Chat] i18n initialized');
 }
 
 // 初始化
-document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', async () => {
   console.log('[AI Multi-Chat] DOM loaded, initializing...');
+  syncResizeControlsHint();
 
   // 首先初始化 i18n
-  initI18n();
+  await initI18n();
 
   // 獲取所有 iframe 和狀態元素
   platforms.forEach(platform => {
@@ -102,7 +193,7 @@ document.addEventListener('DOMContentLoaded', () => {
     statusElements[platform] = document.getElementById(`${platform}-status`);
 
     // 恢復上次的 URL
-    const savedUrl = localStorage.getItem(`ai-chat-url-${platform}`);
+    const savedUrl = normalizePlatformUrl(platform, localStorage.getItem(`ai-chat-url-${platform}`));
     if (savedUrl && savedUrl !== defaultUrls[platform]) {
       console.log(`[${platform}] Restoring saved URL:`, savedUrl);
       iframes[platform].src = savedUrl;
@@ -140,21 +231,129 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // 發送按鈕
   const mainQuestionInput = document.getElementById('question-input');
-  document.getElementById('send-all-btn').addEventListener('click', () => sendQuestionToAll(mainQuestionInput));
+  const sendAllBtn = document.getElementById('send-all-btn');
+  if (sendAllBtn) {
+    let suppressNextSendAllClick = false;
+    let suppressSendAllClickTimer = null;
+    const sendAllFromButton = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sendQuestionToAll(mainQuestionInput);
+    };
+
+    sendAllBtn.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      suppressNextSendAllClick = true;
+      clearTimeout(suppressSendAllClickTimer);
+      suppressSendAllClickTimer = setTimeout(() => {
+        suppressNextSendAllClick = false;
+        suppressSendAllClickTimer = null;
+      }, 500);
+      sendAllFromButton(e);
+    });
+
+    sendAllBtn.addEventListener('click', (e) => {
+      if (suppressNextSendAllClick) {
+        suppressNextSendAllClick = false;
+        clearTimeout(suppressSendAllClickTimer);
+        suppressSendAllClickTimer = null;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      sendAllFromButton(e);
+    });
+  }
+
+  const sendOneBtn = document.getElementById('send-one-btn');
+  if (sendOneBtn) {
+    let suppressNextSendOneClick = false;
+    let suppressSendOneClickTimer = null;
+    const toggleSendOneFromButton = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSendOnePlatformMenu();
+    };
+
+    sendOneBtn.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      suppressNextSendOneClick = true;
+      clearTimeout(suppressSendOneClickTimer);
+      suppressSendOneClickTimer = setTimeout(() => {
+        suppressNextSendOneClick = false;
+        suppressSendOneClickTimer = null;
+      }, 500);
+      toggleSendOneFromButton(e);
+    });
+
+    sendOneBtn.addEventListener('click', (e) => {
+      if (suppressNextSendOneClick) {
+        suppressNextSendOneClick = false;
+        clearTimeout(suppressSendOneClickTimer);
+        suppressSendOneClickTimer = null;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      toggleSendOneFromButton(e);
+    });
+  }
+
+  document.querySelectorAll('[data-send-one-platform]').forEach((button) => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sendQuestionToOnePlatform(button.dataset.sendOnePlatform, mainQuestionInput);
+    });
+  });
 
   // 智慧對比按鈕
   const compareBtn = document.getElementById('compare-btn');
   if (compareBtn) {
-    compareBtn.addEventListener('click', openComparePanel);
+    let suppressNextCompareClick = false;
+    let suppressCompareClickTimer = null;
+    const toggleComparePanelFromButton = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleComparePanel();
+    };
+
+    compareBtn.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      suppressNextCompareClick = true;
+      clearTimeout(suppressCompareClickTimer);
+      suppressCompareClickTimer = setTimeout(() => {
+        suppressNextCompareClick = false;
+        suppressCompareClickTimer = null;
+      }, 500);
+      toggleComparePanelFromButton(e);
+    });
+
+    compareBtn.addEventListener('click', (e) => {
+      if (suppressNextCompareClick) {
+        suppressNextCompareClick = false;
+        clearTimeout(suppressCompareClickTimer);
+        suppressCompareClickTimer = null;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      toggleComparePanelFromButton(e);
+    });
   }
 
   const closeCompareBtn = document.getElementById('close-compare-btn');
   if (closeCompareBtn) {
-    closeCompareBtn.addEventListener('click', () => {
-      const panel = document.getElementById('compare-panel');
-      if (panel) panel.classList.add('hidden');
-      setCompareInputDocked(false);
-      clearCompareOpenRefreshTimers();
+    closeCompareBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      closeComparePanel();
     });
   }
 
@@ -163,13 +362,126 @@ document.addEventListener('DOMContentLoaded', () => {
     shareCompareBtn.addEventListener('click', openSharePanel);
   }
 
+  const summaryCompareBtn = document.getElementById('summary-compare-btn');
+  if (summaryCompareBtn) {
+    summaryCompareBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleSummaryPlatformMenu();
+    });
+  }
+
+  const summaryPromptInput = document.getElementById('summary-prompt-input');
+  if (summaryPromptInput) {
+    summaryPromptInput.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+
+    summaryPromptInput.addEventListener('input', () => {
+      localStorage.setItem(SUMMARY_PROMPT_STORAGE_KEY, summaryPromptInput.value);
+      localStorage.setItem(SUMMARY_PROMPT_CUSTOMIZED_STORAGE_KEY, 'true');
+    });
+  }
+
+  document.querySelectorAll('[data-summary-platform]').forEach((button) => {
+    button.addEventListener('click', (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      sendCompareSummaryToPlatform(button.dataset.summaryPlatform);
+    });
+  });
+
+  const languageBtn = document.getElementById('language-btn');
+  if (languageBtn) {
+    let suppressNextLanguageClick = false;
+    let suppressLanguageClickTimer = null;
+    const toggleLanguageFromButton = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      toggleLanguageMenu();
+    };
+
+    languageBtn.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      suppressNextLanguageClick = true;
+      clearTimeout(suppressLanguageClickTimer);
+      suppressLanguageClickTimer = setTimeout(() => {
+        suppressNextLanguageClick = false;
+        suppressLanguageClickTimer = null;
+      }, 500);
+      toggleLanguageFromButton(e);
+    });
+
+    languageBtn.addEventListener('click', (e) => {
+      if (suppressNextLanguageClick) {
+        suppressNextLanguageClick = false;
+        clearTimeout(suppressLanguageClickTimer);
+        suppressLanguageClickTimer = null;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      toggleLanguageFromButton(e);
+    });
+  }
+
+  document.querySelectorAll('[data-language-option]').forEach((button) => {
+    button.addEventListener('click', async (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      await setSelectedLanguage(button.dataset.languageOption);
+    });
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.compare-summary-wrap')) {
+      closeSummaryPlatformMenu();
+    }
+
+    if (!e.target.closest('.single-send-wrap')) {
+      closeSendOnePlatformMenu();
+    }
+
+    if (!e.target.closest('.language-wrap')) {
+      closeLanguageMenu();
+    }
+  });
+
   document.getElementById('close-share-btn')?.addEventListener('click', closeSharePanel);
   document.getElementById('copy-share-btn')?.addEventListener('click', copyShareText);
   document.getElementById('download-share-btn')?.addEventListener('click', downloadShareMarkdown);
   document.getElementById('native-share-btn')?.addEventListener('click', nativeShareCompareText);
 
   // 新對話按鈕
-  document.getElementById('new-chat-btn').addEventListener('click', startNewChatForAll);
+  const newChatBtn = document.getElementById('new-chat-btn');
+  if (newChatBtn) {
+    let suppressNextNewChatClick = false;
+    const startNewChatFromButton = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      startNewChatForAll();
+    };
+
+    newChatBtn.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      suppressNextNewChatClick = true;
+      startNewChatFromButton(e);
+    });
+
+    newChatBtn.addEventListener('click', (e) => {
+      if (suppressNextNewChatClick) {
+        suppressNextNewChatClick = false;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      startNewChatFromButton(e);
+    });
+  }
 
   document.getElementById('history-toggle-btn').addEventListener('click', toggleSessionSwitcher);
   document.getElementById('load-session-btn').addEventListener('click', loadSelectedSession);
@@ -264,19 +576,63 @@ document.addEventListener('DOMContentLoaded', () => {
     if (!currentMaximizedPlatform) return;
 
     const currentIndex = platforms.indexOf(currentMaximizedPlatform);
-    let newIndex = currentIndex + direction;
+    let steps = 0;
+    let newIndex = currentIndex;
 
-    // 循環切換
-    if (newIndex < 0) {
-      newIndex = platforms.length - 1;
-    } else if (newIndex >= platforms.length) {
-      newIndex = 0;
-    }
+    // 循環尋找下一個處於啟用狀態 (ON) 的平台，最多輪詢一圈防止死循環
+    do {
+      newIndex = newIndex + direction;
+      if (newIndex < 0) {
+        newIndex = platforms.length - 1;
+      } else if (newIndex >= platforms.length) {
+        newIndex = 0;
+      }
+      steps++;
 
-    const newPlatform = platforms[newIndex];
-    console.log(`[AI Multi-Chat] Switching maximized iframe from ${currentMaximizedPlatform} to ${newPlatform}`);
-    toggleMaximize(newPlatform);
+      const potentialPlatform = platforms[newIndex];
+      if (isPlatformEnabled(potentialPlatform)) {
+        console.log(`[AI Multi-Chat] Switching maximized iframe from ${currentMaximizedPlatform} to ${potentialPlatform}`);
+        toggleMaximize(potentialPlatform);
+        return;
+      }
+    } while (steps < platforms.length);
   }
+
+  document.querySelectorAll('.prev-platform-btn, .next-platform-btn').forEach(btn => {
+    let suppressNextSwitchClick = false;
+    let suppressSwitchClickTimer = null;
+    const switchFromButton = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      const direction = btn.classList.contains('prev-platform-btn') ? -1 : 1;
+      switchMaximizedIframe(direction);
+    };
+
+    btn.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      suppressNextSwitchClick = true;
+      clearTimeout(suppressSwitchClickTimer);
+      suppressSwitchClickTimer = setTimeout(() => {
+        suppressNextSwitchClick = false;
+        suppressSwitchClickTimer = null;
+      }, 500);
+      switchFromButton(e);
+    });
+
+    btn.addEventListener('click', (e) => {
+      if (suppressNextSwitchClick) {
+        suppressNextSwitchClick = false;
+        clearTimeout(suppressSwitchClickTimer);
+        suppressSwitchClickTimer = null;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      switchFromButton(e);
+    });
+  });
 
   // --- Refresh iframe Logic ---
   // 為所有刷新按鈕添加事件監聽器
@@ -291,69 +647,57 @@ document.addEventListener('DOMContentLoaded', () => {
   // --- Maximize/Minimize iframe Logic ---
   // 為所有放大按鈕添加事件監聽器
   document.querySelectorAll('.maximize-btn').forEach(btn => {
-    btn.addEventListener('click', (e) => {
+    let suppressNextMaximizeClick = false;
+    let suppressMaximizeClickTimer = null;
+    const toggleMaximizeFromButton = (e) => {
+      e.preventDefault();
       e.stopPropagation();
+      markResizeControlSeen(currentMaximizedPlatform === btn.dataset.platform ? 'restore' : 'maximize');
       const platform = btn.dataset.platform;
       toggleMaximize(platform);
+    };
+
+    btn.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      suppressNextMaximizeClick = true;
+      clearTimeout(suppressMaximizeClickTimer);
+      suppressMaximizeClickTimer = setTimeout(() => {
+        suppressNextMaximizeClick = false;
+        suppressMaximizeClickTimer = null;
+      }, 500);
+      toggleMaximizeFromButton(e);
+    });
+
+    btn.addEventListener('click', (e) => {
+      if (suppressNextMaximizeClick) {
+        suppressNextMaximizeClick = false;
+        clearTimeout(suppressMaximizeClickTimer);
+        suppressMaximizeClickTimer = null;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      toggleMaximizeFromButton(e);
     });
   });
 
   function toggleMaximize(platform) {
-    const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
-    const btn = document.querySelector(`.maximize-btn[data-platform="${platform}"]`);
-
-    if (!wrapper || !btn) return;
-
-    if (currentMaximizedPlatform === platform) {
-      // 縮小：恢復所有 iframe 到原始狀態
-      document.querySelectorAll('.iframe-wrapper').forEach(w => {
-        w.classList.remove('maximized', 'dimmed');
-      });
-
-      // 更新按鈕圖標和提示
-      btn.textContent = '⤢';
-    btn.title = t('maximizeTitle', 'Maximize');
-
-      currentMaximizedPlatform = null;
-    } else {
-      // 如果已經有其他 iframe 被放大，先恢復
-      if (currentMaximizedPlatform) {
-        const prevWrapper = document.querySelector(`.iframe-wrapper[data-platform="${currentMaximizedPlatform}"]`);
-        const prevBtn = document.querySelector(`.maximize-btn[data-platform="${currentMaximizedPlatform}"]`);
-        if (prevWrapper) prevWrapper.classList.remove('maximized');
-        if (prevBtn) {
-          prevBtn.textContent = '⤢';
-      prevBtn.title = t('maximizeTitle', 'Maximize');
-        }
-      }
-
-      // 放大當前 iframe
-      document.querySelectorAll('.iframe-wrapper').forEach(w => {
-        if (w.dataset.platform === platform) {
-          w.classList.add('maximized');
-          w.classList.remove('dimmed');
-        } else {
-          w.classList.add('dimmed');
-          w.classList.remove('maximized');
-        }
-      });
-
-      // 更新按鈕圖標和提示
-      btn.textContent = '⤡';
-    btn.title = t('restoreTitle', 'Restore');
-
-      currentMaximizedPlatform = platform;
-    }
+    setMaximizedPlatform(platform, { toggle: true });
   }
 
   // --- Draggable Input Section Logic ---
   const inputSection = document.querySelector('.input-section');
+  const INPUT_DRAG_THRESHOLD_PX = 6;
   let isDragging = false;
   let hasMoved = false; // 用於區分拖拽與點擊恢復的 Flag
   let currentX;
   let currentY;
   let initialX;
   let initialY;
+  let pointerStartX;
+  let pointerStartY;
   let xOffset = 0;
   let yOffset = 0;
 
@@ -365,22 +709,22 @@ document.addEventListener('DOMContentLoaded', () => {
     yOffset = pos.y;
     setTranslate(pos.x, pos.y, inputSection);
     // Remove bottom/left to allow transform to work fully or reset them
-    inputSection.style.bottom = 'auto'; 
+    inputSection.style.bottom = 'auto';
     inputSection.style.left = '0px';
-    inputSection.style.top = '0px'; 
+    inputSection.style.top = '0px';
     // We are using translate, so we set top/left to 0 and move with transform
   } else {
-    // Initial State is handled by CSS (bottom: 30px, left: 20px), 
+    // Initial State is handled by CSS (bottom: 30px, left: 20px),
     // but for translate logic, we might want to capture that or just start from 0,0 relative to its CSS position?
     // A simpler approach for absolute positioning: modify top/left directly.
-    
+
     // Let's switch to top/left manipulation for simplicity and compatibility with resize.
     // However, CSS sets 'bottom'. Let's initialize top/left from computed style if not saved.
   }
 
   // Simpler Drag Implementation: Direct Top/Left manipulation
   // This avoids fighting with 'bottom' and transforms.
-  
+
   if (savedPosition) {
     const pos = JSON.parse(savedPosition);
     inputSection.style.bottom = 'auto'; // clear bottom
@@ -395,12 +739,14 @@ document.addEventListener('DOMContentLoaded', () => {
   inputSection.addEventListener('pointercancel', dragEnd);
 
   function dragStart(e) {
+    if (e.button !== undefined && e.button !== 0) return;
+
     // Prevent dragging if clicking on interactive elements (unless minimized)
-    if (!inputSection.classList.contains('minimized') && 
+    if (!inputSection.classList.contains('minimized') &&
         (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON')) {
       return;
     }
-    
+
     // Initialize explicit top/left if only bottom is set
     if (!inputSection.style.top || inputSection.style.top === '') {
       const rect = inputSection.getBoundingClientRect();
@@ -410,19 +756,28 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     // Calculate offset from mouse to element top-left
+    pointerStartX = e.clientX;
+    pointerStartY = e.clientY;
     initialX = e.clientX - inputSection.offsetLeft;
     initialY = e.clientY - inputSection.offsetTop;
 
     isDragging = true;
     hasMoved = false; // 開始拖拽時重置 moved 狀態
-    inputSection.setPointerCapture(e.pointerId); // Capture pointer to handle out-of-bounds/iframes
+    try {
+      if (e.pointerId !== undefined) {
+        inputSection.setPointerCapture(e.pointerId); // Capture pointer to handle out-of-bounds/iframes
+      }
+    } catch (error) {}
   }
 
   function dragEnd(e) {
     if (!isDragging) return;
 
+    const shouldRestoreMinimized = inputSection.classList.contains('minimized') && !hasMoved;
     isDragging = false;
-    inputSection.releasePointerCapture(e.pointerId);
+    if (inputSection.hasPointerCapture?.(e.pointerId)) {
+      inputSection.releasePointerCapture(e.pointerId);
+    }
 
     // Save position
     const pos = {
@@ -431,12 +786,23 @@ document.addEventListener('DOMContentLoaded', () => {
     };
     localStorage.setItem('ai-chat-input-pos', JSON.stringify(pos));
     positionSessionSwitcher();
+
+    if (shouldRestoreMinimized) {
+      restoreInputSection();
+    }
   }
 
   function drag(e) {
     if (isDragging) {
+      const deltaX = e.clientX - pointerStartX;
+      const deltaY = e.clientY - pointerStartY;
+      if (!hasMoved && Math.hypot(deltaX, deltaY) < INPUT_DRAG_THRESHOLD_PX) {
+        return;
+      }
+
+      hasMoved = true;
       e.preventDefault();
-      
+
       currentX = e.clientX - initialX;
       currentY = e.clientY - initialY;
 
@@ -449,27 +815,65 @@ document.addEventListener('DOMContentLoaded', () => {
 
       inputSection.style.left = currentX + "px";
       inputSection.style.top = currentY + "px";
-      
-      // 有移動就將 moved 設為 true，防止拖動懸浮球時觸發還原面板
-      hasMoved = true;
-      
+
       positionSessionSwitcher();
     }
   }
-  
+
   function setTranslate(xPos, yPos, el) {
     el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
   }
 
   // --- 懸浮面板最小化與還原邏輯 ---
   const minimizeBtn = document.getElementById('minimize-input-btn');
-  
+
+  function minimizeInputSection() {
+    markResizeControlSeen('minimize');
+    inputSection.classList.add('minimized');
+    localStorage.setItem('ai-chat-input-minimized', 'true');
+    closeSendOnePlatformMenu();
+    closeSummaryPlatformMenu();
+    closeLanguageMenu();
+    hideSessionSwitcher(); // 最小化時順便隱藏歷史對話面板
+  }
+
+  function restoreInputSection() {
+    inputSection.classList.remove('minimized');
+    localStorage.setItem('ai-chat-input-minimized', 'false');
+  }
+
   if (minimizeBtn) {
+    let suppressNextMinimizeClick = false;
+    let suppressMinimizeClickTimer = null;
+    const minimizeFromButton = (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      minimizeInputSection();
+    };
+
+    minimizeBtn.addEventListener('pointerdown', (e) => {
+      if (e.button !== undefined && e.button !== 0) return;
+
+      suppressNextMinimizeClick = true;
+      clearTimeout(suppressMinimizeClickTimer);
+      suppressMinimizeClickTimer = setTimeout(() => {
+        suppressNextMinimizeClick = false;
+        suppressMinimizeClickTimer = null;
+      }, 500);
+      minimizeFromButton(e);
+    });
+
     minimizeBtn.addEventListener('click', (e) => {
-      e.stopPropagation(); // 阻止事件冒泡，避免點擊按鈕時又觸發外層 click 還原
-      inputSection.classList.add('minimized');
-      localStorage.setItem('ai-chat-input-minimized', 'true');
-      hideSessionSwitcher(); // 最小化時順便隱藏歷史對話面板
+      if (suppressNextMinimizeClick) {
+        suppressNextMinimizeClick = false;
+        clearTimeout(suppressMinimizeClickTimer);
+        suppressMinimizeClickTimer = null;
+        e.preventDefault();
+        e.stopPropagation();
+        return;
+      }
+
+      minimizeFromButton(e);
     });
   }
 
@@ -478,8 +882,8 @@ document.addEventListener('DOMContentLoaded', () => {
     if (inputSection.classList.contains('minimized')) {
       // 只有在純點擊（沒有拖拽移動）的情況下才還原
       if (!hasMoved) {
-        inputSection.classList.remove('minimized');
-        localStorage.setItem('ai-chat-input-minimized', 'false');
+        markResizeControlSeen('panelRestore');
+        restoreInputSection();
       }
     }
   });
@@ -505,6 +909,50 @@ function getPreferredQuestionInput() {
   return document.getElementById('question-input');
 }
 
+function hasSeenResizeControl(control) {
+  return localStorage.getItem(RESIZE_HINT_STORAGE_KEYS[control]) === 'true';
+}
+
+function syncResizeControlsHint() {
+  Object.keys(RESIZE_HINT_STORAGE_KEYS).forEach(control => {
+    document.body.classList.toggle(`resize-${control}-unseen`, !hasSeenResizeControl(control));
+  });
+}
+
+function markResizeControlSeen(control) {
+  if (!RESIZE_HINT_STORAGE_KEYS[control]) return;
+
+  if (!hasSeenResizeControl(control)) {
+    localStorage.setItem(RESIZE_HINT_STORAGE_KEYS[control], 'true');
+  }
+
+  syncResizeControlsHint();
+}
+
+function setMaximizedPlatform(platform, options = {}) {
+  const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
+  if (!wrapper) return;
+
+  const shouldRestore = options.toggle && currentMaximizedPlatform === platform;
+
+  document.querySelectorAll('.iframe-wrapper').forEach(w => {
+    const isTarget = !shouldRestore && w.dataset.platform === platform;
+    w.classList.toggle('maximized', isTarget);
+    w.classList.toggle('dimmed', !shouldRestore && !isTarget);
+  });
+
+  document.querySelectorAll('.maximize-btn').forEach(btn => {
+    const isTargetButton = !shouldRestore && btn.dataset.platform === platform;
+    btn.textContent = isTargetButton ? '⤡' : '⤢';
+    btn.title = isTargetButton
+      ? t('restoreTitle', 'Restore')
+      : t('maximizeTitle', 'Maximize');
+  });
+
+  currentMaximizedPlatform = shouldRestore ? null : platform;
+  document.body.classList.toggle('iframe-maximized', !!currentMaximizedPlatform);
+}
+
 function clearSentQuestionInputs(sourceInput, question) {
   getQuestionInputs().forEach(input => {
     if (input === sourceInput || input.value.trim() === question) {
@@ -526,7 +974,7 @@ function sendQuestionToAll(sourceInput = document.getElementById('question-input
   console.log('[AI Multi-Chat] Sending question to all platforms:', question);
   window.lastSentQuestion = question; // 紀錄最新發送的問題
   startSessionCapture(question);
-  startCompareWatch(question);
+  startCompareWatch(question, { deferHistoryRequests: true });
 
   // 清空送出的輸入區；若另一個輸入區內容相同也一起清掉，避免殘留舊問題
   clearSentQuestionInputs(questionInput, question);
@@ -534,6 +982,61 @@ function sendQuestionToAll(sourceInput = document.getElementById('question-input
   platforms.forEach(platform => {
     sendQuestionToPlatform(platform, question);
   });
+
+  scheduleCompareSendHistoryRefresh();
+}
+
+function sendQuestionToOnePlatform(platform, sourceInput = document.getElementById('question-input')) {
+  closeSendOnePlatformMenu();
+  if (!platforms.includes(platform)) return;
+
+  const questionInput = sourceInput || document.getElementById('question-input');
+  const question = questionInput.value.trim();
+  if (!question) {
+    alert(t('alertEnterQuestion', 'Please enter a question'));
+    questionInput.focus();
+    return;
+  }
+
+  console.log(`[AI Multi-Chat] Sending question to ${platform}:`, question);
+  window.lastSentQuestion = question;
+  startSessionCapture(question);
+  clearSentQuestionInputs(questionInput, question);
+  sendQuestionToPlatform(platform, question);
+}
+
+function resetComparePrompt() {
+  const promptEl = document.getElementById('compare-prompt-text');
+  if (promptEl) {
+    promptEl.textContent = t('comparePromptWaiting', 'No question sent yet, or waiting for platform responses...');
+  }
+}
+
+function resetCompareState(options = {}) {
+  if (comparePollTimer) {
+    clearInterval(comparePollTimer);
+    comparePollTimer = null;
+  }
+
+  clearCompareOpenRefreshTimers();
+  compareIgnoreScrapeResponsesUntil = options.ignoreScrapeResponsesUntil || 0;
+
+  platforms.forEach(platform => {
+    delete compareWatchState[platform];
+    delete compareLatestHistories[platform];
+    delete compareHistoryRequestState[platform];
+
+    if (options.resetText) {
+      const textEl = document.getElementById(`compare-text-${platform}`);
+      if (!textEl) return;
+
+      textEl.textContent = isPlatformEnabled(platform)
+        ? t('platformNoConversation', 'This platform has no conversation content yet.')
+        : t('platformDisabled', 'This platform is disabled');
+    }
+  });
+
+  resetComparePrompt();
 }
 
 // 開啟所有平台的新對話
@@ -541,8 +1044,14 @@ function startNewChatForAll() {
   if (!confirm(t('confirmNewChat', 'Start a new chat? This will reset the current conversation on all AI platforms.'))) {
     return;
   }
-  
+
   console.log('[AI Multi-Chat] Starting new chat for all platforms');
+  window.lastSentQuestion = '';
+  resetCompareState({
+    resetText: true,
+    ignoreScrapeResponsesUntil: Date.now() + 4000
+  });
+
   platforms.forEach(platform => {
     if (!isPlatformEnabled(platform)) {
       console.log(`[${platform}] Platform disabled, skipping new chat reset`);
@@ -684,8 +1193,9 @@ function handleMessage(event) {
 
     case 'AI_URL_CHANGED':
       console.log(`[${platform}] URL changed:`, data.url);
-      localStorage.setItem(`ai-chat-url-${platform}`, data.url);
-      captureSessionUrl(platform, data.url);
+      const normalizedUrl = normalizePlatformUrl(platform, data.url);
+      localStorage.setItem(`ai-chat-url-${platform}`, normalizedUrl);
+      captureSessionUrl(platform, normalizedUrl);
       break;
 
     case 'AI_REFRESH_IFRAME':
@@ -699,6 +1209,20 @@ function handleMessage(event) {
 
     case 'AI_SCRAPE_HISTORY_RESPONSE':
       console.log(`[popup] Received scraped history for ${platform}`);
+      if (Date.now() < compareIgnoreScrapeResponsesUntil) {
+        clearCompareHistoryRequest(platform);
+        break;
+      }
+
+      if (data.requestId !== undefined) {
+        const requestState = compareHistoryRequestState[platform];
+        if (!requestState || data.requestId !== requestState.requestId) {
+          console.log(`[popup] Ignoring stale scraped history for ${platform}`);
+          break;
+        }
+      }
+
+      clearCompareHistoryRequest(platform);
       const history = data.history || [];
       updateCompareFromHistory(platform, history, !!data.isGenerating);
       break;
@@ -936,8 +1460,9 @@ function loadSelectedSession() {
     const iframe = iframes[platform];
     if (!url || !iframe) return;
 
-    localStorage.setItem(`ai-chat-url-${platform}`, url);
-    iframe.src = url;
+    const normalizedUrl = normalizePlatformUrl(platform, url);
+    localStorage.setItem(`ai-chat-url-${platform}`, normalizedUrl);
+    iframe.src = normalizedUrl;
     updateStatus(platform, '⏳', t('switchingConversation', 'Switching conversation...'));
   });
 
@@ -982,6 +1507,18 @@ function updateStatus(platform, emoji, title) {
       statusEl.classList.add('loading');
     } else {
       statusEl.classList.remove('loading');
+    }
+  }
+
+  // 同步更新對比面板中的狀態指示器
+  const compareStatusEl = document.getElementById(`compare-status-${platform}`);
+  if (compareStatusEl) {
+    compareStatusEl.textContent = emoji;
+    compareStatusEl.title = `[${platform}] ${title}`;
+    if (emoji === '⏳' || emoji === '🔄') {
+      compareStatusEl.classList.add('loading');
+    } else {
+      compareStatusEl.classList.remove('loading');
     }
   }
 }
@@ -1167,24 +1704,31 @@ function setPlatformEnabled(platform, enabled) {
   platformEnabledState[platform] = enabled;
   localStorage.setItem(getPlatformEnabledStorageKey(platform), String(enabled));
   renderPlatformToggle(platform);
+  syncSummaryPlatformMenu();
+  syncSendOnePlatformMenu();
 }
 
 function renderPlatformToggle(platform) {
   const enabled = isPlatformEnabled(platform);
-  const toggleButton = document.querySelector(`[data-platform-toggle="${platform}"]`);
+  const toggleButtons = document.querySelectorAll(`[data-platform-toggle="${platform}"]`);
   const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
+  const compareCol = document.querySelector(`.compare-col[data-platform="${platform}"]`);
 
-  if (toggleButton) {
+  toggleButtons.forEach(toggleButton => {
     toggleButton.textContent = enabled ? 'ON' : 'OFF';
-  toggleButton.title = enabled
-    ? t('disablePlatformTitle', 'Disable $1', platform)
-    : t('enablePlatformTitle', 'Enable $1', platform);
+    toggleButton.title = enabled
+      ? t('disablePlatformTitle', 'Disable $1', platform)
+      : t('enablePlatformTitle', 'Enable $1', platform);
     toggleButton.classList.toggle('enabled', enabled);
     toggleButton.classList.toggle('disabled', !enabled);
-  }
+  });
 
   if (wrapper) {
     wrapper.classList.toggle('platform-disabled', !enabled);
+  }
+
+  if (compareCol) {
+    compareCol.classList.toggle('platform-disabled', !enabled);
   }
 
   if (!enabled) {
@@ -1192,6 +1736,16 @@ function renderPlatformToggle(platform) {
   } else {
     updateStatus(platform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
   }
+}
+
+function syncPlatformToggleTitles() {
+  document.querySelectorAll('[data-platform-toggle]').forEach(toggleButton => {
+    const platform = toggleButton.dataset.platformToggle;
+    const enabled = isPlatformEnabled(platform);
+    toggleButton.title = enabled
+      ? t('disablePlatformTitle', 'Disable $1', platform)
+      : t('enablePlatformTitle', 'Enable $1', platform);
+  });
 }
 
 function initializePlatformToggles() {
@@ -1358,7 +1912,7 @@ function isCompareListLine(line) {
   return /^([-*•]|[0-9]+[.)])\s+\S+/.test(String(line || '').trim());
 }
 
-function formatCompareTableLine(line) {
+function formatCompareTableLine(line, sourceLinkState) {
   const cells = String(line || '')
     .split(/\t+/)
     .map(cell => cell.trim())
@@ -1367,7 +1921,7 @@ function formatCompareTableLine(line) {
   if (cells.length < 2) return '';
 
   return `<div class="compare-table-row">${cells.map(cell => (
-    `<span>${escapeHtml(cell)}</span>`
+    `<span>${formatCompareInlineHtml(cell, sourceLinkState)}</span>`
   )).join('')}</div>`;
 }
 
@@ -1400,25 +1954,84 @@ function splitCompareParagraphText(text) {
     .filter(Boolean);
 }
 
-function formatCompareInlineHtml(text) {
-  return escapeHtml(text).replace(/\n/g, '<br>');
+function normalizeCompareSourceLinks(links) {
+  return (Array.isArray(links) ? links : []).map(link => {
+    const lines = String(link?.text || '')
+      .replace(/\u2060/g, ' ')
+      .split('\n')
+      .map(line => line.replace(/\s+/g, ' ').trim())
+      .filter(line => line && !/^\+\d+$/.test(line));
+    const text = (lines[0] || '').replace(/\s+\+\d+(?:\s+.*)?$/, '').trim();
+    if (!text || !link?.href) return null;
+
+    try {
+      const url = new URL(link.href);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') return null;
+      return { text, href: url.href };
+    } catch (error) {
+      return null;
+    }
+  }).filter(Boolean);
 }
 
-function formatCompareParagraphHtml(text) {
+function createCompareSourceLinkState(links) {
+  return {
+    links: normalizeCompareSourceLinks(links),
+    usedIndexes: new Set()
+  };
+}
+
+function findCompareSourceLinkMatch(text, sourceLinkState) {
+  const value = String(text || '');
+  if (!sourceLinkState || !Array.isArray(sourceLinkState.links)) return null;
+
+  for (let i = 0; i < sourceLinkState.links.length; i++) {
+    if (sourceLinkState.usedIndexes.has(i)) continue;
+
+    const link = sourceLinkState.links[i];
+    const index = value.lastIndexOf(link.text);
+    if (index < 0) continue;
+
+    const suffix = value.slice(index + link.text.length).trim();
+    if (suffix && !/^\+\d+$/.test(suffix)) continue;
+
+    sourceLinkState.usedIndexes.add(i);
+    return { index, link };
+  }
+
+  return null;
+}
+
+function formatCompareInlineHtml(text, sourceLinkState) {
+  const value = String(text || '');
+  const match = findCompareSourceLinkMatch(value, sourceLinkState);
+  const formatText = part => escapeHtml(part).replace(/\n/g, '<br>');
+  if (!match) return formatText(value);
+
+  const before = value.slice(0, match.index);
+  const after = value.slice(match.index + match.link.text.length);
+  const href = escapeHtml(match.link.href);
+  const label = escapeHtml(match.link.text);
+  const anchor = `<a class="compare-source-link" href="${href}" target="_blank" rel="noopener noreferrer">${label}</a>`;
+  return `${formatText(before)}${anchor}${formatText(after)}`;
+}
+
+function formatCompareParagraphHtml(text, sourceLinkState) {
   const trimmed = String(text || '').trim();
   const labelMatch = trimmed.includes('\n')
     ? null
     : trimmed.match(/^([^。！？.!?\n]{2,28}[：:])\s*(.+)$/);
 
   if (labelMatch) {
-    return `<span class="compare-message-key">${escapeHtml(labelMatch[1])}</span>${formatCompareInlineHtml(labelMatch[2])}`;
+    return `<span class="compare-message-key">${escapeHtml(labelMatch[1])}</span>${formatCompareInlineHtml(labelMatch[2], sourceLinkState)}`;
   }
 
-  return formatCompareInlineHtml(trimmed);
+  return formatCompareInlineHtml(trimmed, sourceLinkState);
 }
 
 function formatCompareMessageContent(content, options = {}) {
   const allowHeadings = options.allowHeadings !== false;
+  const sourceLinkState = createCompareSourceLinkState(options.links);
   const normalized = String(content || '')
     .replace(/\r\n/g, '\n')
     .replace(/\u2060/g, ' ')
@@ -1436,7 +2049,7 @@ function formatCompareMessageContent(content, options = {}) {
     if (paragraphLines.length === 0) return;
     const text = paragraphLines.join('\n').trim();
     splitCompareParagraphText(text).forEach(paragraph => {
-      blocks.push(`<p class="compare-message-paragraph">${formatCompareParagraphHtml(paragraph)}</p>`);
+      blocks.push(`<p class="compare-message-paragraph">${formatCompareParagraphHtml(paragraph, sourceLinkState)}</p>`);
     });
     paragraphLines = [];
   }
@@ -1449,7 +2062,7 @@ function formatCompareMessageContent(content, options = {}) {
       return;
     }
 
-    const tableLine = formatCompareTableLine(line);
+    const tableLine = formatCompareTableLine(line, sourceLinkState);
     if (tableLine) {
       flushParagraph();
       blocks.push(tableLine);
@@ -1458,14 +2071,14 @@ function formatCompareMessageContent(content, options = {}) {
 
     if (allowHeadings && isCompareHeadingLine(line)) {
       flushParagraph();
-      blocks.push(`<div class="compare-message-heading">${escapeHtml(line.replace(/^#{1,6}\s+/, ''))}</div>`);
+      blocks.push(`<div class="compare-message-heading">${formatCompareInlineHtml(line.replace(/^#{1,6}\s+/, ''), sourceLinkState)}</div>`);
       return;
     }
 
     if (allowHeadings && isCompareListLine(line)) {
       flushParagraph();
       const item = line.replace(/^([-*•]|[0-9]+[.)])\s+/, '');
-      blocks.push(`<div class="compare-message-list-item">${escapeHtml(item)}</div>`);
+      blocks.push(`<div class="compare-message-list-item">${formatCompareInlineHtml(item, sourceLinkState)}</div>`);
       return;
     }
 
@@ -1483,6 +2096,14 @@ function getComparePanel() {
 function isComparePanelVisible() {
   const panel = getComparePanel();
   return !!panel && !panel.classList.contains('hidden');
+}
+
+function toggleComparePanel() {
+  if (isComparePanelVisible()) {
+    closeComparePanel();
+  } else {
+    openComparePanel();
+  }
 }
 
 function setCompareInputDocked(isDocked) {
@@ -1503,11 +2124,6 @@ function showComparePanel() {
 
   panel.classList.remove('hidden');
   setCompareInputDocked(true);
-
-  if (window.lastSentQuestion) {
-    const promptEl = document.getElementById('compare-prompt-text');
-    if (promptEl) promptEl.textContent = window.lastSentQuestion;
-  }
 }
 
 function buildCompareBubble(message, options = {}) {
@@ -1524,7 +2140,7 @@ function buildCompareBubble(message, options = {}) {
     : (isPending ? 'rgba(96, 165, 250, 0.35)' : 'rgba(168, 85, 247, 0.18)');
   const pendingClass = isPending ? ' compare-pending-bubble' : '';
 
-  return `<div class="compare-msg-bubble msg-bubble-${role}${pendingClass}" style="margin-bottom: 14px; padding: 11px 12px; border-radius: 10px; background: ${bubbleBg}; border: 1px solid ${borderColor}; box-shadow: 0 4px 10px rgba(0,0,0,0.15)"><div class="compare-bubble-label">${label}</div><div class="compare-message-content">${formatCompareMessageContent(message.content, { allowHeadings: role === 'assistant' })}</div></div>`;
+  return `<div class="compare-msg-bubble msg-bubble-${role}${pendingClass}" style="margin-bottom: 14px; padding: 11px 12px; border-radius: 10px; background: ${bubbleBg}; border: 1px solid ${borderColor}; box-shadow: 0 4px 10px rgba(0,0,0,0.15)"><div class="compare-bubble-label">${label}</div><div class="compare-message-content">${formatCompareMessageContent(message.content, { allowHeadings: role === 'assistant', links: message.links })}</div></div>`;
 }
 
 function filterPendingPlaceholderMessages(platform, messages, pendingMessage) {
@@ -1550,8 +2166,11 @@ function renderCompareHistory(platform, history, pendingMessage = '') {
   const visibleMessages = filterPendingPlaceholderMessages(platform, messages, pendingMessage);
   compareLatestHistories[platform] = visibleMessages;
   if (messages.length === 0 && !pendingMessage) {
-    colTextEl.textContent = t('platformNoConversation', 'This platform has no conversation content yet.');
-    return;
+    const emptyText = t('platformNoConversation', 'This platform has no conversation content yet.');
+    if (colTextEl.textContent !== emptyText || colTextEl.children.length > 0) {
+      colTextEl.textContent = emptyText;
+    }
+    return false;
   }
 
   let html = visibleMessages.map(m => buildCompareBubble(m)).join('');
@@ -1559,11 +2178,32 @@ function renderCompareHistory(platform, history, pendingMessage = '') {
     html += buildCompareBubble({ role: 'assistant', content: pendingMessage }, { pending: true });
   }
 
-  colTextEl.innerHTML = html || escapeHtml(pendingMessage);
+  const template = document.createElement('template');
+  template.innerHTML = html || escapeHtml(pendingMessage);
+  const nextHtml = template.innerHTML;
+
+  // Polling often returns the same history. Rebuilding identical bubbles resets
+  // the column scroll position and unnecessarily jumps the user to the bottom.
+  if (colTextEl.innerHTML === nextHtml) {
+    return false;
+  }
+
+  const previousScrollTop = colTextEl.scrollTop;
+  const distanceFromBottom = colTextEl.scrollHeight - colTextEl.clientHeight - previousScrollTop;
+  const shouldStickToBottom = distanceFromBottom <= 48;
+
+  colTextEl.innerHTML = nextHtml;
 
   setTimeout(() => {
-    colTextEl.scrollTop = colTextEl.scrollHeight;
+    if (shouldStickToBottom) {
+      colTextEl.scrollTop = colTextEl.scrollHeight;
+    } else {
+      const maxScrollTop = Math.max(0, colTextEl.scrollHeight - colTextEl.clientHeight);
+      colTextEl.scrollTop = Math.min(previousScrollTop, maxScrollTop);
+    }
   }, 50);
+
+  return true;
 }
 
 function getCompareStatusLabel(platform) {
@@ -1575,7 +2215,7 @@ function getCompareStatusLabel(platform) {
 }
 
 function getShareTitle() {
-  const prompt = document.getElementById('compare-prompt-text')?.textContent || window.lastSentQuestion || '';
+  const prompt = document.getElementById('compare-prompt-text')?.textContent || '';
   const clean = prompt.replace(/\s+/g, ' ').trim();
   if (!clean || clean.includes(t('comparePromptWaiting', 'No question sent yet, or waiting for platform responses...'))) {
     return t('shareDefaultTitle', 'AI Zoo Smart Compare');
@@ -1643,6 +2283,168 @@ function buildCompareShareMarkdown() {
 
   lines.push('', '---', 'Shared from AI Zoo Extension: https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid');
   return lines.join('\n').replace(/\n{4,}/g, '\n\n\n').trim() + '\n';
+}
+
+function getLanguageMenu() {
+  return document.getElementById('language-menu');
+}
+
+function closeLanguageMenu() {
+  getLanguageMenu()?.classList.add('hidden');
+}
+
+function syncLanguageMenu() {
+  const currentLanguage = supportedLanguages.find(language => language.code === selectedLanguage) || supportedLanguages[0];
+
+  document.querySelectorAll('[data-language-option]').forEach(button => {
+    const active = button.dataset.languageOption === currentLanguage.code;
+    button.classList.toggle('active', active);
+    button.setAttribute('aria-checked', String(active));
+    button.setAttribute('aria-current', active ? 'true' : 'false');
+  });
+
+  const button = document.getElementById('language-btn');
+  if (button) {
+    const title = `${t('languageButtonTitle', 'Choose language')}: ${currentLanguage.label}`;
+    button.title = title;
+    button.setAttribute('aria-label', title);
+  }
+}
+
+function toggleLanguageMenu() {
+  const menu = getLanguageMenu();
+  if (!menu) return;
+
+  closeSendOnePlatformMenu();
+  closeSummaryPlatformMenu();
+  syncLanguageMenu();
+  menu.classList.toggle('hidden');
+}
+
+async function setSelectedLanguage(languageCode) {
+  const nextLanguage = supportedLanguages.some(language => language.code === languageCode)
+    ? languageCode
+    : DEFAULT_LANGUAGE;
+
+  selectedLanguage = nextLanguage;
+  localStorage.setItem(LANGUAGE_STORAGE_KEY, selectedLanguage);
+  closeLanguageMenu();
+  await initI18n();
+  syncPlatformToggleTitles();
+  syncSendOnePlatformMenu();
+  syncSummaryPlatformMenu();
+  renderSessionList();
+  positionSessionSwitcher();
+}
+
+function getSendOnePlatformMenu() {
+  return document.getElementById('send-one-platform-menu');
+}
+
+function closeSendOnePlatformMenu() {
+  getSendOnePlatformMenu()?.classList.add('hidden');
+}
+
+function syncSendOnePlatformMenu() {
+  document.querySelectorAll('[data-send-one-platform]').forEach(button => {
+    const platform = button.dataset.sendOnePlatform;
+    const enabled = isPlatformEnabled(platform);
+    button.disabled = !enabled;
+    const capPlatform = platform === 'chatgpt' ? 'ChatGPT' : (platform.charAt(0).toUpperCase() + platform.slice(1));
+    button.title = enabled
+      ? t('sendQuestionToPlatformTitle', `Send question to ${capPlatform}`, capPlatform)
+      : t('statusDisabled', 'Disabled');
+  });
+}
+
+function toggleSendOnePlatformMenu() {
+  const menu = getSendOnePlatformMenu();
+  if (!menu) return;
+
+  closeLanguageMenu();
+  closeSummaryPlatformMenu();
+  syncSendOnePlatformMenu();
+  menu.classList.toggle('hidden');
+}
+
+function getSummaryPlatformMenu() {
+  return document.getElementById('summary-platform-menu');
+}
+
+function closeSummaryPlatformMenu() {
+  getSummaryPlatformMenu()?.classList.add('hidden');
+}
+
+function getDefaultSummaryPrompt() {
+  return t(
+    'summaryPromptDefault',
+    "Synthesize everyone's points, compare similarities and differences, and provide a clear conclusion."
+  );
+}
+
+function syncSummaryPromptInput() {
+  const input = document.getElementById('summary-prompt-input');
+  if (!input) return;
+
+  const hasCustomizedPrompt = localStorage.getItem(SUMMARY_PROMPT_CUSTOMIZED_STORAGE_KEY) === 'true';
+  const savedPrompt = localStorage.getItem(SUMMARY_PROMPT_STORAGE_KEY);
+  const defaultPrompt = getDefaultSummaryPrompt();
+  const nextPrompt = hasCustomizedPrompt && savedPrompt !== null
+    ? savedPrompt
+    : defaultPrompt;
+
+  if (!hasCustomizedPrompt || savedPrompt === null) {
+    localStorage.setItem(SUMMARY_PROMPT_STORAGE_KEY, defaultPrompt);
+  }
+
+  if (input.value !== nextPrompt) {
+    input.value = nextPrompt;
+  }
+}
+
+function getCompareSummaryInstruction() {
+  const input = document.getElementById('summary-prompt-input');
+  const prompt = (input?.value || localStorage.getItem(SUMMARY_PROMPT_STORAGE_KEY) || '').trim();
+  return prompt || getDefaultSummaryPrompt();
+}
+
+function syncSummaryPlatformMenu() {
+  document.querySelectorAll('[data-summary-platform]').forEach(button => {
+    const platform = button.dataset.summaryPlatform;
+    const enabled = isPlatformEnabled(platform);
+    button.disabled = !enabled;
+    const capPlatform = platform === 'chatgpt' ? 'ChatGPT' : (platform.charAt(0).toUpperCase() + platform.slice(1));
+    button.title = enabled
+      ? t('sendCompareToPlatformTitle', `Send compare content to ${capPlatform}`, capPlatform)
+      : t('statusDisabled', 'Disabled');
+  });
+}
+
+function toggleSummaryPlatformMenu() {
+  const menu = getSummaryPlatformMenu();
+  if (!menu) return;
+
+  closeLanguageMenu();
+  closeSendOnePlatformMenu();
+  syncSummaryPromptInput();
+  syncSummaryPlatformMenu();
+  menu.classList.toggle('hidden');
+}
+
+function buildCompareSummaryPrompt() {
+  const content = buildCompareShareMarkdown().trim();
+  return `${content}\n\n---\n\n${getCompareSummaryInstruction()}`;
+}
+
+function sendCompareSummaryToPlatform(platform) {
+  closeSummaryPlatformMenu();
+  if (!platforms.includes(platform)) return;
+  if (!isPlatformEnabled(platform)) return;
+
+  const prompt = buildCompareSummaryPrompt();
+  console.log(`[AI Multi-Chat] Sending compare summary content to ${platform}`);
+  sendQuestionToPlatform(platform, prompt);
+  setMaximizedPlatform(platform);
 }
 
 function setShareActionStatus(message) {
@@ -1718,16 +2520,45 @@ async function nativeShareCompareText() {
   }
 }
 
-function requestPlatformHistory(platform) {
+function requestPlatformHistory(platform, options = {}) {
+  const now = Date.now();
+  const requestState = compareHistoryRequestState[platform];
+  if (requestState && !options.force) {
+    if (requestState.inFlight && now - requestState.startedAt < COMPARE_HISTORY_REQUEST_STALE_MS) {
+      return true;
+    }
+
+    if (!requestState.inFlight && now - requestState.lastRequestedAt < COMPARE_HISTORY_REQUEST_MIN_GAP_MS) {
+      return true;
+    }
+  }
+
   const iframe = iframes[platform];
   if (!iframe || !iframe.contentWindow) return false;
+
+  compareHistoryRequestState[platform] = {
+    inFlight: true,
+    requestId: ++compareHistoryRequestId,
+    startedAt: now,
+    lastRequestedAt: now
+  };
 
   iframe.contentWindow.postMessage({
     type: 'AI_SCRAPE_HISTORY_REQUEST',
     platform: platform,
+    requestId: compareHistoryRequestState[platform].requestId,
+    timeoutMs: options.timeoutMs || COMPARE_HISTORY_SCRAPE_TIMEOUT_MS,
     source: 'popup'
   }, '*');
   return true;
+}
+
+function clearCompareHistoryRequest(platform) {
+  const requestState = compareHistoryRequestState[platform];
+  if (!requestState) return;
+
+  requestState.inFlight = false;
+  requestState.finishedAt = Date.now();
 }
 
 function findQuestionAnswer(history, question) {
@@ -1811,11 +2642,7 @@ function timeoutComparePlatform(platform) {
   }
 
   const latestHistory = compareLatestHistories[platform] || [];
-  const fallbackHistory = latestHistory.length > 0
-    ? latestHistory
-    : (state?.question ? [{ role: 'user', content: state.question }] : []);
-
-  renderCompareHistory(platform, fallbackHistory);
+  renderCompareHistory(platform, latestHistory);
   updateStatus(platform, '⚠️', t('statusResponseTimeout', 'Timed out waiting for platform response'));
   stopComparePollTimerIfDone();
 }
@@ -1937,14 +2764,42 @@ function scheduleCompareOpenRefresh() {
 
       platforms.forEach(platform => {
         if (isPlatformEnabled(platform)) {
-          requestPlatformHistory(platform);
+          requestPlatformHistory(platform, { force: true });
         }
       });
     }, delay)
   ));
 }
 
-function startCompareWatch(question) {
+function requestCompareHistories(options = {}) {
+  if (!isComparePanelVisible()) return;
+
+  platforms.forEach(platform => {
+    const state = compareWatchState[platform];
+    const shouldRequest = options.includeCompleted || (state && !state.complete);
+    if (shouldRequest && isPlatformEnabled(platform)) {
+      requestPlatformHistory(platform, {
+        force: !!options.force,
+        timeoutMs: options.timeoutMs
+      });
+    }
+  });
+}
+
+function scheduleCompareSendHistoryRefresh() {
+  clearCompareOpenRefreshTimers();
+
+  compareOpenRefreshTimers = COMPARE_SEND_HISTORY_REFRESH_DELAYS_MS.map(delay => (
+    setTimeout(() => {
+      requestCompareHistories({
+        includeCompleted: true,
+        force: true
+      });
+    }, delay)
+  ));
+}
+
+function startCompareWatch(question, options = {}) {
   showComparePanel();
   const promptEl = document.getElementById('compare-prompt-text');
   if (promptEl) promptEl.textContent = question;
@@ -1966,7 +2821,9 @@ function startCompareWatch(question) {
     };
 
     renderCompareHistory(platform, [{ role: 'user', content: question }], t('compareResponding', 'Responding...'));
-    requestPlatformHistory(platform);
+    if (!options.deferHistoryRequests) {
+      requestPlatformHistory(platform);
+    }
   });
 
   ensureComparePollTimer();
@@ -1974,6 +2831,7 @@ function startCompareWatch(question) {
 
 function openComparePanel() {
   showComparePanel();
+  resetComparePrompt();
 
   platforms.forEach(platform => {
     const textEl = document.getElementById(`compare-text-${platform}`);
@@ -1997,11 +2855,27 @@ function openComparePanel() {
     }
   });
 
-  setTimeout(() => {
+  if (window.compareFocusTimeout) {
+    clearTimeout(window.compareFocusTimeout);
+  }
+  window.compareFocusTimeout = setTimeout(() => {
     document.getElementById('question-input')?.focus();
+    window.compareFocusTimeout = null;
   }, 80);
 
   scheduleCompareOpenRefresh();
+}
+
+function closeComparePanel() {
+  const panel = document.getElementById('compare-panel');
+  if (panel) panel.classList.add('hidden');
+  setCompareInputDocked(false);
+  closeSummaryPlatformMenu();
+  clearCompareOpenRefreshTimers();
+  if (window.compareFocusTimeout) {
+    clearTimeout(window.compareFocusTimeout);
+    window.compareFocusTimeout = null;
+  }
 }
 
 console.log('[AI Multi-Chat] Popup script loaded');

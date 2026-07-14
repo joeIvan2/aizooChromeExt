@@ -35,7 +35,7 @@
       console.log('[ChatGPT] Received scrape history request');
       let history = [];
       try {
-        history = await window.InjectionCore.scrapeHistory(config);
+        history = await window.InjectionCore.scrapeHistory(config, data.timeoutMs || 1500);
       } catch (e) {
         console.error('[ChatGPT] Scrape history error:', e);
       }
@@ -43,6 +43,7 @@
         window.parent.postMessage({
           type: 'AI_SCRAPE_HISTORY_RESPONSE',
           platform: 'chatgpt',
+          requestId: data.requestId,
           history: history,
           isGenerating: window.InjectionCore.isGenerating(config),
           source: 'content-script'
@@ -165,23 +166,12 @@
       return;
     }
 
-    // 2. Detect login form by OAuth buttons (>= 3 buttons means login page)
-    const oauthButtons = document.querySelectorAll('button.btn-secondary');
-    const hasLoginForm = oauthButtons.length >= 3;
-
-    if (hasLoginForm) {
-      // Login page detected: show overlay
-      if (!document.getElementById(LOGIN_OVERLAY_ID)) {
-        console.log('[ChatGPT] Login form detected (OAuth buttons:', oauthButtons.length, '), showing overlay...');
-        createLoginOverlay();
-      }
-    } else {
-      // Logged in: remove overlay if it exists
-      const overlay = document.getElementById(LOGIN_OVERLAY_ID);
-      if (overlay) {
-        console.log('[ChatGPT] Logged in (no login form), removing overlay...');
-        overlay.remove();
-      }
+    // ChatGPT reuses btn-secondary for transient UI such as the text-selection
+    // toolbar. Only explicit auth URLs are reliable enough to block the page.
+    const overlay = document.getElementById(LOGIN_OVERLAY_ID);
+    if (overlay) {
+      console.log('[ChatGPT] Chat page detected, removing login overlay...');
+      overlay.remove();
     }
   }
 

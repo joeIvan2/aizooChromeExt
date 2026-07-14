@@ -1,0 +1,466 @@
+{
+  "extensionName": {
+    "message": "AI Zoo",
+    "description": "扩展名称"
+  },
+  "extensionDescription": {
+    "message": "并排对比多个热门 AI 平台与聊天机器人，实现同步发送与一键对比摘要",
+    "description": "扩展描述"
+  },
+  "extensionActionTitle": {
+    "message": "AI Zoo - 点击打开",
+    "description": "鼠标移到扩展图标时的提示文字"
+  },
+  "inputPlaceholder": {
+    "message": "输入问题，一次发送到所有 AI... (Ctrl+Enter 发送)",
+    "description": "输入框的提示文字"
+  },
+  "sendToAllButton": {
+    "message": "发送到所有 AI",
+    "description": "发送按钮文字"
+  },
+  "sendOneButton": {
+    "message": "单AI",
+    "description": "发送到单个 AI 按钮文字"
+  },
+  "sendOneTitle": {
+    "message": "选择一个 AI 发送",
+    "description": "发送到单个 AI 按钮提示"
+  },
+  "sendOnePlatformMenuLabel": {
+    "message": "选择要发送的平台",
+    "description": "单个 AI 发送平台菜单 aria label"
+  },
+  "newChatButton": {
+    "message": "新对话 +",
+    "description": "新对话按钮文字"
+  },
+  "refreshTitle": {
+    "message": "刷新",
+    "description": "刷新按钮提示"
+  },
+  "maximizeTitle": {
+    "message": "放大",
+    "description": "放大按钮提示"
+  },
+  "loadingTitle": {
+    "message": "加载中...",
+    "description": "加载状态提示"
+  },
+  "statusReady": {
+    "message": "就绪",
+    "description": "状态：就绪"
+  },
+  "statusSending": {
+    "message": "发送中...",
+    "description": "状态：正在发送问题"
+  },
+  "statusWaiting": {
+    "message": "等待响应...",
+    "description": "状态：等待 AI 响应"
+  },
+  "statusReceived": {
+    "message": "已收到响应",
+    "description": "状态：已收到响应"
+  },
+  "statusError": {
+    "message": "错误",
+    "description": "状态：发生错误"
+  },
+  "errorTextareaNotFound": {
+    "message": "❌ Textarea 未找到（超时）",
+    "description": "错误：找不到输入框"
+  },
+  "errorFillFailed": {
+    "message": "❌ 填充问题失败",
+    "description": "错误：无法填入问题"
+  },
+  "errorVerifyFailed": {
+    "message": "❌ 内容覆盖验证失败，文本未正确填入",
+    "description": "错误：内容验证失败"
+  },
+  "errorButtonClickFailed": {
+    "message": "❌ 按钮点击失败（超时）",
+    "description": "错误：无法点击提交按钮"
+  },
+  "infoWaitingTextarea": {
+    "message": "等待 textarea 准备好...",
+    "description": "信息：等待输入框"
+  },
+  "infoWaitingButton": {
+    "message": "等待发送按钮准备好...",
+    "description": "信息：等待按钮"
+  },
+  "infoWaitingButtonEnabled": {
+    "message": "等待按钮启用...",
+    "description": "信息：等待按钮启用"
+  },
+  "compareButton": {
+    "message": "智能对比",
+    "description": "智能对比按钮文字"
+  },
+  "compareButtonTitle": {
+    "message": "智能对比所有答案",
+    "description": "智能对比按钮提示"
+  },
+  "historyButton": {
+    "message": "历史对话",
+    "description": "历史对话按钮文字"
+  },
+  "historyButtonTitle": {
+    "message": "显示历史对话",
+    "description": "历史对话按钮提示"
+  },
+  "minimizeInputTitle": {
+    "message": "缩小控制面板",
+    "description": "缩小输入控制面板提示"
+  },
+  "restoreTitle": {
+    "message": "缩小",
+    "description": "放大 iframe 后的还原按钮提示"
+  },
+  "sessionSwitcherLabel": {
+    "message": "对话组列表",
+    "description": "历史对话组面板 aria label"
+  },
+  "sessionSelectTitle": {
+    "message": "选择已记录的对话组",
+    "description": "历史对话菜单提示"
+  },
+  "noSessionGroups": {
+    "message": "尚无对话组",
+    "description": "没有历史对话组时显示"
+  },
+  "loadSessionButton": {
+    "message": "切换",
+    "description": "切换历史对话按钮文字"
+  },
+  "loadSessionTitle": {
+    "message": "切换所有平台到这组对话",
+    "description": "切换历史对话按钮提示"
+  },
+  "deleteSessionButton": {
+    "message": "删除",
+    "description": "删除历史对话按钮文字"
+  },
+  "deleteSessionTitle": {
+    "message": "删除这组对话记录",
+    "description": "删除历史对话按钮提示"
+  },
+  "hideSessionButton": {
+    "message": "隐藏",
+    "description": "隐藏历史对话面板按钮文字"
+  },
+  "hideSessionTitle": {
+    "message": "隐藏历史对话",
+    "description": "隐藏历史对话面板按钮提示"
+  },
+  "claudeDiagnoseTitle": {
+    "message": "Claude 诊断",
+    "description": "Claude 诊断按钮提示"
+  },
+  "closeDiagnosticsLabel": {
+    "message": "关闭诊断面板",
+    "description": "关闭诊断面板 aria label"
+  },
+  "diagnosticsNotRun": {
+    "message": "尚未执行诊断",
+    "description": "诊断面板初始文字"
+  },
+  "latestQuestionLabel": {
+    "message": "最新问题：",
+    "description": "智能对比最新问题标签"
+  },
+  "comparePromptWaiting": {
+    "message": "尚未发送问题，或正在等待平台响应...",
+    "description": "智能对比尚无问题提示"
+  },
+  "shareButton": {
+    "message": "分享",
+    "description": "分享按钮文字"
+  },
+  "shareCompareTitle": {
+    "message": "整理并分享所有 LLM 内容",
+    "description": "智能对比分享按钮提示"
+  },
+  "summaryCompareButton": {
+    "message": "AI摘要",
+    "description": "将智能对比内容送到指定平台摘要的按钮文字"
+  },
+  "summaryCompareTitle": {
+    "message": "选择一个 LLM 来摘要所有对比内容",
+    "description": "送交摘要按钮提示"
+  },
+  "summaryPlatformMenuLabel": {
+    "message": "选择摘要平台",
+    "description": "摘要平台菜单 aria label"
+  },
+  "summaryPromptLabel": {
+    "message": "摘要 Prompt",
+    "description": "可编辑 AI 摘要 prompt 标签"
+  },
+  "summaryPromptPlaceholder": {
+    "message": "可编辑摘要指令...",
+    "description": "可编辑 AI 摘要 prompt 提示"
+  },
+  "summaryPromptDefault": {
+    "message": "请统整大家的说法，整理相同与相异之处，并给出清楚结论。",
+    "description": "AI 摘要默认可编辑 prompt"
+  },
+  "closeCompareLabel": {
+    "message": "关闭智能对比",
+    "description": "关闭智能对比 aria label"
+  },
+  "loadingConversation": {
+    "message": "等待加载对话...",
+    "description": "等待加载对话初始文字"
+  },
+  "sharePanelTitle": {
+    "message": "整理分享",
+    "description": "分享面板标题"
+  },
+  "sharePanelSubtitle": {
+    "message": "已整理成 Markdown，可先复制或下载，不会自动上传。",
+    "description": "分享面板副标题"
+  },
+  "closeShareLabel": {
+    "message": "关闭分享面板",
+    "description": "关闭分享面板 aria label"
+  },
+  "copyShareButton": {
+    "message": "复制文本",
+    "description": "复制分享文本按钮"
+  },
+  "downloadShareButton": {
+    "message": "下载 .md",
+    "description": "下载 Markdown 按钮"
+  },
+  "nativeShareButton": {
+    "message": "系统分享",
+    "description": "系统分享按钮"
+  },
+  "statusWaitingReady": {
+    "message": "等待准备...",
+    "description": "等待平台准备状态"
+  },
+  "loadingConversationHistory": {
+    "message": "读取对话记录中...",
+    "description": "读取对话记录状态"
+  },
+  "alertEnterQuestion": {
+    "message": "请输入问题",
+    "description": "未输入问题时的提示"
+  },
+  "confirmNewChat": {
+    "message": "确定要开始新对话吗？这将重置所有 AI 的当前会话。",
+    "description": "开始新对话确认"
+  },
+  "statusResetting": {
+    "message": "重置中...",
+    "description": "重置平台状态"
+  },
+  "statusDisabledNotSending": {
+    "message": "已停用，不发送",
+    "description": "平台停用不发送状态"
+  },
+  "statusIframeNotFound": {
+    "message": "iframe 未找到",
+    "description": "找不到 iframe 状态"
+  },
+  "statusSendFailed": {
+    "message": "发送失败",
+    "description": "发送失败状态"
+  },
+  "statusDisabled": {
+    "message": "已停用",
+    "description": "平台已停用状态"
+  },
+  "compareResponding": {
+    "message": "回复中...",
+    "description": "智能对比等待回复提示"
+  },
+  "statusResponding": {
+    "message": "正在响应...",
+    "description": "正在响应状态"
+  },
+  "statusSyncingResponse": {
+    "message": "同步回复中...",
+    "description": "同步回复状态"
+  },
+  "statusComplete": {
+    "message": "完成",
+    "description": "完成状态"
+  },
+  "untitledConversation": {
+    "message": "未命名对话",
+    "description": "无标题对话"
+  },
+  "sessionOptionFormat": {
+    "message": "$1 · $2 个平台 · $3",
+    "description": "历史对话选项格式"
+  },
+  "historyConversationPrompt": {
+    "message": "历史对话：$1",
+    "description": "切换历史对话时的最新问题列"
+  },
+  "switchingHistoryConversation": {
+    "message": "正在切换历史对话...",
+    "description": "正在切换历史对话状态"
+  },
+  "platformDisabled": {
+    "message": "此平台已停用",
+    "description": "智能对比平台停用文字"
+  },
+  "switchingConversation": {
+    "message": "切换对话中...",
+    "description": "正在切换对话状态"
+  },
+  "sessionMissingPlatformUrl": {
+    "message": "这组历史对话没有此平台网址。",
+    "description": "历史对话缺少平台网址"
+  },
+  "confirmDeleteSession": {
+    "message": "删除对话组「$1」？",
+    "description": "删除历史对话确认"
+  },
+  "loading": {
+    "message": "读取中...",
+    "description": "一般读取中"
+  },
+  "statusCannotSetBreakpoint": {
+    "message": "无法设置断点",
+    "description": "无法设置断点状态"
+  },
+  "statusBreakpointSetReloading": {
+    "message": "已设置断点，重新加载中...",
+    "description": "断点已设置状态"
+  },
+  "statusBreakpointFailed": {
+    "message": "断点设置失败",
+    "description": "断点设置失败状态"
+  },
+  "statusCannotEnableProtection": {
+    "message": "无法启用保护",
+    "description": "无法启用保护状态"
+  },
+  "statusSidebarProtectionReloading": {
+    "message": "已启用 5 秒 sidebar 保护，重新加载中...",
+    "description": "sidebar 保护状态"
+  },
+  "statusProtectionFailed": {
+    "message": "保护启用失败",
+    "description": "保护启用失败状态"
+  },
+  "disablePlatformTitle": {
+    "message": "停用 $1",
+    "description": "停用平台提示"
+  },
+  "enablePlatformTitle": {
+    "message": "启用 $1",
+    "description": "启用平台提示"
+  },
+  "statusLoginRequired": {
+    "message": "需要登录验证",
+    "description": "需要登录状态"
+  },
+  "statusLoginWindowOpened": {
+    "message": "登录窗口已打开",
+    "description": "登录窗口已打开状态"
+  },
+  "statusReloading": {
+    "message": "重新加载中...",
+    "description": "重新加载状态"
+  },
+  "statusCompleteLoginInNewTab": {
+    "message": "请在新标签页中完成登录",
+    "description": "新标签页登录提示"
+  },
+  "compareUserLabel": {
+    "message": "你：",
+    "description": "智能对比使用者标签"
+  },
+  "compareAiLabel": {
+    "message": "AI：",
+    "description": "智能对比 AI 标签"
+  },
+  "platformNoConversation": {
+    "message": "此平台尚无对话内容。",
+    "description": "平台尚无对话内容"
+  },
+  "compareRespondingShort": {
+    "message": "回复中",
+    "description": "智能对比短状态：回复中"
+  },
+  "compareOrganized": {
+    "message": "已整理",
+    "description": "智能对比短状态：已整理"
+  },
+  "compareNoContent": {
+    "message": "尚无内容",
+    "description": "智能对比短状态：尚无内容"
+  },
+  "shareDefaultTitle": {
+    "message": "AI Zoo 智能对比",
+    "description": "分享预设标题"
+  },
+  "shareCopied": {
+    "message": "已复制到剪贴板。",
+    "description": "分享已复制状态"
+  },
+  "shareCopyFallback": {
+    "message": "已尝试用备援方式复制。",
+    "description": "分享备援复制状态"
+  },
+  "shareDownloaded": {
+    "message": "已下载 $1",
+    "description": "分享下载完成状态"
+  },
+  "shareNotSupported": {
+    "message": "这个浏览器环境不支持系统分享，请用复制或下载。",
+    "description": "系统分享不支持"
+  },
+  "shareOpened": {
+    "message": "已开启系统分享。",
+    "description": "系统分享已开启"
+  },
+  "shareFailed": {
+    "message": "系统分享失败，请改用复制或下载。",
+    "description": "系统分享失败"
+  },
+  "statusResponseTimeout": {
+    "message": "等待平台响应超时",
+    "description": "等待平台响应超时"
+  },
+  "statusConfirmingResponseDone": {
+    "message": "确认回复完成中...",
+    "description": "确认回复完成状态"
+  },
+  "platformNotReady": {
+    "message": "平台尚未准备就绪",
+    "description": "平台尚未准备就绪"
+  },
+  "prevPlatformTitle": {
+    "message": "上一个平台 (Ctrl + 左方向键)",
+    "description": "最大化模式下切换至上一个平台的按钮提示"
+  },
+  "nextPlatformTitle": {
+    "message": "下一个平台 (Ctrl + 右方向键)",
+    "description": "最大化模式下切换至下一个平台的按钮提示"
+  },
+  "sendQuestionToPlatformTitle": {
+    "message": "仅发送问题至 $1",
+    "description": "点击仅发送问题至特定平台的提示"
+  },
+  "sendCompareToPlatformTitle": {
+    "message": "将对比内容发送至 $1",
+    "description": "将对比摘要内容发送至特定平台的提示"
+  },
+  "languageButtonTitle": {
+    "message": "选择语言",
+    "description": "界面语言按钮提示"
+  },
+  "languageMenuLabel": {
+    "message": "选择界面语言",
+    "description": "语言菜单无障碍标签"
+  }
+}

@@ -7,6 +7,11 @@
   const config = window.PLATFORM_CONFIGS.claude;
   const CLAUDE_BREAKPOINT_SESSION_KEY = 'ai-multichat-claude-sidebar-breakpoint';
   const CLAUDE_PROTECT_ENABLED_KEY = 'ai-multichat-claude-protect-enabled';
+  const CLAUDE_NEW_CHAT_URL = 'https://claude.ai/new';
+  const CLAUDE_SAFE_DEFAULT_MODEL = 'claude-haiku-4-5-20251001';
+  const CLAUDE_BAD_FALLBACK_MODEL = 'claude-3-5-haiku-latest';
+  const CLAUDE_MODEL_STORAGE_KEYS = ['default-model', 'sticky-model-selector'];
+  const CLAUDE_MODEL_SEEDED_SESSION_KEY = 'ai-multichat-claude-model-seeded';
   const CLAUDE_SIDEBAR_SELECTORS = [
     'nav[aria-label="Sidebar"]',
     '[data-testid="pin-sidebar-toggle"]',
@@ -24,6 +29,45 @@
     sessionStorage.setItem(CLAUDE_PROTECT_ENABLED_KEY, 'true');
     refreshClaudeProtectionWindow(5000);
   } catch (error) {}
+
+  function ensureClaudeNewChatDefaultModel() {
+    try {
+      if (window.self === window.top) return;
+      if (location.hostname !== 'claude.ai') return;
+      if (location.pathname !== '/new') return;
+      if (new URLSearchParams(location.search).has('model')) return;
+
+      // Claude's iframe /new can miss the dynamic console_default_model bootstrap
+      // and falls back to the old literal "claude-3-5-haiku-latest".  Do not use
+      // ?model= here: Claude treats that as a one-model override and the selector
+      // collapses to a single option.  Seed only Claude's own sticky/default keys
+      // when absent or already polluted by the bad fallback, preserving any real
+      // user-selected model such as Sonnet/Opus.
+      let changed = false;
+      CLAUDE_MODEL_STORAGE_KEYS.forEach((key) => {
+        const value = localStorage.getItem(key);
+        if (!value || value === CLAUDE_BAD_FALLBACK_MODEL) {
+          localStorage.setItem(key, CLAUDE_SAFE_DEFAULT_MODEL);
+          changed = true;
+        }
+      });
+
+      // If Claude already read the missing/default model during this document's
+      // earliest bootstrap, the new key only takes effect on the next /new load.
+      // Reload once, guarded by sessionStorage, so a fresh iframe install does
+      // not show the bad fallback until the user manually refreshes.
+      if (changed && sessionStorage.getItem(CLAUDE_MODEL_SEEDED_SESSION_KEY) !== 'true') {
+        sessionStorage.setItem(CLAUDE_MODEL_SEEDED_SESSION_KEY, 'true');
+        setTimeout(() => window.location.reload(), 0);
+        return true;
+      } else if (!changed) {
+        sessionStorage.removeItem(CLAUDE_MODEL_SEEDED_SESSION_KEY);
+      }
+    } catch (error) {}
+    return false;
+  }
+
+  if (ensureClaudeNewChatDefaultModel()) return;
 
   function refreshClaudeProtectionWindow(durationMs = 5000) {
     try {
@@ -88,11 +132,11 @@
   function getClaudeScrapeDiagnostics() {
     const selectors = {
       userMessage: 'div[data-testid="user-message"], .font-user-message, [class*="font-user-message"]',
-      claudeMessage: 'div[data-testid="claude-message"], .font-claude-message, [class*="font-claude-message"]',
-      assistantLike: '[data-testid*="assistant"], [data-testid*="response"], [data-is-streaming="true"]',
+      claudeMessage: 'div[data-testid="claude-message"], .font-claude-response, .font-claude-message, [class*="font-claude-message"]',
+      assistantLike: '[data-testid*="assistant"], [data-testid*="response"], [data-is-streaming]',
       prose: '.prose, [class*="prose"]',
       ariaLive: '[aria-live]',
-      articles: 'article',
+      articles: 'article, [role="article"]',
       stopButtons: 'button[data-testid*="stop"], [data-testid*="stop"], button[aria-label*="Stop"], button[aria-label*="stop"], button[aria-label*="Cancel"], button[aria-label*="Interrupt"], button[aria-label*="停止"]'
     };
 
@@ -170,14 +214,14 @@
 
     if (data.type === 'AI_NEW_CHAT' && data.platform === 'claude') {
       console.log('[Claude] Starting new chat...');
-      window.location.href = 'https://claude.ai/new';
+      window.location.href = CLAUDE_NEW_CHAT_URL;
     }
 
     if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'claude') {
       console.log('[Claude] Received scrape history request');
       let history = [];
       try {
-        history = await window.InjectionCore.scrapeHistory(config);
+        history = await window.InjectionCore.scrapeHistory(config, data.timeoutMs || 1500);
       } catch (e) {
         console.error('[Claude] Scrape history error:', e);
       }
@@ -185,6 +229,7 @@
         window.parent.postMessage({
           type: 'AI_SCRAPE_HISTORY_RESPONSE',
           platform: 'claude',
+          requestId: data.requestId,
           history: history,
           isGenerating: window.InjectionCore.isGenerating(config),
           source: 'content-script'
@@ -227,7 +272,7 @@
       const sidebarNav = document.querySelector('nav[aria-label="Sidebar"]');
       const customReopenButton = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
       const customCloseHitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
-      const sidebarStorageKeys = Object.keys(localStorage).filter((key) => /sidebar|nav|recents|drawer|collapsed|panel/i.test(key));
+      const sidebarStorageKeys = Object.keys(localStorage).filter((key) => /sidebar|nav|recents|drawer|collapsed|panel|model|paprika|console/i.test(key));
 
       window.parent.postMessage({
         type: 'AI_DIAGNOSTICS_RESULT',
@@ -927,7 +972,7 @@
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {
       console.log('[Claude] User clicked "I am logged in", navigating to chat page...');
-      window.location.href = 'https://claude.ai/new';
+      window.location.href = CLAUDE_NEW_CHAT_URL;
       overlay.remove();
       window.claudeLoginCheckDisabled = true;
       setTimeout(() => {

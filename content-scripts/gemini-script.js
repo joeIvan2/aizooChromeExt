@@ -35,7 +35,7 @@
       console.log('[Gemini] Received scrape history request');
       let history = [];
       try {
-        history = await window.InjectionCore.scrapeHistory(config);
+        history = await window.InjectionCore.scrapeHistory(config, data.timeoutMs || 1500);
       } catch (e) {
         console.error('[Gemini] Scrape history error:', e);
       }
@@ -43,6 +43,7 @@
         window.parent.postMessage({
           type: 'AI_SCRAPE_HISTORY_RESPONSE',
           platform: 'gemini',
+          requestId: data.requestId,
           history: history,
           isGenerating: window.InjectionCore.isGenerating(config),
           source: 'content-script'
