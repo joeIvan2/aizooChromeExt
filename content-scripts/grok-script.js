@@ -4,6 +4,18 @@
 
   console.log('[Grok] Content script initializing...');
 
+  if (location.hostname === 'grok.com') {
+    chrome.runtime.sendMessage({ type: 'GROK_PREPARE_WEBSOCKET' })
+      .then((response) => {
+        if (!response?.ok) {
+          console.warn('[Grok] WebSocket cookie preparation did not complete:', response?.error);
+        }
+      })
+      .catch((error) => {
+        console.warn('[Grok] Could not request WebSocket cookie preparation:', error);
+      });
+  }
+
   const config = window.PLATFORM_CONFIGS.grok;
 
   // 初始化 Fetch 監聽

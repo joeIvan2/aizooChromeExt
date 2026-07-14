@@ -4,9 +4,74 @@ console.log('[AI Multi-Chat] Service worker initializing...');
 // 儲存 AI Multi-Chat 分頁的 ID
 let aiChatTabId = null;
 
+const GROK_WEBSOCKET_COOKIE_RULE_ID = 9001;
+const GROK_WEBSOCKET_COOKIE_URL = 'https://grok.com/ws/mgw/';
+const GROK_EXTENSION_PARTITION_KEY = {
+  topLevelSite: new URL(chrome.runtime.getURL('/')).origin,
+  hasCrossSiteAncestor: true
+};
+let grokCookieRuleUpdate = Promise.resolve();
+
+async function updateGrokWebSocketCookieRule(reason) {
+  const [unpartitionedCookies, partitionedCookies] = await Promise.all([
+    chrome.cookies.getAll({
+      url: GROK_WEBSOCKET_COOKIE_URL
+    }),
+    chrome.cookies.getAll({
+      url: GROK_WEBSOCKET_COOKIE_URL,
+      partitionKey: GROK_EXTENSION_PARTITION_KEY
+    })
+  ]);
+  const cookies = [...unpartitionedCookies, ...partitionedCookies];
+  const cookieHeader = cookies
+    .map((cookie) => `${cookie.name}=${cookie.value}`)
+    .join('; ');
+
+  const addRules = cookieHeader ? [{
+    id: GROK_WEBSOCKET_COOKIE_RULE_ID,
+    priority: 100,
+    action: {
+      type: 'modifyHeaders',
+      requestHeaders: [{
+        header: 'Cookie',
+        operation: 'set',
+        value: cookieHeader
+      }]
+    },
+    condition: {
+      urlFilter: '||grok.com/ws/mgw/',
+      resourceTypes: ['websocket']
+    }
+  }] : [];
+
+  await chrome.declarativeNetRequest.updateSessionRules({
+    removeRuleIds: [GROK_WEBSOCKET_COOKIE_RULE_ID],
+    addRules
+  });
+
+  console.log(
+    '[AI Multi-Chat] Grok WebSocket cookie rule updated:',
+    reason,
+    `(${unpartitionedCookies.length} regular, ${partitionedCookies.length} partitioned cookies)`
+  );
+}
+
+function scheduleGrokWebSocketCookieRuleUpdate(reason) {
+  grokCookieRuleUpdate = grokCookieRuleUpdate
+    .catch(() => {})
+    .then(() => updateGrokWebSocketCookieRule(reason));
+
+  return grokCookieRuleUpdate;
+}
+
 // Service worker 啟動時執行
 chrome.runtime.onInstalled.addListener((details) => {
   console.log('[AI Multi-Chat] Extension installed/updated:', details.reason);
+
+  scheduleGrokWebSocketCookieRuleUpdate(`extension-${details.reason}`)
+    .catch((error) => {
+      console.error('[AI Multi-Chat] Could not prepare Grok WebSocket cookies:', error);
+    });
 
   if (details.reason === 'install') {
     console.log('[AI Multi-Chat] First time installation');
@@ -15,6 +80,21 @@ chrome.runtime.onInstalled.addListener((details) => {
   } else if (details.reason === 'update') {
     console.log('[AI Multi-Chat] Extension updated');
   }
+});
+
+chrome.runtime.onStartup.addListener(() => {
+  scheduleGrokWebSocketCookieRuleUpdate('browser-startup').catch((error) => {
+    console.error('[AI Multi-Chat] Could not prepare Grok WebSocket cookies:', error);
+  });
+});
+
+chrome.cookies.onChanged.addListener((changeInfo) => {
+  const domain = changeInfo.cookie?.domain?.replace(/^\./, '');
+  if (domain !== 'grok.com' && !domain?.endsWith('.grok.com')) return;
+
+  scheduleGrokWebSocketCookieRuleUpdate('grok-cookie-changed').catch((error) => {
+    console.error('[AI Multi-Chat] Could not refresh Grok WebSocket cookies:', error);
+  });
 });
 
 // 點擊擴充圖示時
@@ -28,6 +108,8 @@ async function openAIChatTab() {
   const url = chrome.runtime.getURL('popup.html');
 
   try {
+    await scheduleGrokWebSocketCookieRuleUpdate('open-ai-chat');
+
     // 1. 檢查是否已有 AI Chat 分頁
     if (aiChatTabId !== null) {
       try {
@@ -86,6 +168,16 @@ chrome.tabs.onRemoved.addListener((tabId) => {
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   console.log('[AI Multi-Chat] Message received:', request);
 
+  if (request.type === 'GROK_PREPARE_WEBSOCKET') {
+    scheduleGrokWebSocketCookieRuleUpdate('grok-content-script')
+      .then(() => sendResponse({ ok: true }))
+      .catch((error) => {
+        console.error('[AI Multi-Chat] Could not prepare Grok WebSocket cookies:', error);
+        sendResponse({ ok: false, error: error.message });
+      });
+    return true;
+  }
+
   // 處理 OAuth 完成消息
   if (request.type === 'OAUTH_COMPLETE') {
     console.log('[AI Multi-Chat] OAuth completed for:', request.platform);
@@ -106,3 +198,7 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
 
 console.log('[AI Multi-Chat] Service worker loaded successfully');
 console.log('[AI Multi-Chat] Headers will be modified by declarativeNetRequest rules');
+
+scheduleGrokWebSocketCookieRuleUpdate('service-worker-start').catch((error) => {
+  console.error('[AI Multi-Chat] Could not prepare Grok WebSocket cookies:', error);
+});
