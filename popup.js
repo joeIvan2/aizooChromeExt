@@ -1000,7 +1000,7 @@ function sendQuestionToOnePlatform(platform, sourceInput = document.getElementBy
 
   console.log(`[AI Multi-Chat] Sending question to ${platform}:`, question);
   window.lastSentQuestion = question;
-  startSessionCapture(question);
+  startSessionCapture(question, [platform]);
   clearSentQuestionInputs(questionInput, question);
   sendQuestionToPlatform(platform, question);
 }
@@ -1264,15 +1264,59 @@ function makeSessionTitle(question) {
   return text.length > 48 ? text.substring(0, 48) + '...' : text;
 }
 
-function startSessionCapture(question) {
+function getCurrentConversationUrl(platform) {
+  const storedUrl = normalizePlatformUrl(
+    platform,
+    localStorage.getItem(`ai-chat-url-${platform}`)
+  );
+
+  return isRecordableConversationUrl(platform, storedUrl) ? storedUrl : '';
+}
+
+function saveActiveSessionDraft() {
+  if (!activeSessionDraft || Object.keys(activeSessionDraft.urls).length === 0) return;
+
+  const sessions = getSessionList();
+  const existingIndex = sessions.findIndex(session => session.id === activeSessionDraft.id);
+  const { targetPlatforms, ...sessionDraft } = activeSessionDraft;
+  const nextSession = {
+    ...sessionDraft,
+    platforms: Object.keys(sessionDraft.urls)
+  };
+
+  if (existingIndex >= 0) {
+    sessions[existingIndex] = nextSession;
+  } else {
+    sessions.unshift(nextSession);
+  }
+
+  saveSessionList(sessions);
+  renderSessionList(activeSessionDraft.id);
+}
+
+function startSessionCapture(question, targetPlatforms = platforms.filter(isPlatformEnabled)) {
+  const now = Date.now();
+  const uniqueTargets = [...new Set(targetPlatforms.filter(platform => platforms.includes(platform)))];
+  const urls = {};
+
+  uniqueTargets.forEach(platform => {
+    const currentUrl = getCurrentConversationUrl(platform);
+    if (currentUrl) {
+      urls[platform] = currentUrl;
+    }
+  });
+
   activeSessionDraft = {
-    id: String(Date.now()),
+    id: String(now),
     title: makeSessionTitle(question),
     question: question,
-    createdAt: Date.now(),
-    updatedAt: Date.now(),
-    urls: {}
+    createdAt: now,
+    updatedAt: now,
+    urls,
+    targetPlatforms: uniqueTargets
   };
+
+  saveActiveSessionDraft();
 }
 
 function captureSessionUrl(platform, url) {
@@ -1284,28 +1328,17 @@ function captureSessionUrl(platform, url) {
     return;
   }
 
+  if (!activeSessionDraft.targetPlatforms.includes(platform)) {
+    return;
+  }
+
   if (!isRecordableConversationUrl(platform, url)) {
     return;
   }
 
   activeSessionDraft.urls[platform] = url;
   activeSessionDraft.updatedAt = Date.now();
-
-  const sessions = getSessionList();
-  const existingIndex = sessions.findIndex(session => session.id === activeSessionDraft.id);
-  const nextSession = {
-    ...activeSessionDraft,
-    platforms: Object.keys(activeSessionDraft.urls)
-  };
-
-  if (existingIndex >= 0) {
-    sessions[existingIndex] = nextSession;
-  } else {
-    sessions.unshift(nextSession);
-  }
-
-  saveSessionList(sessions);
-  renderSessionList(activeSessionDraft.id);
+  saveActiveSessionDraft();
 }
 
 function formatSessionOption(session) {

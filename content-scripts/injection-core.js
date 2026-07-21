@@ -69,7 +69,7 @@ const InjectionCore = {
               }
 
               // 解析並發送響應
-              const parsedResponse = config.parseResponse ? config.parseResponse(fullText) : eval(`(${config.parseResponseJs})`)(fullText);
+              const parsedResponse = config.parseResponse(fullText);
 
               console.log(`[${config.id}] Response received:`, parsedResponse.substring(0, 100) + '...');
 
@@ -135,7 +135,7 @@ const InjectionCore = {
             const rawText = xhr.responseText;
 
             // 解析並發送響應
-            const parsedResponse = config.parseResponse ? config.parseResponse(rawText) : eval(`(${config.parseResponseJs})`)(rawText);
+            const parsedResponse = config.parseResponse(rawText);
 
             console.log(`[${config.id}] Response received:`, parsedResponse.substring(0, 100) + '...');
 
@@ -404,7 +404,7 @@ const InjectionCore = {
     // Step 1: 等待 textarea
     while (retryCount < maxRetries) {
       try {
-        const textareaFound = config.detectTextarea ? config.detectTextarea() : eval(config.detectTextareaJs);
+        const textareaFound = config.detectTextarea();
         if (textareaFound) {
           console.log(`[${config.id}] Textarea found`);
           break;
@@ -436,7 +436,7 @@ const InjectionCore = {
 
     // Step 2: 填入問題
     try {
-      const fillSuccess = config.fillQuestion ? config.fillQuestion(question) : eval(config.fillQuestionJs.replace(/\{\{QUESTION\}\}/g, JSON.stringify(question)));
+      const fillSuccess = config.fillQuestion(question);
 
       if (!fillSuccess) {
         sendMessageToPopup({
@@ -544,7 +544,7 @@ const InjectionCore = {
 
     while (retryCount < maxRetries) {
       try {
-        const buttonFound = config.detectButton ? config.detectButton() : eval(config.detectButtonJs);
+        const buttonFound = config.detectButton();
         if (!buttonFound) {
           if (!hasShownWaitingMessage) {
             sendMessageToPopup({
@@ -560,7 +560,7 @@ const InjectionCore = {
         }
 
         // 按鈕找到，嘗試點擊
-        const clickSuccess = config.clickButton ? config.clickButton() : eval(config.clickButtonJs);
+        const clickSuccess = config.clickButton();
         if (clickSuccess) {
           console.log(`[${config.id}] Button clicked successfully`);
           sendMessageToPopup({
