@@ -27,6 +27,7 @@ A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok,
 - ✅ **4 個 AI 同時顯示**：Grok、Gemini、Claude、ChatGPT 並排顯示
 - ✅ **統一輸入框**：一次輸入，一鍵發送到所有 AI
 - ✅ **即時狀態更新**：每個 AI 的狀態一目了然
+- ✅ **可靠的登入與就緒狀態**：Grok、ChatGPT、Claude 會確認登入狀態；Gemini 會等待可用輸入框
 - ✅ **自動繞過限制**：自動移除 X-Frame-Options，允許 iframe 載入
 - ✅ **重用現有邏輯**：90% 程式碼來自 React Native App
 - ✅ **快捷鍵**：Ctrl+Enter 快速發送問題
@@ -36,6 +37,7 @@ A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok,
 - ✅ **4 AIs Displayed Simultaneously**: Grok, Gemini, Claude, ChatGPT side by side
 - ✅ **Unified Input Box**: Type once, send to all AIs with one click
 - ✅ **Real-time Status Updates**: Each AI's status at a glance
+- ✅ **Reliable Login and Ready States**: Grok, ChatGPT, and Claude confirm login state; Gemini waits for a usable composer
 - ✅ **Automatic Bypass**: Automatically removes X-Frame-Options to allow iframe loading
 - ✅ **Code Reuse**: 90% of code from React Native App
 - ✅ **Keyboard Shortcut**: Ctrl+Enter to quickly send questions
@@ -146,131 +148,127 @@ Each AI displays status in the top right corner:
 
 ## AI 平台登入處理
 
-部分 AI 平台（如 Grok、ChatGPT）使用 OAuth 進行登入。由於安全限制，OAuth 流程不能在 iframe 中完成。本擴充功能針對不同平台提供不同的登入處理方式。
+Grok、ChatGPT 與 Claude 會在 iframe 中確認目前瀏覽器 session 是否可用；偵測到需要登入時，會在 iframe 顯示登入引導。基於瀏覽器與供應商的安全限制，實際登入仍在供應商官方來源開啟的新分頁或視窗中完成。Gemini 由使用者登入，擴充功能在可用輸入框出現後才顯示「準備就緒」。
 
 ### 支援的平台
 
-- **Grok**：使用 Google OAuth (`accounts.x.ai`) - 手動引導登入
-- **ChatGPT**：使用 OpenAI Auth (`auth.openai.com`) - 自動開啟登入視窗
-- **Gemini**：由使用者自行處理登入
-- **Claude**：由使用者自行處理登入
+- **Grok**：登入狀態確認與新分頁登入引導
+- **ChatGPT**：登入狀態確認與彈出視窗登入引導
+- **Claude**：登入狀態確認與新視窗登入引導
+- **Gemini**：由使用者登入；在偵測到可用輸入框後標示為準備就緒
 
-### Grok 手動登入
+### Grok 登入引導
 
 1. **檢測登入需求**：當 Grok iframe 需要登入時，會顯示登入提示
 2. **點擊登入按鈕**：點擊「在新分頁中登入 Grok」按鈕
 3. **新分頁登入**：在新分頁中開啟 `https://accounts.x.ai/sign-in?redirect=grok-com`
-4. **完成登入**：使用 Google 帳號完成登入
-5. **重新載入**：回到 AI Multi-Chat，點擊「我已完成登入，重新載入」按鈕
-6. **開始使用**：Grok iframe 重新載入並顯示已登入狀態
+4. **完成登入**：在 Grok 的官方登入頁完成登入
+5. **回到首頁檢查**：回到 AI Multi-Chat，點擊已登入按鈕後返回 Grok 首頁
+6. **開始使用**：Grok 重新確認 session，成功後顯示已登入狀態
 
-### ChatGPT 自動登入
+### ChatGPT 登入引導
 
-1. **自動檢測**：當 ChatGPT iframe 需要登入時自動檢測
-2. **自動開啟視窗**：自動開啟小視窗（500x700）到 `https://auth.openai.com/log-in`
+1. **檢測登入需求**：當 ChatGPT iframe 無法確認可用 session 時，顯示登入提示
+2. **開啟登入視窗**：點擊提示中的登入按鈕，在小視窗（500x700）開啟 `https://auth.openai.com/log-in`
 3. **完成登入**：在彈出視窗中使用 OpenAI 帳號登入
-4. **關閉視窗**：登入完成後關閉視窗
-5. **自動重載**：ChatGPT iframe 自動重新載入（延遲 2 秒）
-6. **開始使用**：直接開始使用，無需手動操作
+4. **返回聊天頁**：完成後回到 AI Multi-Chat，點擊已登入按鈕返回 ChatGPT 首頁
+5. **開始使用**：ChatGPT 重新確認 session，成功後顯示準備就緒
 
-**特色**：
-- ✨ 完全自動化，無需點擊按鈕
-- 🪟 小視窗彈出，不會打擾主視窗
-- 🔄 關閉登入視窗後自動重載
-- ⚡ 快速便捷的登入體驗
+### Claude 登入引導
 
-### 登入提示界面（僅 Grok）
+1. **檢測登入需求**：當 Claude iframe 無法確認可用 session 時，顯示登入提示
+2. **開啟登入視窗**：點擊提示中的登入按鈕，開啟 `https://claude.ai/login`
+3. **完成登入**：在 Claude 的官方登入頁完成登入
+4. **返回聊天頁**：回到 AI Multi-Chat，點擊已登入按鈕返回 Claude 新對話頁
+5. **開始使用**：Claude 重新確認 session，成功後顯示準備就緒
 
-當 Grok 需要登入時，iframe 會顯示：
+### Gemini 登入與就緒狀態
+
+- 由使用者在 Gemini iframe 或 Gemini 官方頁面完成登入。
+- 擴充功能會等待可用輸入框出現後再顯示「準備就緒」，最長等待 30 秒。
+- 供應商端介面、登入限制或網路狀態變動時，可能仍需要重新整理或重新登入。
+
+### 登入提示界面（Grok、ChatGPT、Claude）
+
+當這些平台需要登入時，iframe 會顯示：
 - 🔐 圖示
-- **Grok 需要登入** 標題
-- **在新分頁中登入 Grok** 按鈕（主要操作）
-- **我已完成登入，重新載入** 按鈕（登入完成後使用）
+- **需要登入** 的平台標題
+- **在新視窗或分頁中登入** 按鈕（主要操作）
+- **我已完成登入** 按鈕（登入完成後返回聊天首頁）
 - 💡 操作提示說明
-- 紫色漸層主題 (#667eea → #764ba2)
 
 ### 狀態提示
 
-**Grok**：
-- 🔐 **需要登入驗證**：檢測到需要登入，顯示登入界面
-- 🔐 **請在新分頁中完成登入**：已開啟登入分頁
-- 🔄 **重新載入中...**：正在重新載入 Grok
-- ✅ **準備就緒**：登入完成，可以使用
+**Grok、ChatGPT、Claude**：
+- 🔐 **需要登入驗證**：無法確認可用 session 時顯示登入界面
+- ✅ **準備就緒**：確認現有瀏覽器 session 可用後即可使用
+- 初始載入後會檢查一次，之後每 30 秒重新檢查；網路逾時本身不會直接判定為登出
 
-**ChatGPT**：
-- 🔐 **需要登入驗證**：檢測到需要登入，自動開啟視窗
-- 🔐 **登入視窗已開啟**：登入視窗已彈出
-- 🔄 **重新載入中...**：登入視窗關閉後自動重載
-- ✅ **準備就緒**：自動完成，可以使用
-
-**其他平台（Gemini、Claude）**：
+**Gemini**：
 - 由使用者在 iframe 中直接完成登入
-- 無自動登入檢測或引導
-- 登入後即可正常使用
+- 偵測到可用輸入框後才顯示準備就緒
 
 ## AI Platform Login Handling
 
-Some AI platforms (like Grok, ChatGPT) use OAuth for login. Due to security restrictions, OAuth flows cannot complete within iframes. This extension provides different login handling for different platforms.
+Grok, ChatGPT, and Claude check whether the current browser session is usable inside the iframe and show guided login when it is not. Due to browser and provider security restrictions, the actual sign-in still happens in a new tab or window at the provider's official origin. Gemini is signed in by the user and is marked ready only after a usable composer appears.
 
 ### Supported Platforms
 
-- **Grok**: Uses Google OAuth (`accounts.x.ai`) - Manual guided login
-- **ChatGPT**: Uses OpenAI Auth (`auth.openai.com`) - Automatic popup window
-- **Gemini**: User handles login directly
-- **Claude**: User handles login directly
+- **Grok**: Login-state confirmation and guided sign-in in a new tab
+- **ChatGPT**: Login-state confirmation and guided sign-in in a popup window
+- **Claude**: Login-state confirmation and guided sign-in in a new window
+- **Gemini**: User signs in; the extension marks it ready after a usable composer is detected
 
-### Grok Manual Login
+### Grok Guided Login
 
 1. **Detection**: When Grok iframe requires login, a login prompt appears
 2. **Click Login**: Click "Login to Grok in New Tab" button
 3. **New Tab Login**: Opens `https://accounts.x.ai/sign-in?redirect=grok-com` in new tab
-4. **Complete Login**: Sign in with Google account
-5. **Reload**: Return to AI Multi-Chat and click "Login Complete, Reload" button
-6. **Start Using**: Grok iframe reloads showing logged-in state
+4. **Complete Login**: Sign in at Grok's official login page
+5. **Return to Home**: Return to AI Multi-Chat and use the signed-in button to go back to the Grok home page
+6. **Start Using**: Grok confirms the session again and shows the signed-in state
 
-### ChatGPT Automatic Login
+### ChatGPT Guided Login
 
-1. **Auto-Detection**: Automatically detects when ChatGPT iframe needs login
-2. **Auto-Open Window**: Automatically opens popup window (500x700) to `https://auth.openai.com/log-in`
-3. **Complete Login**: Sign in with OpenAI account in popup window
-4. **Close Window**: Close window after login completes
-5. **Auto-Reload**: ChatGPT iframe automatically reloads (2 second delay)
-6. **Start Using**: Ready to use immediately, no manual action needed
+1. **Detect Login Requirement**: When the ChatGPT iframe cannot confirm a usable session, it displays a login prompt
+2. **Open Login Window**: Click the prompt's login button to open `https://auth.openai.com/log-in` in a 500x700 popup window
+3. **Complete Login**: Sign in with an OpenAI account in the popup window
+4. **Return to Chat**: Return to AI Multi-Chat and use the signed-in button to go back to the ChatGPT home page
+5. **Start Using**: ChatGPT confirms the session again and then shows Ready
 
-**Features**:
-- ✨ Fully automated, no button clicks needed
-- 🪟 Small popup window, doesn't disturb main window
-- 🔄 Auto-reload after closing login window
-- ⚡ Fast and convenient login experience
+### Claude Guided Login
 
-### Login Prompt Interface (Grok Only)
+1. **Detect Login Requirement**: When the Claude iframe cannot confirm a usable session, it displays a login prompt
+2. **Open Login Window**: Click the prompt's login button to open `https://claude.ai/login`
+3. **Complete Login**: Sign in at Claude's official login page
+4. **Return to Chat**: Return to AI Multi-Chat and use the signed-in button to go back to Claude's new-chat page
+5. **Start Using**: Claude confirms the session again and then shows Ready
 
-When Grok needs login, iframe displays:
+### Gemini Login and Ready State
+
+- Sign in directly in the Gemini iframe or on Gemini's official page.
+- The extension waits for a usable composer before showing Ready, for up to 30 seconds.
+- Provider UI changes, login restrictions, or network conditions may still require a refresh or a new login.
+
+### Login Prompt Interface (Grok, ChatGPT, and Claude)
+
+When these platforms need login, the iframe displays:
 - 🔐 Icon
-- **Grok Login Required** title
-- **Login to Grok in New Tab** button (primary action)
-- **Login Complete, Reload** button (after login)
+- A platform-specific **Login Required** title
+- A **Sign in in a new tab or window** button (primary action)
+- An **I'm signed in** button to return to the chat home page
 - 💡 Operation hints
-- Purple gradient theme (#667eea → #764ba2)
 
 ### Status Messages
 
-**Grok**:
-- 🔐 **Login Required**: Detected login needed, showing login interface
-- 🔐 **Please Complete Login in New Tab**: Login tab opened
-- 🔄 **Reloading...**: Reloading Grok
-- ✅ **Ready**: Login complete, ready to use
+**Grok, ChatGPT, and Claude**:
+- 🔐 **Login Required**: Shown when a usable session cannot be confirmed
+- ✅ **Ready**: Shown after the existing browser session is confirmed as usable
+- The extension checks once after initial load and then every 30 seconds; a network timeout alone does not mark the user as signed out
 
-**ChatGPT**:
-- 🔐 **Login Required**: Detected login needed, auto-opening window
-- 🔐 **Login Window Opened**: Login window popped up
-- 🔄 **Reloading...**: Auto-reload after login window closed
-- ✅ **Ready**: Auto-completed, ready to use
-
-**Other Platforms (Gemini, Claude)**:
-- User handles login directly in iframe
-- No automatic login detection or guidance
-- Ready to use after login
+**Gemini**:
+- The user signs in directly in the iframe
+- Ready is shown only after a usable composer is detected
 
 ---
 
@@ -546,6 +544,13 @@ UI Display
 
 ## 更新日誌
 
+### v1.2.6 (2026-07-24)
+- ✅ 改善 Grok 對話還原：若儲存的對話目前無法使用，會清除舊連結並回到 Grok 首頁。
+- ✅ 改善 Grok、ChatGPT 與 Claude 的登入狀態判定，減少已登入時誤顯示登入提示的情況。
+- ✅ 將上述平台的登入檢查調整為初始檢查後每 30 秒執行，降低不必要的頁面活動。
+- ✅ Gemini 只會在可用輸入框出現後顯示「準備就緒」。
+- ✅ 未新增擴充功能權限；版本由 1.2.5 升至 1.2.6。
+
 ### v1.0.0 (2025-12-19)
 - ✅ 初始版本
 - ✅ 支援 4 個 AI 平台
@@ -554,6 +559,13 @@ UI Display
 - ✅ 自動繞過 iframe 限制
 
 ## Changelog
+
+### v1.2.6 (2026-07-24)
+- ✅ Improved Grok conversation restoration: unavailable saved conversations are cleared and fall back to the Grok home page.
+- ✅ Improved login-state handling for Grok, ChatGPT, and Claude to reduce false login-required prompts.
+- ✅ Login-state checks now run on initialization and every 30 seconds, reducing unnecessary page activity.
+- ✅ Gemini reports Ready only after a usable composer is available.
+- ✅ No new extension permissions; version bumped from 1.2.5 to 1.2.6.
 
 ### v1.0.0 (2025-12-19)
 - ✅ Initial release

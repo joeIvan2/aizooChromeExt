@@ -328,7 +328,9 @@
     }
   });
 
-  if (window.parent !== window) {
+  function notifyReady() {
+    if (window.parent === window) return;
+
     window.parent.postMessage({
       type: 'AI_READY',
       platform: 'claude',
@@ -902,9 +904,32 @@
 
   // --- Login Monitoring & Overlay Logic ---
   const LOGIN_OVERLAY_ID = 'ai-multichat-login-overlay';
+  const LOGIN_CHECK_INTERVAL_MS = 30000;
+  let loginCheckInFlight = false;
+  let lastAuthenticatedState = null;
+
+  function notifyLoginRequired() {
+    if (window.parent === window) return;
+
+    window.parent.postMessage({
+      type: 'AI_NEEDS_LOGIN',
+      platform: 'claude',
+      url: location.href,
+      source: 'ai-login-handler'
+    }, '*');
+  }
+
+  function hasUsableChatInput() {
+    try {
+      return !!config.detectTextarea();
+    } catch (error) {
+      return false;
+    }
+  }
 
   function createLoginOverlay() {
     if (document.getElementById(LOGIN_OVERLAY_ID)) return;
+    if (!document.body) return;
 
     const overlay = document.createElement('div');
     overlay.id = LOGIN_OVERLAY_ID;
@@ -972,42 +997,93 @@
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {
       console.log('[Claude] User clicked "I am logged in", navigating to chat page...');
-      window.location.href = CLAUDE_NEW_CHAT_URL;
       overlay.remove();
       window.claudeLoginCheckDisabled = true;
-      setTimeout(() => {
-        window.claudeLoginCheckDisabled = false;
-      }, 5000);
+      window.location.href = CLAUDE_NEW_CHAT_URL;
     });
   }
 
-  function checkLoginState() {
-    if (window.self === window.top) return;
-    if (window.claudeLoginCheckDisabled) return;
+  function reportLoginState(isAuthenticated, forceReport = false) {
+    if (lastAuthenticatedState === isAuthenticated && !forceReport) return;
+    lastAuthenticatedState = isAuthenticated;
 
-    const isLoginPage = location.href.includes('claude.ai/login');
-
-    if (isLoginPage) {
-      if (!document.getElementById(LOGIN_OVERLAY_ID)) {
-        console.log('[Claude] Login page detected in iframe, showing overlay...');
-        createLoginOverlay();
+    if (isAuthenticated) {
+      const overlay = document.getElementById(LOGIN_OVERLAY_ID);
+      if (overlay) {
+        console.log('[Claude] Authenticated session detected, removing login overlay...');
+        overlay.remove();
       }
+      notifyReady();
       return;
     }
 
-    const hasChatInterface = document.querySelector('[contenteditable="true"]') ||
-      document.querySelector('textarea') ||
-      document.querySelector('[data-testid="chat-input"]');
+    createLoginOverlay();
+    notifyLoginRequired();
+  }
 
-    if (hasChatInterface) {
-      const overlay = document.getElementById(LOGIN_OVERLAY_ID);
-      if (overlay) overlay.remove();
+  async function checkLoginState(forceReport = false) {
+    if (window.self === window.top) return;
+    if (window.claudeLoginCheckDisabled) return;
+
+    const isLoginPage = location.hostname === 'claude.ai' && location.pathname.startsWith('/login');
+
+    if (isLoginPage) {
+      console.log('[Claude] Login page detected in iframe, showing overlay...');
+      reportLoginState(false, forceReport);
+      return;
+    }
+
+    if (location.hostname !== 'claude.ai' || loginCheckInFlight) return;
+
+    loginCheckInFlight = true;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch('https://claude.ai/api/account', {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        reportLoginState(false, forceReport);
+        return;
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        const isAuthenticated = !!(data?.uuid || data?.tagged_id || data?.email_address);
+        reportLoginState(isAuthenticated, forceReport);
+        return;
+      }
+
+      // A confirmed composer is a safe positive fallback; its absence is not proof of logout.
+      if (hasUsableChatInput()) {
+        reportLoginState(true, forceReport);
+      }
+    } catch (error) {
+      if (hasUsableChatInput()) {
+        reportLoginState(true, forceReport);
+      } else {
+        console.warn('[Claude] Could not confirm login state:', error);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      loginCheckInFlight = false;
     }
   }
 
-  setTimeout(() => {
-    setInterval(checkLoginState, 1000);
-  }, 2000);
+  const runInitialLoginCheck = () => {
+    setTimeout(() => checkLoginState(true), 100);
+  };
+
+  if (document.readyState === 'complete') {
+    runInitialLoginCheck();
+  } else {
+    window.addEventListener('load', runInitialLoginCheck, { once: true });
+  }
+  setInterval(() => checkLoginState(), LOGIN_CHECK_INTERVAL_MS);
 
   console.log('[Claude] Content script loaded');
 })();

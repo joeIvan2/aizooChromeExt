@@ -52,8 +52,9 @@
     }
   });
 
-  // 通知準備就緒（發送給 parent window，即 popup.html）
-  if (window.parent !== window) {
+  function notifyReady() {
+    if (window.parent === window) return;
+
     window.parent.postMessage({
       type: 'AI_READY',
       platform: 'chatgpt',
@@ -63,9 +64,32 @@
 
   // --- Login Monitoring & Overlay Logic ---
   const LOGIN_OVERLAY_ID = 'ai-multichat-login-overlay';
+  const LOGIN_CHECK_INTERVAL_MS = 30000;
+  let loginCheckInFlight = false;
+  let lastAuthenticatedState = null;
+
+  function notifyLoginRequired() {
+    if (window.parent === window) return;
+
+    window.parent.postMessage({
+      type: 'CHATGPT_NEEDS_LOGIN',
+      platform: 'chatgpt',
+      url: location.href,
+      source: 'ai-login-handler'
+    }, '*');
+  }
+
+  function hasUsableChatInput() {
+    try {
+      return !!config.detectTextarea();
+    } catch (error) {
+      return false;
+    }
+  }
 
   function createLoginOverlay() {
     if (document.getElementById(LOGIN_OVERLAY_ID)) return;
+    if (!document.body) return;
 
     const overlay = document.createElement('div');
     overlay.id = LOGIN_OVERLAY_ID;
@@ -133,50 +157,96 @@
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {
       console.log('[ChatGPT] User clicked "I am logged in", navigating to chat page...');
-      // Navigate to chat page
-      window.location.href = 'https://chatgpt.com/';
-      // Remove overlay
       overlay.remove();
-      // Disable auto-check for 5 seconds to prevent re-showing during navigation
       window.chatgptLoginCheckDisabled = true;
-      setTimeout(() => {
-        window.chatgptLoginCheckDisabled = false;
-      }, 5000);
+      window.location.href = 'https://chatgpt.com/';
     });
   }
 
-  function checkLoginState() {
-    // 0. IMPORTANT: Only run this logic if we are inside an iframe
-    // If we are in a top-level window (like the login popup), do NOTHING.
+  function reportLoginState(isAuthenticated, forceReport = false) {
+    if (lastAuthenticatedState === isAuthenticated && !forceReport) return;
+    lastAuthenticatedState = isAuthenticated;
+
+    if (isAuthenticated) {
+      const overlay = document.getElementById(LOGIN_OVERLAY_ID);
+      if (overlay) {
+        console.log('[ChatGPT] Authenticated session detected, removing login overlay...');
+        overlay.remove();
+      }
+      notifyReady();
+      return;
+    }
+
+    createLoginOverlay();
+    notifyLoginRequired();
+  }
+
+  async function checkLoginState(forceReport = false) {
     if (window.self === window.top) return;
 
-    // Skip check if manually disabled
     if (window.chatgptLoginCheckDisabled) return;
 
-    // 1. Detect if we are on the auth page inside an iframe
     const isAuthPage = location.hostname === 'auth.openai.com' ||
                        location.pathname.includes('/auth/login') ||
                        location.pathname.includes('/log-in-or-create-account');
 
     if (isAuthPage) {
-      if (!document.getElementById(LOGIN_OVERLAY_ID)) {
-         console.log('[ChatGPT] Auth page detected in iframe, showing overlay...');
-         createLoginOverlay();
-      }
+      console.log('[ChatGPT] Auth page detected in iframe, showing overlay...');
+      reportLoginState(false, forceReport);
       return;
     }
 
-    // ChatGPT reuses btn-secondary for transient UI such as the text-selection
-    // toolbar. Only explicit auth URLs are reliable enough to block the page.
-    const overlay = document.getElementById(LOGIN_OVERLAY_ID);
-    if (overlay) {
-      console.log('[ChatGPT] Chat page detected, removing login overlay...');
-      overlay.remove();
+    if (location.hostname !== 'chatgpt.com' || loginCheckInFlight) return;
+
+    loginCheckInFlight = true;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch('https://chatgpt.com/backend-api/me', {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        reportLoginState(false, forceReport);
+        return;
+      }
+
+      if (response.ok) {
+        const data = await response.json();
+        const isAuthenticated = !!(data?.id || data?.email);
+        reportLoginState(isAuthenticated, forceReport);
+        return;
+      }
+
+      // A confirmed composer is a safe positive fallback; its absence is not proof of logout.
+      if (hasUsableChatInput()) {
+        reportLoginState(true, forceReport);
+      }
+    } catch (error) {
+      if (hasUsableChatInput()) {
+        reportLoginState(true, forceReport);
+      } else {
+        console.warn('[ChatGPT] Could not confirm login state:', error);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      loginCheckInFlight = false;
     }
   }
 
-  // Run check every 1 second
-  setInterval(checkLoginState, 1000);
+  const runInitialLoginCheck = () => {
+    setTimeout(() => checkLoginState(true), 100);
+  };
+
+  if (document.readyState === 'complete') {
+    runInitialLoginCheck();
+  } else {
+    window.addEventListener('load', runInitialLoginCheck, { once: true });
+  }
+  setInterval(() => checkLoginState(), LOGIN_CHECK_INTERVAL_MS);
   // --- End Login Monitoring ---
 
   console.log('[ChatGPT] Content script loaded');

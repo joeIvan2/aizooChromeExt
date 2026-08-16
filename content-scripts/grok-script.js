@@ -65,8 +65,9 @@
 
   });
 
-  // 通知準備就緒（發送給 parent window，即 popup.html）
-  if (window.parent !== window) {
+  function notifyReady() {
+    if (window.parent === window) return;
+
     window.parent.postMessage({
       type: 'AI_READY',
       platform: 'grok',
@@ -145,9 +146,32 @@
 
   // --- Login Monitoring & Overlay Logic ---
   const LOGIN_OVERLAY_ID = 'ai-multichat-login-overlay';
+  const LOGIN_CHECK_INTERVAL_MS = 30000;
+  let loginCheckInFlight = false;
+  let lastAuthenticatedState = null;
+
+  function notifyLoginRequired() {
+    if (window.parent === window) return;
+
+    window.parent.postMessage({
+      type: 'GROK_NEEDS_LOGIN',
+      platform: 'grok',
+      url: location.href,
+      source: 'grok-login-handler'
+    }, '*');
+  }
+
+  function hasUsableChatInput() {
+    try {
+      return !!config.detectTextarea();
+    } catch (error) {
+      return false;
+    }
+  }
 
   function createLoginOverlay() {
     if (document.getElementById(LOGIN_OVERLAY_ID)) return;
+    if (!document.body) return;
 
     const overlay = document.createElement('div');
     overlay.id = LOGIN_OVERLAY_ID;
@@ -214,20 +238,32 @@
     }, { capture: true });
 
     document.getElementById('ai-close-btn').addEventListener('click', () => {
-      console.log('[Grok] User clicked "I am logged in", reloading page...');
-      // Remove overlay
+      console.log('[Grok] User clicked "I am logged in", returning to Grok...');
       overlay.remove();
-      // Disable auto-check for 5 seconds to prevent re-showing during navigation
       window.grokLoginCheckDisabled = true;
-      setTimeout(() => {
-        window.grokLoginCheckDisabled = false;
-      }, 5000);
-      // Force full page reload to detect login state
-      window.location.reload();
+      window.location.href = 'https://grok.com/';
     });
   }
 
-  function checkLoginState() {
+  function reportLoginState(isAuthenticated, forceReport = false) {
+    if (lastAuthenticatedState === isAuthenticated && !forceReport) return;
+    lastAuthenticatedState = isAuthenticated;
+
+    if (isAuthenticated) {
+      const overlay = document.getElementById(LOGIN_OVERLAY_ID);
+      if (overlay) {
+        console.log('[Grok] Authenticated session detected, removing login overlay...');
+        overlay.remove();
+      }
+      notifyReady();
+      return;
+    }
+
+    createLoginOverlay();
+    notifyLoginRequired();
+  }
+
+  async function checkLoginState(forceReport = false) {
     // Only run this logic if we are inside an iframe
     if (window.self === window.top) return;
 
@@ -238,41 +274,63 @@
     const isAuthPage = location.hostname === 'accounts.x.ai' && location.pathname.startsWith('/sign-in');
 
     if (isAuthPage) {
-      if (!document.getElementById(LOGIN_OVERLAY_ID)) {
-        console.log('[Grok] Sign-in page detected in iframe:', location.href);
-        createLoginOverlay();
-      }
+      console.log('[Grok] Sign-in page detected in iframe:', location.href);
+      reportLoginState(false, forceReport);
       return;
     }
 
-    // Check for Grok's chat interface elements (more comprehensive)
-    const hasChatInterface =
-      document.querySelector('textarea') ||
-      document.querySelector('[contenteditable="true"]') ||
-      document.querySelector('button[aria-label*="Send"]') ||
-      document.querySelector('button[aria-label*="Stop"]') ||
-      document.querySelector('[data-testid="chat-input"]') ||
-      // Check if we're on grok.com and NOT on a login/landing page
-      (location.hostname === 'grok.com' && !location.pathname.includes('login') && document.body && document.body.textContent.length > 1000);
+    if (location.hostname !== 'grok.com' || loginCheckInFlight) return;
 
-    if (hasChatInterface) {
-      // Logged in: remove overlay if it exists
-      const overlay = document.getElementById(LOGIN_OVERLAY_ID);
-      if (overlay) {
-        console.log('[Grok] Chat interface detected, removing overlay...');
-        overlay.remove();
+    loginCheckInFlight = true;
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+    try {
+      const response = await fetch('https://grok.com/api/auth/session', {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal
+      });
+
+      if (response.status === 401 || response.status === 403) {
+        reportLoginState(false, forceReport);
+        return;
       }
-    } else {
-      // Not logged in: ensure overlay exists
-      if (!document.getElementById(LOGIN_OVERLAY_ID)) {
-        console.log('[Grok] Login overlay missing, restoring...');
-        createLoginOverlay();
+
+      if (response.ok) {
+        const data = await response.json();
+        const isAuthenticated = data?.status === 'authenticated' && !!data.session;
+        reportLoginState(isAuthenticated, forceReport);
+        return;
       }
+
+      // A confirmed composer is a safe positive fallback; its absence is not proof of logout.
+      if (hasUsableChatInput()) {
+        reportLoginState(true, forceReport);
+      }
+    } catch (error) {
+      if (hasUsableChatInput()) {
+        reportLoginState(true, forceReport);
+      } else {
+        console.warn('[Grok] Could not confirm login state:', error);
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      loginCheckInFlight = false;
     }
   }
 
-  // Run check every 1 second
-  setInterval(checkLoginState, 1000);
+  const runInitialLoginCheck = () => {
+    // Run after the parent iframe load handler so the final status is not overwritten.
+    setTimeout(() => checkLoginState(true), 100);
+  };
+
+  if (document.readyState === 'complete') {
+    runInitialLoginCheck();
+  } else {
+    window.addEventListener('load', runInitialLoginCheck, { once: true });
+  }
+  setInterval(() => checkLoginState(), LOGIN_CHECK_INTERVAL_MS);
   // --- End Login Monitoring ---
 
   console.log('[Grok] Content script loaded');

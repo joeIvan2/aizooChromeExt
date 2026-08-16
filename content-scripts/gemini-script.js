@@ -52,13 +52,48 @@
     }
   });
 
-  // 通知準備就緒（發送給 parent window，即 popup.html）
-  if (window.parent !== window) {
+  function notifyReady() {
+    if (window.parent === window) return;
+
     window.parent.postMessage({
       type: 'AI_READY',
       platform: 'gemini',
       source: 'content-script'
     }, '*');
+  }
+
+  function hasUsableChatInput() {
+    try {
+      return !!config.detectTextarea();
+    } catch (error) {
+      return false;
+    }
+  }
+
+  const startReadyCheck = () => {
+    const checkReady = () => {
+      if (!hasUsableChatInput()) return false;
+      notifyReady();
+      return true;
+    };
+
+    // Run after the parent iframe load handler, then wait for Gemini's dynamic composer.
+    setTimeout(() => {
+      if (checkReady()) return;
+
+      const intervalId = setInterval(() => {
+        if (checkReady()) {
+          clearInterval(intervalId);
+        }
+      }, 500);
+      setTimeout(() => clearInterval(intervalId), 30000);
+    }, 100);
+  };
+
+  if (document.readyState === 'complete') {
+    startReadyCheck();
+  } else {
+    window.addEventListener('load', startReadyCheck, { once: true });
   }
 
   console.log('[Gemini] Content script loaded');

@@ -81,6 +81,41 @@ const conversationUrlPatterns = {
   chatgpt: /^https:\/\/chatgpt\.com\/c\/[^/?#]+/
 };
 
+async function getRestorableGrokUrl(url) {
+  const conversationId = String(url || '').match(
+    /^https:\/\/grok\.com\/(?:chat|c)\/([^/?#]+)/
+  )?.[1];
+  if (!conversationId) return url;
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+  try {
+    const response = await fetch(
+      `https://grok.com/rest/app-chat/conversations_v2/${encodeURIComponent(conversationId)}?includeWorkspaces=true&includeTaskResult=true`,
+      {
+        credentials: 'include',
+        cache: 'no-store',
+        signal: controller.signal
+      }
+    );
+    if (!response.ok) return url;
+
+    const data = await response.json();
+    const keys = data && typeof data === 'object' ? Object.keys(data) : [];
+    if (keys.length === 1 && typeof data.shareLinkPath === 'string') {
+      console.warn('[grok] Saved conversation is unavailable for the current account; using the Grok home page');
+      return '';
+    }
+  } catch (error) {
+    console.warn('[grok] Could not validate saved conversation URL:', error);
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  return url;
+}
+
 function applySubstitutions(text, substitutions) {
   let result = text || '';
   const values = Array.isArray(substitutions)
@@ -187,13 +222,21 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 首先初始化 i18n
   await initI18n();
 
+  const storedGrokUrl = normalizePlatformUrl('grok', localStorage.getItem('ai-chat-url-grok'));
+  const restorableGrokUrl = await getRestorableGrokUrl(storedGrokUrl);
+  if (storedGrokUrl && !restorableGrokUrl) {
+    localStorage.removeItem('ai-chat-url-grok');
+  }
+
   // 獲取所有 iframe 和狀態元素
   platforms.forEach(platform => {
     iframes[platform] = document.getElementById(`${platform}-iframe`);
     statusElements[platform] = document.getElementById(`${platform}-status`);
 
     // 恢復上次的 URL
-    const savedUrl = normalizePlatformUrl(platform, localStorage.getItem(`ai-chat-url-${platform}`));
+    const savedUrl = platform === 'grok'
+      ? restorableGrokUrl
+      : normalizePlatformUrl(platform, localStorage.getItem(`ai-chat-url-${platform}`));
     if (savedUrl && savedUrl !== defaultUrls[platform]) {
       console.log(`[${platform}] Restoring saved URL:`, savedUrl);
       iframes[platform].src = savedUrl;
@@ -1482,22 +1525,32 @@ function prepareComparePanelForSessionSwitch(session) {
   });
 }
 
-function loadSelectedSession() {
+async function loadSelectedSession() {
   const session = getSelectedSession();
   if (!session) return;
 
   prepareComparePanelForSessionSwitch(session);
 
-  platforms.forEach(platform => {
+  for (const platform of platforms) {
     const url = session.urls && session.urls[platform];
     const iframe = iframes[platform];
-    if (!url || !iframe) return;
+    if (!url || !iframe) continue;
 
-    const normalizedUrl = normalizePlatformUrl(platform, url);
+    let normalizedUrl = normalizePlatformUrl(platform, url);
+    if (platform === 'grok') {
+      normalizedUrl = await getRestorableGrokUrl(normalizedUrl);
+      if (!normalizedUrl) {
+        localStorage.removeItem('ai-chat-url-grok');
+        iframe.src = defaultUrls.grok;
+        updateStatus(platform, '⏳', t('loadingTitle', 'Loading...'));
+        continue;
+      }
+    }
+
     localStorage.setItem(`ai-chat-url-${platform}`, normalizedUrl);
     iframe.src = normalizedUrl;
     updateStatus(platform, '⏳', t('switchingConversation', 'Switching conversation...'));
-  });
+  }
 
   if (isComparePanelVisible()) {
     setTimeout(() => {
