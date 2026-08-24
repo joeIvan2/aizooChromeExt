@@ -1,16 +1,16 @@
-# AI Multi-Chat Assistant
+# AI Zoo - Multi-AI Comparison Workspace
 
-Chrome Extension 擴充功能，可同時與 4 個 AI 平台聊天：Grok、Gemini、Claude、ChatGPT。
+AI Zoo 是一款已上架 Chrome Web Store 的 Manifest V3 擴充功能，將 Grok、Gemini、Claude 與 ChatGPT 整合到同一個工作區。使用者只需輸入一次問題，就能同步取得四個模型的回答、並排比較差異，再選擇任一 AI 將所有觀點整理成摘要與明確結論。
 
-A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok, Gemini, Claude, and ChatGPT.
+AI Zoo is a published Manifest V3 Chrome Extension that brings Grok, Gemini, Claude, and ChatGPT into one workspace. Users can ask once, collect four independent answers, compare them side by side, and select any AI to synthesize the full discussion into a concise summary and conclusion.
 
 <p align="center">
   <img src="docs/images/ai-zoo-four-platform-workspace.png" alt="AI Zoo comparing Grok, Gemini, Claude, and ChatGPT side by side" width="100%">
 </p>
 
 <p align="center">
-  <strong>一次提問，同步比較 Grok、Gemini、Claude 與 ChatGPT。</strong><br>
-  Ask once and compare four AI platforms side by side in one workspace.
+  <strong>一次提問，四個觀點，一鍵整理成可行結論。</strong><br>
+  Ask once, compare four perspectives, then turn them into one actionable summary.
 </p>
 
 ---
@@ -20,36 +20,88 @@ A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok,
 - **正式上架**：[AI Zoo - Chrome Web Store](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW)
 - **目前安裝數**：410 位使用者
 - **專案類型**：開源 Chrome Extension / Manifest V3
-- **核心用途**：讓使用者在同一個工作區同步比較多個主流 AI 平台的回答，減少重複輸入、切換分頁與人工整理成本。
+- **核心用途**：完成從多模型提問、回答擷取、橫向比較、AI 摘要到 Markdown 分享的完整決策工作流。
 
 ## Project Status
 
 - **Published**: [AI Zoo - Chrome Web Store](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW)
 - **Current installs**: 410 users
 - **Project type**: Open-source Chrome Extension / Manifest V3
-- **Core purpose**: Help users compare responses from multiple leading AI platforms in one workspace, reducing repeated typing, tab switching, and manual synthesis work.
+- **Core purpose**: Provide an end-to-end decision workflow from multi-model prompting and response collection to comparison, AI synthesis, and Markdown sharing.
+
+---
+
+## 產品概覽
+
+單一模型的答案可能遺漏資訊、產生幻覺，或只反映一種推理方式。傳統做法必須在多個分頁間重複貼上問題，再靠人工記憶比對答案。AI Zoo 將這段流程產品化：保留各平台原生介面與登入 session，同時提供跨平台的統一控制層，讓使用者能快速取得不同模型的獨立觀點。
+
+### 核心工作流程
+
+1. **一次提問**：從統一輸入框廣播到所有已啟用的平台，也可以只傳送給指定 AI。
+2. **原生回答**：四個平台保留各自完整介面、模型選項、引用來源與既有對話脈絡。
+3. **智慧對比**：擷取各平台最新對話，等待串流回答穩定後，在同一個對照面板中整理呈現。
+4. **AI 摘要**：選擇 Grok、Gemini、Claude 或 ChatGPT 作為摘要模型，搭配可編輯 Prompt，彙整共識、分歧、風險與最終結論。
+5. **分享與留存**：將問題、平台狀態與完整回答整理成 Markdown，可複製、下載或使用系統分享；內容不會自動上傳到額外伺服器。
+
+## Product Overview
+
+A single model can omit information, hallucinate, or expose only one reasoning path. The usual workaround is to repeat the same prompt across several tabs and manually reconcile the answers. AI Zoo turns that fragmented process into a product: it preserves each provider's native interface and signed-in session while adding one orchestration layer across all platforms.
+
+### Core Workflow
+
+1. **Ask once**: Broadcast one prompt to every enabled platform, or send it to a selected AI only.
+2. **Keep native answers**: Preserve each platform's interface, model controls, citations, and conversation context.
+3. **Smart Compare**: Extract the latest conversations, wait for streamed responses to stabilize, and render them in one comparison panel.
+4. **AI Summary**: Choose Grok, Gemini, Claude, or ChatGPT as the synthesizer and use an editable prompt to identify consensus, disagreements, risks, and a final conclusion.
+5. **Share and retain**: Format the question, platform status, and complete answers as Markdown for copy, download, or native sharing without automatically uploading the content elsewhere.
 
 ---
 
 ## 功能特點
 
 - ✅ **4 個 AI 同時顯示**：Grok、Gemini、Claude、ChatGPT 並排顯示
-- ✅ **統一輸入框**：一次輸入，一鍵發送到所有 AI
+- ✅ **統一輸入與彈性發送**：一次輸入，可廣播到所有 AI 或只傳送給指定平台
+- ✅ **智慧對比**：自動擷取並整理各平台最新回答，集中檢視相同觀點、差異與引用來源
+- ✅ **AI 摘要**：任選一個 AI 彙整全部對比內容，摘要 Prompt 可自行編輯並保存在本機
+- ✅ **歷史對話**：記錄各平台對話網址，可重新開啟過往多平台討論
+- ✅ **Markdown 分享**：一鍵整理、複製、下載或呼叫系統分享，不會自動上傳內容
 - ✅ **即時狀態更新**：每個 AI 的狀態一目了然
 - ✅ **可靠的登入與就緒狀態**：Grok、ChatGPT、Claude 會確認登入狀態；Gemini 會等待可用輸入框
-- ✅ **自動繞過限制**：自動移除 X-Frame-Options，允許 iframe 載入
-- ✅ **重用現有邏輯**：90% 程式碼來自 React Native App
+- ✅ **多站 iframe 整合**：使用 Manifest V3、content scripts 與 declarativeNetRequest 協調官方平台頁面
 - ✅ **快捷鍵**：Ctrl+Enter 快速發送問題
 
 ## Features
 
 - ✅ **4 AIs Displayed Simultaneously**: Grok, Gemini, Claude, ChatGPT side by side
-- ✅ **Unified Input Box**: Type once, send to all AIs with one click
+- ✅ **Unified and Flexible Input**: Type once, then broadcast to all AIs or send to one selected platform
+- ✅ **Smart Compare**: Collect and organize the latest answers for direct review of agreements, differences, and citations
+- ✅ **AI Summary**: Choose any AI to synthesize all comparison content with an editable prompt stored locally
+- ✅ **Conversation History**: Keep platform conversation URLs and reopen previous multi-platform sessions
+- ✅ **Markdown Sharing**: Format, copy, download, or natively share results without automatic content uploads
 - ✅ **Real-time Status Updates**: Each AI's status at a glance
 - ✅ **Reliable Login and Ready States**: Grok, ChatGPT, and Claude confirm login state; Gemini waits for a usable composer
-- ✅ **Automatic Bypass**: Automatically removes X-Frame-Options to allow iframe loading
-- ✅ **Code Reuse**: 90% of code from React Native App
+- ✅ **Multi-site iframe Integration**: Coordinate official platform pages with Manifest V3, content scripts, and declarativeNetRequest
 - ✅ **Keyboard Shortcut**: Ctrl+Enter to quickly send questions
+
+---
+
+## 工程與作品集亮點
+
+- **端到端產品開發**：從需求、互動設計、四平台 adapter、登入流程、資料抽取、跨 iframe 通訊，到 Chrome Web Store 打包與發布皆在同一專案完成。
+- **可擴充的平台架構**：以共用 injection core 搭配平台設定與專用 content script，隔離 Grok、Gemini、Claude、ChatGPT 不同的 DOM、Fetch/XHR 與提交方式。
+- **非同步狀態協調**：處理 iframe 載入競態、串流生成、回答穩定判斷、重試與逾時，避免畫面載入完成但控制層仍誤判未就緒。
+- **跨模型資料正規化**：將四種不同 DOM 與回應格式轉成一致的 user/assistant 訊息結構，供歷史對話、智慧對比、摘要與 Markdown 匯出重用。
+- **真實登入與恢復機制**：透過各平台可用的 session endpoint 或專用 composer 確認狀態，並處理舊帳號對話、唯讀分享頁與 OAuth 返回流程。
+- **隱私優先**：對話直接發生在使用者瀏覽器與官方 AI 平台之間；摘要指令、介面偏好與歷史網址保存在瀏覽器本機。
+
+## Engineering Highlights
+
+- **End-to-end product ownership**: Covers product design, interaction flows, four platform adapters, authentication, extraction, cross-iframe messaging, Chrome Web Store packaging, and release.
+- **Extensible platform architecture**: Combines a shared injection core with platform configuration and dedicated content scripts to isolate different DOM, Fetch/XHR, and submission behaviors.
+- **Asynchronous state coordination**: Handles iframe load races, streaming generation, response stabilization, retries, and timeouts instead of assuming that a loaded page is ready.
+- **Cross-model normalization**: Converts four different DOM and response formats into one user/assistant message model reused by history, Smart Compare, AI Summary, and Markdown export.
+- **Session-aware recovery**: Uses available session endpoints or a verified composer to distinguish authentication from loading, read-only shares, stale conversation URLs, and OAuth return flows.
+- **Privacy-first design**: Conversations remain between the browser and official AI platforms; summary instructions, UI preferences, and history URLs are stored locally.
 
 ---
 
@@ -118,18 +170,22 @@ AI Zoo interacts with several third-party AI web interfaces, so it requires ongo
 ## 使用方法
 
 1. 點擊瀏覽器工具列的擴充圖示
-2. 會開啟一個頁面，顯示 4 個 AI iframe
-3. 在頂部輸入框輸入問題
-4. 點擊「發送到所有 AI」或按 `Ctrl+Enter`
-5. 觀看 4 個 AI 同時回應
+2. 在各平台官方頁面完成登入，AI Zoo 會確認 session 與輸入框是否就緒
+3. 在統一輸入框輸入問題，選擇「發送到所有 AI」、指定單一平台，或按 `Ctrl+Enter`
+4. 觀看 Grok、Gemini、Claude 與 ChatGPT 各自產生完整回答
+5. 點擊「智慧對比」，在同一個面板檢視四個平台的最新對話與引用來源
+6. 點擊「AI 摘要」，編輯摘要指令並選擇任一平台產生跨模型綜合結論
+7. 視需要將對比結果複製、下載成 Markdown，或使用系統分享
 
 ## Usage
 
 1. Click the extension icon in the browser toolbar
-2. A page will open showing 4 AI iframes
-3. Enter your question in the top input box
-4. Click "Send to All AIs" or press `Ctrl+Enter`
-5. Watch all 4 AIs respond simultaneously
+2. Sign in on each provider's official page; AI Zoo confirms the session and composer readiness
+3. Enter a prompt in the unified composer, then broadcast it, choose one platform, or press `Ctrl+Enter`
+4. Let Grok, Gemini, Claude, and ChatGPT produce their complete native responses
+5. Open **Smart Compare** to inspect the latest conversations and citations in one panel
+6. Open **AI Summary**, edit the synthesis instruction, and select any platform to produce a cross-model conclusion
+7. Copy, download the comparison as Markdown, or use native system sharing
 
 ---
 
@@ -406,6 +462,9 @@ chrome-extension/
 - 4 個 iframe 佈局
 - 統一輸入控制
 - 消息處理和狀態更新
+- 對話歷史分組與跨平台回答正規化
+- 智慧對比的輪詢、串流穩定判斷與完成狀態管理
+- 可編輯 AI 摘要 Prompt、目標模型路由與 Markdown 分享
 
 ### 通訊流程
 
@@ -468,6 +527,9 @@ chrome-extension/
 - 4 iframe layout
 - Unified input control
 - Message handling and status updates
+- Conversation grouping and normalized cross-platform responses
+- Smart Compare polling, stream stabilization, and completion-state management
+- Editable AI Summary prompts, target-model routing, and Markdown sharing
 
 ### Communication Flow
 
