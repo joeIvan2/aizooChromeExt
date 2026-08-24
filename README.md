@@ -1,12 +1,12 @@
 # AI Zoo - Multi-AI Comparison Workspace
 
-> **求職作品｜Chrome Manifest V3 × 多平台 SPA 整合 × 非同步狀態協調 × 跨模型 AI 摘要**
+> **Chrome Manifest V3 × 多平台 SPA 整合 × 非同步狀態協調 × 跨模型 AI 摘要**
 
 > [!IMPORTANT]
-> **作品背景：這是一個已上架 Chrome Web Store、持續維護中的完整產品。** 我想解決的是多 AI 使用者每天都會遇到的真實摩擦：同一個問題要在多個分頁重複貼上、等待、切換，再靠記憶人工比對。AI Zoo 把 Grok、Gemini、Claude 與 ChatGPT 收進同一個工作區，從一次提問、四方回答、智慧對比，到選擇任一 AI 產生綜合摘要與明確結論，形成一條可重複使用的決策工作流。
+> **專案背景：這是一個已上架 Chrome Web Store、持續維護中的完整產品。** 我想解決的是多 AI 使用者每天都會遇到的真實摩擦：同一個問題要在多個分頁重複貼上、等待、切換，再靠記憶人工比對。AI Zoo 把 Grok、Gemini、Claude 與 ChatGPT 收進同一個工作區，從一次提問、四方回答、智慧對比，到選擇任一 AI 產生綜合摘要與明確結論，形成一條可重複使用的決策工作流。
 
 > [!NOTE]
-> **這個作品的重點不只是「把四個網站排在一起」。** 真正的工程挑戰是協調四個持續改版的第三方 SPA、保留各平台原生登入與對話脈絡、判斷串流回答何時真正完成、將異質資料正規化，並在不建立開發者對話後端的前提下完成跨模型摘要。為了嵌入官方頁面，Extension 會透過 `declarativeNetRequest` 調整阻擋 iframe 的安全標頭；權限與風險邊界均公開在程式碼與隱私文件中。
+> **這個專案的重點不只是「把四個網站排在一起」。** 真正的工程挑戰是協調四個持續改版的第三方 SPA、保留各平台原生登入與對話脈絡、判斷串流回答何時真正完成、將異質資料正規化，並在不建立開發者對話後端的前提下完成跨模型摘要。為了嵌入官方頁面，Extension 會透過 `declarativeNetRequest` 調整阻擋 iframe 的安全標頭；權限與風險邊界均公開在程式碼與隱私文件中。
 
 <p align="center">
   <img src="docs/images/ai-zoo-four-platform-workspace.png" alt="AI Zoo 同時比較 Grok、Gemini、Claude 與 ChatGPT，並提供 AI 摘要功能" width="100%">
@@ -17,11 +17,11 @@
   Ask once, compare four perspectives, then turn them into one actionable summary.
 </p>
 
-## 求職作品重點：我的考量與工程決策
+## 設計考量與工程決策
 
 我沒有把這題當成單純的 iframe 排版。核心問題是：**如何把四個彼此獨立、介面隨時會變、回應又是非同步串流的 AI 網站，整合成一個可靠且可維護的產品工作流。**
 
-| 我考量的問題 | 工程決策 | 展示的技術能力 |
+| 我考量的問題 | 工程決策 | 涵蓋的工程面向 |
 | --- | --- | --- |
 | 四個平台的 DOM、送出按鈕、Fetch/XHR 與回答格式都不同 | 以共用 `injection-core` 搭配平台設定與專用 content script，將共同行為和供應商差異分離 | Adapter architecture、Chrome MV3、DOM/API reverse engineering |
 | iframe 載入完成不等於使用者已登入或輸入框可用 | 分開處理頁面載入、session、OAuth 與 composer readiness，加入重試、逾時與誤判保護 | 非同步狀態機、authentication lifecycle、failure recovery |
@@ -101,7 +101,7 @@ flowchart LR
 
 AI Zoo 會與多個第三方 AI 網頁介面互動，因此 selectors、OAuth/login 流程、串流解析與跨 iframe 通訊都可能隨供應商改版而需要維護。Extension 也需要網站存取、cookies 與 `declarativeNetRequest` 權限，並會移除部分阻擋 iframe 的安全標頭；這是核心功能的技術前提，也代表專案必須持續審查 XSS、DOM injection、`postMessage` 來源、content script 權限、token/data leakage 與 CSP/header 規則。
 
-## English Portfolio Summary
+## Engineering Overview
 
 AI Zoo is a published Manifest V3 Chrome Extension that turns four independent AI websites into one comparison and synthesis workspace. A user can broadcast one prompt to Grok, Gemini, Claude, and ChatGPT, preserve each provider's native session and citations, normalize the latest streamed conversations, compare them side by side, and route the complete Markdown context plus an editable instruction to any selected AI for a final summary.
 
