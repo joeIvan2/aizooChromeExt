@@ -4,6 +4,15 @@ Chrome Extension 擴充功能，可同時與 4 個 AI 平台聊天：Grok、Gemi
 
 A Chrome Extension that enables simultaneous chatting with 4 AI platforms: Grok, Gemini, Claude, and ChatGPT.
 
+<p align="center">
+  <img src="docs/images/ai-zoo-four-platform-workspace.png" alt="AI Zoo comparing Grok, Gemini, Claude, and ChatGPT side by side" width="100%">
+</p>
+
+<p align="center">
+  <strong>一次提問，同步比較 Grok、Gemini、Claude 與 ChatGPT。</strong><br>
+  Ask once and compare four AI platforms side by side in one workspace.
+</p>
+
 ---
 
 ## 專案狀態
