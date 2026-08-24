@@ -1,11 +1,15 @@
 # AI Zoo - Multi-AI Comparison Workspace
 
-AI Zoo 是一款已上架 Chrome Web Store 的 Manifest V3 擴充功能，將 Grok、Gemini、Claude 與 ChatGPT 整合到同一個工作區。使用者只需輸入一次問題，就能同步取得四個模型的回答、並排比較差異，再選擇任一 AI 將所有觀點整理成摘要與明確結論。
+> **求職作品｜Chrome Manifest V3 × 多平台 SPA 整合 × 非同步狀態協調 × 跨模型 AI 摘要**
 
-AI Zoo is a published Manifest V3 Chrome Extension that brings Grok, Gemini, Claude, and ChatGPT into one workspace. Users can ask once, collect four independent answers, compare them side by side, and select any AI to synthesize the full discussion into a concise summary and conclusion.
+> [!IMPORTANT]
+> **作品背景：這是一個已上架 Chrome Web Store、持續維護中的完整產品。** 我想解決的是多 AI 使用者每天都會遇到的真實摩擦：同一個問題要在多個分頁重複貼上、等待、切換，再靠記憶人工比對。AI Zoo 把 Grok、Gemini、Claude 與 ChatGPT 收進同一個工作區，從一次提問、四方回答、智慧對比，到選擇任一 AI 產生綜合摘要與明確結論，形成一條可重複使用的決策工作流。
+
+> [!NOTE]
+> **這個作品的重點不只是「把四個網站排在一起」。** 真正的工程挑戰是協調四個持續改版的第三方 SPA、保留各平台原生登入與對話脈絡、判斷串流回答何時真正完成、將異質資料正規化，並在不建立開發者對話後端的前提下完成跨模型摘要。為了嵌入官方頁面，Extension 會透過 `declarativeNetRequest` 調整阻擋 iframe 的安全標頭；權限與風險邊界均公開在程式碼與隱私文件中。
 
 <p align="center">
-  <img src="docs/images/ai-zoo-four-platform-workspace.png" alt="AI Zoo comparing Grok, Gemini, Claude, and ChatGPT side by side" width="100%">
+  <img src="docs/images/ai-zoo-four-platform-workspace.png" alt="AI Zoo 同時比較 Grok、Gemini、Claude 與 ChatGPT，並提供 AI 摘要功能" width="100%">
 </p>
 
 <p align="center">
@@ -13,105 +17,95 @@ AI Zoo is a published Manifest V3 Chrome Extension that brings Grok, Gemini, Cla
   Ask once, compare four perspectives, then turn them into one actionable summary.
 </p>
 
----
+## 求職作品重點：我的考量與工程決策
+
+我沒有把這題當成單純的 iframe 排版。核心問題是：**如何把四個彼此獨立、介面隨時會變、回應又是非同步串流的 AI 網站，整合成一個可靠且可維護的產品工作流。**
+
+| 我考量的問題 | 工程決策 | 展示的技術能力 |
+| --- | --- | --- |
+| 四個平台的 DOM、送出按鈕、Fetch/XHR 與回答格式都不同 | 以共用 `injection-core` 搭配平台設定與專用 content script，將共同行為和供應商差異分離 | Adapter architecture、Chrome MV3、DOM/API reverse engineering |
+| iframe 載入完成不等於使用者已登入或輸入框可用 | 分開處理頁面載入、session、OAuth 與 composer readiness，加入重試、逾時與誤判保護 | 非同步狀態機、authentication lifecycle、failure recovery |
+| 串流中的回答會持續增長，過早標示完成會截到半篇內容 | 依問題定位回答，結合生成狀態、內容成長與多次穩定輪詢判斷完成 | Streaming coordination、polling strategy、資料一致性 |
+| 輪詢常會抓到完全相同的內容，整欄重繪會讓閱讀位置跳到底部 | 先比較下一版 DOM；資料未增加就不更新，確實變更時也依使用者位置決定保留捲動或跟隨底部 | Incremental rendering、scroll preservation、UX state management |
+| 各平台回傳結構不同，不能直接拿來比較與分享 | 將 Grok、Gemini、Claude、ChatGPT 的內容整理成一致的 `user/assistant` 訊息模型 | Data normalization、content extraction、defensive parsing |
+| 「看完四份答案」仍然需要大量人工整理 | 智慧對比先彙整完整回答與引用，再把 Markdown 內容、可編輯指令送給使用者指定的任一 AI，整理共識、分歧、風險與結論 | Prompt orchestration、cross-model synthesis、human-in-the-loop UX |
+| OAuth、舊對話網址與不同帳號可能讓 iframe 看似登出或卡住 | 使用可觀察的 session/composer 訊號確認狀態，並為登入、新對話與失效歷史網址提供恢復路徑 | Session-aware navigation、OAuth integration、resilient UX |
+| 對話內容不應再經過不必要的中轉服務 | 問題與回答直接在瀏覽器和各 AI 官方網站之間傳送；摘要指令、介面偏好及歷史網址只保存在目前 Chrome profile | Local-first privacy、permission scoping、security communication |
+| 真實產品不只要能跑，也要能發布和持續維護 | 完成 7 種語言、Chrome Web Store 上架、版本打包、商店政策文件與平台改版後的診斷流程 | Product delivery、localization、release and policy thinking |
+
+## 技術專業摘要
+
+- **Chrome Extension / Manifest V3**：service worker、content scripts、MAIN/isolated world、`declarativeNetRequest`、cookies/session 判斷與跨 iframe 訊息傳遞。
+- **第三方 SPA 整合**：針對四個獨立網站維護 selectors、原生輸入事件、提交流程、登入狀態與 URL lifecycle。
+- **平台 Adapter 架構**：共用注入核心負責重試、監聽與訊息協定；平台層封裝 DOM、Fetch/XHR、解析與抽取差異。
+- **非同步資料協調**：處理 iframe 載入競態、串流生成、內容穩定判斷、逾時、重試及只在資料變化時更新畫面。
+- **跨模型資料管線**：擷取最新對話、正規化角色與內容、保留引用來源，再重用於歷史、智慧對比、AI 摘要及 Markdown 匯出。
+- **AI 摘要工作流**：使用者可編輯摘要 Prompt，並選擇 Grok、Gemini、Claude 或 ChatGPT 作為統整模型，不綁定單一供應商或額外 API key。
+- **Local-first 產品設計**：不設開發者對話後端；偏好設定、摘要指令與對話網址保存在瀏覽器本機。
+- **產品化與交付**：完成多語系 UI、Chrome Web Store 發布、權限揭露、隱私文件、版本升級與可重複打包流程。
 
 ## 專案狀態
 
-- **正式上架**：[AI Zoo - Chrome Web Store](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW)
-- **目前安裝數**：410 位使用者
-- **專案類型**：開源 Chrome Extension / Manifest V3
-- **核心用途**：完成從多模型提問、回答擷取、橫向比較、AI 摘要到 Markdown 分享的完整決策工作流。
+| 項目 | 目前狀態 |
+| --- | --- |
+| 正式產品 | [AI Zoo - Chrome Web Store](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW) |
+| 使用者與評分 | 417 位使用者、5.0 分（1 個評分；2026-08-24 官方商店頁面快照） |
+| 目前版本 | `1.2.6` |
+| 支援平台 | Grok、Gemini、Claude、ChatGPT |
+| 支援語言 | 繁體中文、簡體中文、英文、日文、德文、法文、西班牙文 |
+| 核心流程 | 統一提問 → 原生回答 → 智慧對比 → AI 摘要 → Markdown 分享 |
 
-## Project Status
+## 產品如何運作
 
-- **Published**: [AI Zoo - Chrome Web Store](https://chromewebstore.google.com/detail/ai-zoo/lfjmcgadcijkapkfhliebaojgmjbnmid?hl=zh-TW)
-- **Current installs**: 410 users
-- **Project type**: Open-source Chrome Extension / Manifest V3
-- **Core purpose**: Provide an end-to-end decision workflow from multi-model prompting and response collection to comparison, AI synthesis, and Markdown sharing.
+單一模型可能遺漏資訊、產生幻覺，或只反映一種推理路徑。AI Zoo 不假設哪一個模型永遠最好，而是讓使用者以同一題取得四個獨立觀點，再把交叉驗證與整理流程做成產品功能。
 
----
+1. **一次提問**：從可拖曳的統一輸入框廣播到所有已啟用平台，也可以只送給指定 AI。
+2. **保留原生能力**：每個平台仍使用自己的登入 session、模型控制、引用來源與既有對話脈絡。
+3. **智慧對比**：自動擷取各平台最新對話，等待串流內容穩定後，在同一個全螢幕面板並排呈現。
+4. **AI 摘要**：把四方回答與來源整理成 Markdown，附上使用者可編輯的摘要指令，再交給指定 AI 提煉共識、分歧、風險與最終建議。
+5. **分享與留存**：結果可複製、下載為 Markdown 或呼叫系統分享；歷史對話可依群組重新開啟，內容不會自動上傳到開發者伺服器。
 
-## 產品概覽
+## 核心技術流程
 
-單一模型的答案可能遺漏資訊、產生幻覺，或只反映一種推理方式。傳統做法必須在多個分頁間重複貼上問題，再靠人工記憶比對答案。AI Zoo 將這段流程產品化：保留各平台原生介面與登入 session，同時提供跨平台的統一控制層，讓使用者能快速取得不同模型的獨立觀點。
+```mermaid
+flowchart LR
+    A["統一輸入框"] --> B["popup.js 協調層"]
+    B --> C1["Grok adapter"]
+    B --> C2["Gemini adapter"]
+    B --> C3["Claude adapter"]
+    B --> C4["ChatGPT adapter"]
+    C1 --> D["原生平台頁面與串流回答"]
+    C2 --> D
+    C3 --> D
+    C4 --> D
+    D --> E["對話抽取與角色正規化"]
+    E --> F["智慧對比與穩定判斷"]
+    F --> G["Markdown 分享"]
+    F --> H["可編輯摘要 Prompt"]
+    H --> I["使用者指定的摘要模型"]
+    J["localStorage：偏好、Prompt、歷史 URL"] --> B
+```
 
-### 核心工作流程
+## 主要功能
 
-1. **一次提問**：從統一輸入框廣播到所有已啟用的平台，也可以只傳送給指定 AI。
-2. **原生回答**：四個平台保留各自完整介面、模型選項、引用來源與既有對話脈絡。
-3. **智慧對比**：擷取各平台最新對話，等待串流回答穩定後，在同一個對照面板中整理呈現。
-4. **AI 摘要**：選擇 Grok、Gemini、Claude 或 ChatGPT 作為摘要模型，搭配可編輯 Prompt，彙整共識、分歧、風險與最終結論。
-5. **分享與留存**：將問題、平台狀態與完整回答整理成 Markdown，可複製、下載或使用系統分享；內容不會自動上傳到額外伺服器。
+- **四平台並排工作區**：Grok、Gemini、Claude 與 ChatGPT 同時顯示，可個別停用或放大專注。
+- **統一輸入與彈性發送**：一次輸入，可廣播到所有 AI 或傳送到單一平台，並支援 `Ctrl+Enter`。
+- **智慧對比**：擷取並整理各平台最新回答，集中檢視內容、差異及引用來源。
+- **AI 摘要**：任選一個 AI 彙整全部對比內容，摘要 Prompt 可編輯並保存在本機。
+- **閱讀位置保護**：輪詢結果相同時不重繪；有新內容時也不強迫已向上閱讀的使用者跳回底部。
+- **歷史對話群組**：記錄平台對話網址，可切換、刪除並重新開啟過往多平台討論。
+- **Markdown 分享**：一鍵整理、複製、下載或呼叫系統分享，不會自動上傳內容。
+- **登入與恢復引導**：辨識 session、composer 與 OAuth 狀態，減少已登入卻誤顯示登入提示的情況。
 
-## Product Overview
+## 維護與安全邊界
 
-A single model can omit information, hallucinate, or expose only one reasoning path. The usual workaround is to repeat the same prompt across several tabs and manually reconcile the answers. AI Zoo turns that fragmented process into a product: it preserves each provider's native interface and signed-in session while adding one orchestration layer across all platforms.
+AI Zoo 會與多個第三方 AI 網頁介面互動，因此 selectors、OAuth/login 流程、串流解析與跨 iframe 通訊都可能隨供應商改版而需要維護。Extension 也需要網站存取、cookies 與 `declarativeNetRequest` 權限，並會移除部分阻擋 iframe 的安全標頭；這是核心功能的技術前提，也代表專案必須持續審查 XSS、DOM injection、`postMessage` 來源、content script 權限、token/data leakage 與 CSP/header 規則。
 
-### Core Workflow
+## English Portfolio Summary
 
-1. **Ask once**: Broadcast one prompt to every enabled platform, or send it to a selected AI only.
-2. **Keep native answers**: Preserve each platform's interface, model controls, citations, and conversation context.
-3. **Smart Compare**: Extract the latest conversations, wait for streamed responses to stabilize, and render them in one comparison panel.
-4. **AI Summary**: Choose Grok, Gemini, Claude, or ChatGPT as the synthesizer and use an editable prompt to identify consensus, disagreements, risks, and a final conclusion.
-5. **Share and retain**: Format the question, platform status, and complete answers as Markdown for copy, download, or native sharing without automatically uploading the content elsewhere.
+AI Zoo is a published Manifest V3 Chrome Extension that turns four independent AI websites into one comparison and synthesis workspace. A user can broadcast one prompt to Grok, Gemini, Claude, and ChatGPT, preserve each provider's native session and citations, normalize the latest streamed conversations, compare them side by side, and route the complete Markdown context plus an editable instruction to any selected AI for a final summary.
 
----
-
-## 功能特點
-
-- ✅ **4 個 AI 同時顯示**：Grok、Gemini、Claude、ChatGPT 並排顯示
-- ✅ **統一輸入與彈性發送**：一次輸入，可廣播到所有 AI 或只傳送給指定平台
-- ✅ **智慧對比**：自動擷取並整理各平台最新回答，集中檢視相同觀點、差異與引用來源
-- ✅ **AI 摘要**：任選一個 AI 彙整全部對比內容，摘要 Prompt 可自行編輯並保存在本機
-- ✅ **歷史對話**：記錄各平台對話網址，可重新開啟過往多平台討論
-- ✅ **Markdown 分享**：一鍵整理、複製、下載或呼叫系統分享，不會自動上傳內容
-- ✅ **即時狀態更新**：每個 AI 的狀態一目了然
-- ✅ **可靠的登入與就緒狀態**：Grok、ChatGPT、Claude 會確認登入狀態；Gemini 會等待可用輸入框
-- ✅ **多站 iframe 整合**：使用 Manifest V3、content scripts 與 declarativeNetRequest 協調官方平台頁面
-- ✅ **快捷鍵**：Ctrl+Enter 快速發送問題
-
-## Features
-
-- ✅ **4 AIs Displayed Simultaneously**: Grok, Gemini, Claude, ChatGPT side by side
-- ✅ **Unified and Flexible Input**: Type once, then broadcast to all AIs or send to one selected platform
-- ✅ **Smart Compare**: Collect and organize the latest answers for direct review of agreements, differences, and citations
-- ✅ **AI Summary**: Choose any AI to synthesize all comparison content with an editable prompt stored locally
-- ✅ **Conversation History**: Keep platform conversation URLs and reopen previous multi-platform sessions
-- ✅ **Markdown Sharing**: Format, copy, download, or natively share results without automatic content uploads
-- ✅ **Real-time Status Updates**: Each AI's status at a glance
-- ✅ **Reliable Login and Ready States**: Grok, ChatGPT, and Claude confirm login state; Gemini waits for a usable composer
-- ✅ **Multi-site iframe Integration**: Coordinate official platform pages with Manifest V3, content scripts, and declarativeNetRequest
-- ✅ **Keyboard Shortcut**: Ctrl+Enter to quickly send questions
-
----
-
-## 工程與作品集亮點
-
-- **端到端產品開發**：從需求、互動設計、四平台 adapter、登入流程、資料抽取、跨 iframe 通訊，到 Chrome Web Store 打包與發布皆在同一專案完成。
-- **可擴充的平台架構**：以共用 injection core 搭配平台設定與專用 content script，隔離 Grok、Gemini、Claude、ChatGPT 不同的 DOM、Fetch/XHR 與提交方式。
-- **非同步狀態協調**：處理 iframe 載入競態、串流生成、回答穩定判斷、重試與逾時，避免畫面載入完成但控制層仍誤判未就緒。
-- **跨模型資料正規化**：將四種不同 DOM 與回應格式轉成一致的 user/assistant 訊息結構，供歷史對話、智慧對比、摘要與 Markdown 匯出重用。
-- **真實登入與恢復機制**：透過各平台可用的 session endpoint 或專用 composer 確認狀態，並處理舊帳號對話、唯讀分享頁與 OAuth 返回流程。
-- **隱私優先**：對話直接發生在使用者瀏覽器與官方 AI 平台之間；摘要指令、介面偏好與歷史網址保存在瀏覽器本機。
-
-## Engineering Highlights
-
-- **End-to-end product ownership**: Covers product design, interaction flows, four platform adapters, authentication, extraction, cross-iframe messaging, Chrome Web Store packaging, and release.
-- **Extensible platform architecture**: Combines a shared injection core with platform configuration and dedicated content scripts to isolate different DOM, Fetch/XHR, and submission behaviors.
-- **Asynchronous state coordination**: Handles iframe load races, streaming generation, response stabilization, retries, and timeouts instead of assuming that a loaded page is ready.
-- **Cross-model normalization**: Converts four different DOM and response formats into one user/assistant message model reused by history, Smart Compare, AI Summary, and Markdown export.
-- **Session-aware recovery**: Uses available session endpoints or a verified composer to distinguish authentication from loading, read-only shares, stale conversation URLs, and OAuth return flows.
-- **Privacy-first design**: Conversations remain between the browser and official AI platforms; summary instructions, UI preferences, and history URLs are stored locally.
-
----
-
-## 維護與安全重點
-
-AI Zoo 會與多個第三方 AI 平台的網頁介面互動，因此需要持續維護 selectors、OAuth/login 流程、串流回應解析與跨 iframe 通訊。這類外掛特別需要安全審查，避免 XSS、DOM injection、不安全的 `postMessage` 來源驗證、content script 權限濫用、token/data leakage，以及 CSP/header 規則設定錯誤。
-
-## Maintenance and Security Focus
-
-AI Zoo interacts with several third-party AI web interfaces, so it requires ongoing maintenance for selectors, OAuth/login flows, streaming response parsing, and cross-iframe communication. This kind of extension needs careful security review to prevent XSS, DOM injection, unsafe `postMessage` origin handling, content script permission abuse, token/data leakage, and mistakes in CSP/header rules.
+The engineering work goes beyond iframe layout: the extension isolates provider-specific DOM and network behavior behind adapters, coordinates authentication and composer readiness, waits for streamed content to stabilize, avoids identical re-renders that reset reading position, restores conversation groups, and keeps preferences and history URLs local. The product is published in seven languages and currently serves 417 Chrome Web Store users (store snapshot: 2026-08-24).
 
 ---
 
