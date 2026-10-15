@@ -6,17 +6,17 @@
 AI Zoo
 
 ### Short Description
-Command Grok, Gemini, Claude, and ChatGPT in one AI cockpit. Send once, compare instantly, summarize smarter.
+Command Grok, Gemini, Claude, ChatGPT, and Meta AI in one AI cockpit. Send once, compare instantly, summarize smarter.
 
 ### Detailed Description
 AI Zoo turns your browser into a multi-model AI command center.
 
-Instead of jumping between tabs, copying the same prompt again and again, and trying to remember which model said what, AI Zoo brings Grok, Gemini, Claude, and ChatGPT into one powerful side-by-side workspace. Ask once, send everywhere, compare the answers, and let the model you choose summarize the whole battle of ideas.
+Instead of jumping between tabs, copying the same prompt again and again, and trying to remember which model said what, AI Zoo brings Grok, Gemini, Claude, ChatGPT, and Meta AI into one powerful side-by-side workspace. Ask once, send everywhere, compare the answers, and let the model you choose summarize the whole battle of ideas.
 
 This is not just a shortcut. It is a faster way to think with multiple AI systems at the same time.
 
 What makes AI Zoo powerful:
-- Four major AI platforms in one dashboard: Grok, Gemini, Claude, and ChatGPT.
+- Five major AI platforms in one dashboard: Grok, Gemini, Claude, ChatGPT, and Meta AI.
 - Send to all AI: write one prompt and launch it across every enabled platform.
 - Send to one AI: target a single model when you want precision instead of broadcast.
 - Smart Compare: turn scattered answers into a clean, readable comparison view.
@@ -37,7 +37,7 @@ Privacy:
 AI Zoo does not operate an external server and does not collect your conversation content. Your interactions happen directly in your browser with the AI platforms you open. Local preferences, such as panel position and saved conversation URLs, stay in your browser storage.
 
 Important note:
-AI Zoo is an independent productivity tool and is not affiliated with Grok, Gemini, Claude, ChatGPT, xAI, Google, Anthropic, or OpenAI. You may need to sign in to each AI service with your own account. Platform availability and behavior may change when those services update their websites.
+AI Zoo is an independent productivity tool and is not affiliated with Grok, Gemini, Claude, ChatGPT, Meta AI, xAI, Google, Anthropic, OpenAI, or Meta. You may need to sign in to each AI service with your own account. Platform availability and behavior may change when those services update their websites.
 
 ## 繁體中文
 
@@ -45,17 +45,17 @@ AI Zoo is an independent productivity tool and is not affiliated with Grok, Gemi
 AI Zoo
 
 ### 簡短描述
-把 Grok、Gemini、Claude、ChatGPT 放進同一個 AI 指揮艙：一次發送、即時對比、AI 摘要。
+把 Grok、Gemini、Claude、ChatGPT、Meta AI 放進同一個 AI 指揮艙：一次發送、即時對比、AI 摘要。
 
 ### 詳細描述
 AI Zoo 會把你的瀏覽器變成多模型 AI 指揮中心。
 
-不用再來回切分頁、不用重複複製同一段提示詞、不用靠記憶分辨哪個模型講了什麼。AI Zoo 讓你在同一個工作區並排操作 Grok、Gemini、Claude 和 ChatGPT：輸入一次，同步發送，直接比較回答，最後還能選擇任一 AI 幫你把整場觀點交鋒整理成摘要。
+不用再來回切分頁、不用重複複製同一段提示詞、不用靠記憶分辨哪個模型講了什麼。AI Zoo 讓你在同一個工作區並排操作 Grok、Gemini、Claude、ChatGPT 和 Meta AI：輸入一次，同步發送，直接比較回答，最後還能選擇任一 AI 幫你把整場觀點交鋒整理成摘要。
 
 這不只是省時間的小工具，而是一種同時調度多個 AI 大腦的工作方式。
 
 AI Zoo 的強大功能：
-- 四大 AI 平台同場並排：Grok、Gemini、Claude、ChatGPT。
+- 五大 AI 平台同場並排：Grok、Gemini、Claude、ChatGPT、Meta AI。
 - 發送到所有 AI：一次輸入，直接同步送到所有已啟用平台。
 - 單一 AI 發送：只想指定某個模型時，也能精準送出。
 - 智慧對比：把分散在各平台的回答整理成清楚易讀的對比視圖。
@@ -76,4 +76,4 @@ AI Zoo 的強大功能：
 AI Zoo 不使用外部伺服器，也不收集你的對話內容。你的操作會在瀏覽器中直接與你開啟的 AI 平台互動。控制面板位置、對話網址等本機偏好設定，只會儲存在你的瀏覽器儲存空間。
 
 重要說明：
-AI Zoo 是獨立生產力工具，與 Grok、Gemini、Claude、ChatGPT、xAI、Google、Anthropic、OpenAI 無從屬或官方合作關係。你可能需要使用自己的帳號登入各 AI 服務。各平台可用性與操作方式，可能會依照其網站更新而變動。
+AI Zoo 是獨立生產力工具，與 Grok、Gemini、Claude、ChatGPT、Meta AI、xAI、Google、Anthropic、OpenAI、Meta 無從屬或官方合作關係。你可能需要使用自己的帳號登入各 AI 服務。各平台可用性與操作方式，可能會依照其網站更新而變動。

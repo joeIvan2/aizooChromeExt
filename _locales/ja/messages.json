@@ -1,4 +1,160 @@
 {
+  "tourNavSetup": {
+    "message": "ログインとピン留め"
+  },
+  "tourNavInterface": {
+    "message": "画面の使い方"
+  },
+  "tourSkip": {
+    "message": "使い始める"
+  },
+  "tourTitle": {
+    "message": "一度の質問で、さまざまな AI の答えを。"
+  },
+  "tourIntro": {
+    "message": "ログイン、質問、比較、そして要約。番号と線をたどって画面の使い方を確認しましょう。"
+  },
+  "tourLoginTitle": {
+    "message": "まずは別タブで、この4つの AI にログイン"
+  },
+  "tourLoginHint": {
+    "message": "同じ Chrome で下のリンクを開き、別タブでログインしてから AI Zoo に戻ってください。"
+  },
+  "tourLoginReturn": {
+    "message": "ログイン画面のままなら、その AI の上部にある ⟳ をクリック。ログインや認証はご自身で行ってください。"
+  },
+  "tourPinHint": {
+    "message": "Chrome 右上のパズル → AI Zoo → ピン。次回からはツールバーの AI Zoo アイコンで開けます。"
+  },
+  "tourWorkspaceTitle": {
+    "message": "AI の画面と共通ツールバー"
+  },
+  "tourWorkspaceHint": {
+    "message": "各 AI の操作ボタンは共通です。番号と線が実際の位置を示します。レイアウトでは Meta AI も選べます。"
+  },
+  "tourDemoLabel": {
+    "message": "操作見本・質問は送信されません"
+  },
+  "tourScrollHint": {
+    "message": "小さい画面では図を左右にスクロールできます。"
+  },
+  "tourToggleTitle": {
+    "message": "有効 / 無効"
+  },
+  "tourToggleHint": {
+    "message": "有効にしたプラットフォームにだけ質問を送信。"
+  },
+  "tourRefreshHint": {
+    "message": "ログイン後や画面が止まったときに、この枠を再読み込み。"
+  },
+  "tourMaximizeHint": {
+    "message": "1つの AI を大きく表示。もう一度押すと並列表示に戻ります。"
+  },
+  "tourStatusTitle": {
+    "message": "応答の状態"
+  },
+  "tourStatusHint": {
+    "message": "読み込み、待機、完了、エラーを確認。"
+  },
+  "tourSampleQuestion": {
+    "message": "東京への3日間の旅行を計画して。"
+  },
+  "tourInputTitle": {
+    "message": "共通の質問入力欄"
+  },
+  "tourInputHint": {
+    "message": "ここに質問を入力。パネルの余白をドラッグして移動できます。Ctrl / ⌘ + Enter で有効な AI に送信。"
+  },
+  "tourToolbarTitle": {
+    "message": "ツールバーの各アイコンの役割"
+  },
+  "tourNewChatHint": {
+    "message": "新しい会話グループを始めます。"
+  },
+  "tourHistoryHint": {
+    "message": "保存された会話グループを開きます。"
+  },
+  "tourCompareHint": {
+    "message": "回答を並べて読み、異なる視点を見つけます。"
+  },
+  "tourLayoutHint": {
+    "message": "1〜5枠、利用する AI、表示順を選びます。"
+  },
+  "tourLanguageHint": {
+    "message": "AI Zoo の表示言語を変更します。"
+  },
+  "tourMinimizeHint": {
+    "message": "入力パネルを縮小。浮動アイコンで元に戻せます。"
+  },
+  "tourSingleHint": {
+    "message": "有効な AI を1つ選び、その AI だけに送信。"
+  },
+  "tourAllHint": {
+    "message": "有効な AI に一斉送信。無効な AI には送りません。"
+  },
+  "tourSummaryTitle": {
+    "message": "多くの答えを、1つの AI で整理。"
+  },
+  "tourSummaryIntro": {
+    "message": "スマート比較で回答を読み、選んだ AI に共通点、相違点、提案をまとめてもらえます。"
+  },
+  "tourSummaryExample": {
+    "message": "共通の結論、異なる視点、次に取れる行動を整理してください。"
+  },
+  "tourSummaryButtonHint": {
+    "message": "スマート比較の右上から AI 要約を開きます。"
+  },
+  "tourSummaryChooseHint": {
+    "message": "必要なら指示文を編集し、ログイン済みで有効な AI を選択。要約はその AI の画面に表示されます。"
+  },
+  "tourSummaryDisclosure": {
+    "message": "要約する AI を選ぶと、現在の比較内容と指示文がその AI に送信されます。回答が完了してからの要約をおすすめします。"
+  },
+  "tourReady": {
+    "message": "準備ができたら、最初の質問を。"
+  },
+  "tourReopen": {
+    "message": "右上の「使い方」から、いつでもこのページを開けます。"
+  },
+  "pinGuideHelp": {
+    "message": "使い方"
+  },
+  "pinGuideDirection": {
+    "message": "Chrome の右上を見てください"
+  },
+  "pinGuideEyebrow": {
+    "message": "最初の 10 秒で、次回も見つけやすく。"
+  },
+  "pinGuideTitle": {
+    "message": "AI Zoo をピン留めしよう"
+  },
+  "pinGuideClose": {
+    "message": "使い方を閉じる"
+  },
+  "pinGuideStepOne": {
+    "message": "Chrome 右上のパズルアイコンをクリック"
+  },
+  "pinGuidePuzzleHint": {
+    "message": "アドレスバーの横にある、このアイコンです。"
+  },
+  "pinGuideStepTwo": {
+    "message": "AI Zoo を見つけ、右側のピンをクリック"
+  },
+  "pinGuidePuzzleAlt": {
+    "message": "Chrome 右上の拡張機能のパズルボタン"
+  },
+  "pinGuidePinAlt": {
+    "message": "拡張機能メニューの AI Zoo。右側にピンがあります"
+  },
+  "pinGuideNextTime": {
+    "message": "次回はツールバーの AI Zoo アイコンをクリックするだけ。ピン留めしなくても、パズルメニューから AI Zoo を開けます。"
+  },
+  "pinGuideQuickStart": {
+    "message": "使い方：利用する AI にログインし、下の入力欄に質問を入力。右側の複数の矢印ボタンを押すと、有効なプラットフォームに一斉送信できます。"
+  },
+  "pinGuideDone": {
+    "message": "わかりました、始める"
+  },
   "extensionName": {
     "message": "AI Zoo",
     "description": "拡張機能名称"
@@ -462,5 +618,107 @@
   "languageMenuLabel": {
     "message": "インターフェース言語を選択",
     "description": "語言選單無障礙標籤"
+  },
+  "layoutButtonTitle": {
+    "message": "分割画面を設定"
+  },
+  "layoutButtonCurrentTitle": {
+    "message": "レイアウト：$1 画面"
+  },
+  "layoutDialogTitle": {
+    "message": "分割画面レイアウト"
+  },
+  "layoutDialogSubtitle": {
+    "message": "先に画面数を選び、次に AI プラットフォームの割り当てと順序を設定します。"
+  },
+  "layoutCountLabel": {
+    "message": "1. 画面数"
+  },
+  "layoutCountHint": {
+    "message": "初期値 5、最小 1"
+  },
+  "layoutSlotsLabel": {
+    "message": "2. プラットフォームと順序"
+  },
+  "layoutSlotsHint": {
+    "message": "各プラットフォームは一度だけ使用できます。矢印で左右の順序を変更します。"
+  },
+  "layoutSlotLabel": {
+    "message": "画面 $1"
+  },
+  "layoutPaneCountLabel": {
+    "message": "$1 画面"
+  },
+  "layoutMoveLeft": {
+    "message": "左へ移動"
+  },
+  "layoutMoveRight": {
+    "message": "右へ移動"
+  },
+  "layoutCloseLabel": {
+    "message": "レイアウト設定を閉じる"
+  },
+  "layoutCancelButton": {
+    "message": "キャンセル"
+  },
+  "layoutSaveButton": {
+    "message": "レイアウトを保存"
+  },
+  "layoutDuplicateError": {
+    "message": "各画面には異なる AI プラットフォームを指定してください。"
+  },
+  "restoreInputPanelLabel": {
+    "message": "質問パネルを復元"
+  },
+  "toggleOn": {
+    "message": "オン"
+  },
+  "toggleOff": {
+    "message": "オフ"
+  },
+  "shareRoleYou": {
+    "message": "あなた"
+  },
+  "shareRoleAI": {
+    "message": "AI"
+  },
+  "shareGeneratedLabel": {
+    "message": "生成日時"
+  },
+  "shareStatusHeading": {
+    "message": "状態"
+  },
+  "shareLatestQuestionHeading": {
+    "message": "最新の質問"
+  },
+  "claudeHistoryTitle": {
+    "message": "Claude の履歴"
+  },
+  "claudeHistoryOpen": {
+    "message": "Claude の履歴を開く"
+  },
+  "claudeHistoryClose": {
+    "message": "Claude の履歴を閉じる"
+  },
+  "claudeHistoryEmpty": {
+    "message": "過去の会話は見つかりませんでした。"
+  },
+  "claudeHistoryUntitled": {
+    "message": "無題の会話"
+  },
+  "claudeHistoryLoading": {
+    "message": "会話を読み込んでいます..."
+  },
+  "claudeHistoryNotReady": {
+    "message": "Claude の履歴はまだ準備できていません。もう一度お試しください。"
+  },
+  "claudeHistoryLoadFailed": {
+    "message": "Claude の履歴を読み込めませんでした。もう一度お試しください。"
+  },
+  "claudeHistoryNewChat": {
+    "message": "新しいチャット"
+  },
+  "claudeHistoryPastLabel": {
+    "message": "過去の Claude 会話"
   }
 }

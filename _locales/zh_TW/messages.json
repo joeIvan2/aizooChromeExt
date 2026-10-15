@@ -1,4 +1,160 @@
 {
+  "tourNavSetup": {
+    "message": "登入與釘選"
+  },
+  "tourNavInterface": {
+    "message": "介面圖解"
+  },
+  "tourSkip": {
+    "message": "先開始使用"
+  },
+  "tourTitle": {
+    "message": "問一次，看見不同 AI 的答案。"
+  },
+  "tourIntro": {
+    "message": "先登入，再發問、比較，最後交給 AI 整理。跟著圖上的連線，一次認識整個介面。"
+  },
+  "tourLoginTitle": {
+    "message": "建議先在外面登入這四個 AI"
+  },
+  "tourLoginHint": {
+    "message": "使用同一個 Chrome，點下方連結，在獨立分頁完成登入後再回到 AI Zoo。"
+  },
+  "tourLoginReturn": {
+    "message": "回來後若仍顯示登入畫面，點該平台上方的 ⟳。登入或驗證仍須由你完成。"
+  },
+  "tourPinHint": {
+    "message": "點 Chrome 右上角的拼圖 → 找到 AI Zoo → 點圖釘。下次點工具列上的 AI Zoo 圖示就能開啟。"
+  },
+  "tourWorkspaceTitle": {
+    "message": "先看平台，再看下方控制列"
+  },
+  "tourWorkspaceHint": {
+    "message": "每個 AI 都有相同的控制鈕。連線與編號，對應你實際會看到的位置；Meta AI 也可在版面設定中選用。"
+  },
+  "tourDemoLabel": {
+    "message": "操作示意・按鈕不會發送問題"
+  },
+  "tourScrollHint": {
+    "message": "小視窗可左右捲動圖解。"
+  },
+  "tourToggleTitle": {
+    "message": "啟用 / 停用"
+  },
+  "tourToggleHint": {
+    "message": "只把問題送到已啟用的平台。"
+  },
+  "tourRefreshHint": {
+    "message": "登入完成或畫面卡住時，重新載入這一格。"
+  },
+  "tourMaximizeHint": {
+    "message": "專心看一個 AI；再點一次回到並排。"
+  },
+  "tourStatusTitle": {
+    "message": "回應狀態"
+  },
+  "tourStatusHint": {
+    "message": "查看載入、等待、完成或錯誤。"
+  },
+  "tourSampleQuestion": {
+    "message": "幫我規劃三天的東京行程。"
+  },
+  "tourInputTitle": {
+    "message": "統一輸入框"
+  },
+  "tourInputHint": {
+    "message": "在這裡輸入問題。拖曳面板空白處可移動；Ctrl / ⌘ + Enter 可發送給已啟用的平台。"
+  },
+  "tourToolbarTitle": {
+    "message": "控制列的每個圖示，分別做什麼？"
+  },
+  "tourNewChatHint": {
+    "message": "開啟新的一組對話，重新開始。"
+  },
+  "tourHistoryHint": {
+    "message": "找回之前記錄的對話組。"
+  },
+  "tourCompareHint": {
+    "message": "並排閱讀各平台的回答，找出不同觀點。"
+  },
+  "tourLayoutHint": {
+    "message": "選擇 1–5 格、平台與排列順序。"
+  },
+  "tourLanguageHint": {
+    "message": "切換 AI Zoo 的介面語言。"
+  },
+  "tourMinimizeHint": {
+    "message": "收起輸入面板；點浮動圖示可展開。"
+  },
+  "tourSingleHint": {
+    "message": "選一個啟用的平台，只送給它。"
+  },
+  "tourAllHint": {
+    "message": "同時送給已啟用的平台，停用的會略過。"
+  },
+  "tourSummaryTitle": {
+    "message": "答案太多？請一個 AI 幫你整理。"
+  },
+  "tourSummaryIntro": {
+    "message": "先用智慧對比並排閱讀，再讓你選定的 AI 整理共識、差異與建議。"
+  },
+  "tourSummaryExample": {
+    "message": "整理共同結論、不同觀點，以及我下一步可以怎麼做。"
+  },
+  "tourSummaryButtonHint": {
+    "message": "在智慧對比右上角，開啟 AI 摘要選單。"
+  },
+  "tourSummaryChooseHint": {
+    "message": "可先修改提示詞，再點已登入且啟用的平台。摘要會在該平台產生。"
+  },
+  "tourSummaryDisclosure": {
+    "message": "點選摘要平台後，目前對比內容與提示詞會送給該 AI。建議等答案完成後再整理。"
+  },
+  "tourReady": {
+    "message": "準備好了，就從第一個問題開始。"
+  },
+  "tourReopen": {
+    "message": "之後可從右上角的「使用教學」重新查看這一頁。"
+  },
+  "pinGuideHelp": {
+    "message": "使用教學"
+  },
+  "pinGuideDirection": {
+    "message": "看 Chrome 右上角"
+  },
+  "pinGuideEyebrow": {
+    "message": "先花 10 秒，讓下次更好找"
+  },
+  "pinGuideTitle": {
+    "message": "把 AI Zoo 釘選起來"
+  },
+  "pinGuideClose": {
+    "message": "關閉使用教學"
+  },
+  "pinGuideStepOne": {
+    "message": "點 Chrome 右上角的「拼圖」圖示"
+  },
+  "pinGuidePuzzleHint": {
+    "message": "在網址列旁邊，長這個樣子。"
+  },
+  "pinGuideStepTwo": {
+    "message": "找到 AI Zoo，點右側的「圖釘」"
+  },
+  "pinGuidePuzzleAlt": {
+    "message": "Chrome 右上角的擴充功能拼圖按鈕"
+  },
+  "pinGuidePinAlt": {
+    "message": "擴充功能選單中的 AI Zoo，圖釘位於右側"
+  },
+  "pinGuideNextTime": {
+    "message": "下次點工具列上的 AI Zoo 圖示，就能開啟。還沒釘選也可以從拼圖選單點 AI Zoo。"
+  },
+  "pinGuideQuickStart": {
+    "message": "開始使用：先登入想用的 AI，在下方輸入問題，點右側的多箭頭按鈕，同時發送給已啟用的平台。"
+  },
+  "pinGuideDone": {
+    "message": "知道了，開始使用"
+  },
   "extensionName": {
     "message": "AI Zoo",
     "description": "擴充功能名稱"
@@ -462,5 +618,107 @@
   "languageMenuLabel": {
     "message": "選擇介面語言",
     "description": "語言選單無障礙標籤"
+  },
+  "layoutButtonTitle": {
+    "message": "設定分割畫面"
+  },
+  "layoutButtonCurrentTitle": {
+    "message": "版面配置：$1 個畫面"
+  },
+  "layoutDialogTitle": {
+    "message": "分割畫面配置"
+  },
+  "layoutDialogSubtitle": {
+    "message": "先選畫面數量，再指定並排列 AI 平台。"
+  },
+  "layoutCountLabel": {
+    "message": "1. 選擇畫面數量"
+  },
+  "layoutCountHint": {
+    "message": "預設 5 個，最少 1 個"
+  },
+  "layoutSlotsLabel": {
+    "message": "2. 安排平台與順序"
+  },
+  "layoutSlotsHint": {
+    "message": "每個平台只能使用一次；使用箭頭調整由左到右的順序。"
+  },
+  "layoutSlotLabel": {
+    "message": "第 $1 格"
+  },
+  "layoutPaneCountLabel": {
+    "message": "$1 個畫面"
+  },
+  "layoutMoveLeft": {
+    "message": "向左移動"
+  },
+  "layoutMoveRight": {
+    "message": "向右移動"
+  },
+  "layoutCloseLabel": {
+    "message": "關閉版面配置"
+  },
+  "layoutCancelButton": {
+    "message": "取消"
+  },
+  "layoutSaveButton": {
+    "message": "儲存版面"
+  },
+  "layoutDuplicateError": {
+    "message": "每一格都必須使用不同的 AI 平台。"
+  },
+  "restoreInputPanelLabel": {
+    "message": "還原問題面板"
+  },
+  "toggleOn": {
+    "message": "開啟"
+  },
+  "toggleOff": {
+    "message": "關閉"
+  },
+  "shareRoleYou": {
+    "message": "你"
+  },
+  "shareRoleAI": {
+    "message": "AI"
+  },
+  "shareGeneratedLabel": {
+    "message": "產生時間"
+  },
+  "shareStatusHeading": {
+    "message": "狀態"
+  },
+  "shareLatestQuestionHeading": {
+    "message": "最新問題"
+  },
+  "claudeHistoryTitle": {
+    "message": "Claude 歷史紀錄"
+  },
+  "claudeHistoryOpen": {
+    "message": "開啟 Claude 歷史紀錄"
+  },
+  "claudeHistoryClose": {
+    "message": "關閉 Claude 歷史紀錄"
+  },
+  "claudeHistoryEmpty": {
+    "message": "找不到過往對話。"
+  },
+  "claudeHistoryUntitled": {
+    "message": "未命名對話"
+  },
+  "claudeHistoryLoading": {
+    "message": "正在載入對話..."
+  },
+  "claudeHistoryNotReady": {
+    "message": "Claude 歷史紀錄尚未就緒，請稍後再試。"
+  },
+  "claudeHistoryLoadFailed": {
+    "message": "無法載入 Claude 歷史紀錄，請再試一次。"
+  },
+  "claudeHistoryNewChat": {
+    "message": "新增對話"
+  },
+  "claudeHistoryPastLabel": {
+    "message": "過往 Claude 對話"
   }
 }

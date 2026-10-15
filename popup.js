@@ -2,23 +2,55 @@
 
 console.log('[AI Multi-Chat] Popup initializing...');
 
-const platforms = ['grok', 'gemini', 'claude', 'chatgpt'];
+const platforms = ['grok', 'gemini', 'claude', 'chatgpt', 'meta'];
+const platformDisplayNames = Object.freeze({
+  grok: 'Grok',
+  gemini: 'Gemini',
+  claude: 'Claude',
+  chatgpt: 'ChatGPT',
+  meta: 'Meta AI'
+});
+const PLATFORM_LAYOUT_STORAGE_KEY = 'ai-zoo-platform-layout-v1';
+const LAYOUT_CONFIG_HASH = '#layout-config';
+let activePlatformLayout = readStoredPlatformLayout();
+let layoutDraft = [...activePlatformLayout];
+let pendingLayoutDialogOpen = window.location.hash === LAYOUT_CONFIG_HASH;
+
+function getPlatformDisplayName(platform) {
+  return platformDisplayNames[platform] || platform;
+}
 const iframes = {};
 const statusElements = {};
 let currentMaximizedPlatform = null; // 當前放大的平台
 const platformEnabledState = {};
 const pendingDiagnostics = new Map();
+const activeSubmissionIds = {};
+const SUBMISSION_LIFECYCLE_TYPES = new Set([
+  'AI_QUESTION_SENT',
+  'AI_RESPONSE_START',
+  'AI_RESPONSE_UPDATE',
+  'AI_RESPONSE_RECEIVED',
+  'AI_ERROR',
+  'AI_INFO'
+]);
+let submissionSequence = 0;
+let compareNavigationEpoch = 0;
+let sessionLoadInProgress = false;
+let shareLastFocusedElement = null;
 const SESSION_LIST_STORAGE_KEY = 'ai-chat-session-list';
 const MAX_SESSION_RECORDS = 50;
 const SESSION_CAPTURE_WINDOW_MS = 2 * 60 * 1000;
-const COMPARE_POLL_INTERVAL_MS = 1500;
-const COMPARE_MAX_WATCH_MS = 3 * 60 * 1000;
-const COMPARE_STABLE_POLLS_REQUIRED = 2;
+const COMPARE_POLL_INTERVAL_MS = 2500;
+const COMPARE_STABLE_POLLS_REQUIRED = 3;
+const COMPARE_STABLE_POLLS_REQUIRED_BY_PLATFORM = { chatgpt: 8 };
+const COMPARE_QUIET_PERIOD_MS = 6000;
+const COMPARE_QUIET_PERIOD_MS_BY_PLATFORM = { chatgpt: 30000, meta: 8000 };
+const COMPARE_COMPLETED_RECHECK_INTERVAL_MS = 10000;
 const COMPARE_OPEN_REFRESH_DELAYS_MS = [1200, 3500, 8000, 15000, 30000];
 const COMPARE_SEND_HISTORY_REFRESH_DELAYS_MS = [700, 2200, 5000, 10000, 20000, 35000];
 const COMPARE_HISTORY_REQUEST_MIN_GAP_MS = 900;
 const COMPARE_HISTORY_REQUEST_STALE_MS = 8000;
-const COMPARE_HISTORY_SCRAPE_TIMEOUT_MS = 1500;
+const COMPARE_HISTORY_SCRAPE_TIMEOUT_MS = 2500;
 let activeSessionDraft = null;
 let comparePollTimer = null;
 let compareOpenRefreshTimers = [];
@@ -51,13 +83,52 @@ let selectedLanguage = localStorage.getItem(LANGUAGE_STORAGE_KEY) || DEFAULT_LAN
 let selectedLanguageMessages = null;
 const languageMessageCache = {};
 
+let currentExtensionTabId = null;
+const pendingLayoutRequests = [];
+
+function processLayoutOpenRequest(request) {
+  if (request?.type !== 'AI_ZOO_OPEN_LAYOUT_CONFIG') return;
+  if (request.targetTabId !== undefined && currentExtensionTabId === null) {
+    pendingLayoutRequests.push(request);
+    return;
+  }
+  if (request.targetTabId !== undefined && request.targetTabId !== currentExtensionTabId) return;
+
+  pendingLayoutDialogOpen = true;
+  if (document.getElementById('layout-config-dialog')) {
+    pendingLayoutDialogOpen = false;
+    openPlatformLayoutDialog();
+  }
+}
+
+chrome.runtime.onMessage.addListener((request) => {
+  if (request?.type !== 'AI_ZOO_OPEN_LAYOUT_CONFIG') return;
+  processLayoutOpenRequest(request);
+});
+
+chrome.tabs?.getCurrent?.().then((tab) => {
+  currentExtensionTabId = tab?.id ?? -1;
+  pendingLayoutRequests.splice(0).forEach(processLayoutOpenRequest);
+}).catch(() => {
+  currentExtensionTabId = -1;
+  pendingLayoutRequests.splice(0).forEach(processLayoutOpenRequest);
+});
+
+// Register before any asynchronous initialization so early READY/load events
+// from already-running provider frames cannot be missed.
+window.addEventListener('message', handleMessage);
+document.addEventListener('visibilitychange', () => {
+  if (!document.hidden) requestCompareHistories({ includeCompleted: true, force: true });
+});
+
 const CLAUDE_NEW_CHAT_URL = 'https://claude.ai/new';
 
 const defaultUrls = {
   grok: 'https://grok.com/',
   gemini: 'https://gemini.google.com/app',
   claude: CLAUDE_NEW_CHAT_URL,
-  chatgpt: 'https://chatgpt.com/'
+  chatgpt: 'https://chatgpt.com/',
+  meta: 'https://www.meta.ai/'
 };
 
 function normalizePlatformUrl(platform, url) {
@@ -78,8 +149,306 @@ const conversationUrlPatterns = {
   grok: /^https:\/\/grok\.com\/(?:chat|c)\//,
   gemini: /^https:\/\/gemini\.google\.com\/app\/[^/?#]+/,
   claude: /^https:\/\/claude\.ai\/chat\/[^/?#]+/,
-  chatgpt: /^https:\/\/chatgpt\.com\/c\/[^/?#]+/
+  chatgpt: /^https:\/\/chatgpt\.com\/c\/[^/?#]+/,
+  meta: /^https:\/\/(?:www\.)?meta\.ai\/prompt\/[^/?#]+/
 };
+
+function normalizePlatformLayout(value) {
+  if (!Array.isArray(value)) return [...platforms];
+
+  const normalized = value.filter((platform, index) => (
+    platforms.includes(platform) && value.indexOf(platform) === index
+  )).slice(0, platforms.length);
+
+  return normalized.length > 0 ? normalized : [...platforms];
+}
+
+function readStoredPlatformLayout() {
+  try {
+    const stored = localStorage.getItem(PLATFORM_LAYOUT_STORAGE_KEY);
+    return stored ? normalizePlatformLayout(JSON.parse(stored)) : [...platforms];
+  } catch (error) {
+    console.warn('[AI Multi-Chat] Could not read the saved platform layout:', error);
+    return [...platforms];
+  }
+}
+
+function getConfiguredPlatforms() {
+  return [...activePlatformLayout];
+}
+
+function isPlatformInLayout(platform) {
+  return activePlatformLayout.includes(platform);
+}
+
+function syncLayoutButton() {
+  const button = document.getElementById('layout-config-btn');
+  const badge = document.getElementById('layout-count-badge');
+  const count = activePlatformLayout.length;
+  const title = t('layoutButtonCurrentTitle', 'Layout: $1 panes', [count]);
+
+  if (badge) badge.textContent = String(count);
+  if (button) {
+    button.title = title;
+    button.setAttribute('aria-label', title);
+  }
+}
+
+function applyPlatformLayout(nextLayout, options = {}) {
+  const normalized = normalizePlatformLayout(nextLayout);
+  const previousLayout = [...activePlatformLayout];
+  const newlyAdded = normalized.filter(platform => !previousLayout.includes(platform));
+  const removedPlatforms = previousLayout.filter(platform => !normalized.includes(platform));
+
+  if (currentMaximizedPlatform && !normalized.includes(currentMaximizedPlatform)) {
+    setMaximizedPlatform(currentMaximizedPlatform, { toggle: true });
+  }
+
+  activePlatformLayout = normalized;
+  layoutDraft = [...normalized];
+
+  if (options.persist) {
+    localStorage.setItem(PLATFORM_LAYOUT_STORAGE_KEY, JSON.stringify(normalized));
+  }
+
+  const orderedPlatforms = [
+    ...normalized,
+    ...platforms.filter(platform => !normalized.includes(platform))
+  ];
+  const iframeContainer = document.querySelector('.iframes-container');
+  const compareGrid = document.querySelector('.compare-grid');
+  const sendOneMenu = document.getElementById('send-one-platform-menu');
+  const summaryMenu = document.getElementById('summary-platform-menu');
+
+  orderedPlatforms.forEach((platform, orderIndex) => {
+    const wrapper = iframeContainer?.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
+    const compareCol = compareGrid?.querySelector(`.compare-col[data-platform="${platform}"]`);
+    const sendOneButton = sendOneMenu?.querySelector(`[data-send-one-platform="${platform}"]`);
+    const summaryButton = summaryMenu?.querySelector(`[data-summary-platform="${platform}"]`);
+    if (wrapper) wrapper.style.order = String(orderIndex);
+    if (compareCol) compareCol.style.order = String(orderIndex);
+    if (sendOneButton) sendOneMenu.appendChild(sendOneButton);
+    if (summaryButton) summaryMenu.appendChild(summaryButton);
+  });
+
+  platforms.forEach((platform) => {
+    const visible = normalized.includes(platform);
+    const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
+    const compareCol = document.querySelector(`.compare-col[data-platform="${platform}"]`);
+
+    [wrapper, compareCol].forEach((element) => {
+      if (!element) return;
+      element.classList.toggle('layout-platform-hidden', !visible);
+      element.setAttribute('aria-hidden', String(!visible));
+      element.inert = !visible;
+    });
+
+    renderPlatformToggle(platform, { preserveStatus: true });
+  });
+
+  document.documentElement.style.setProperty('--platform-layout-count', String(normalized.length));
+  document.body.dataset.platformLayout = normalized.join(',');
+  document.body.dataset.platformLayoutCount = String(normalized.length);
+  syncLayoutButton();
+  syncSendOnePlatformMenu();
+  syncSummaryPlatformMenu();
+
+  removedPlatforms.forEach(platform => clearPlatformRuntimeState(platform, {
+    clearHistory: true,
+    cancelRemote: true
+  }));
+
+  if (options.refreshAdded && newlyAdded.length > 0) {
+    window.setTimeout(() => {
+      newlyAdded.forEach((platform) => {
+        if (iframes[platform]) refreshIframe(platform);
+      });
+    }, 80);
+  }
+
+  console.log('[AI Multi-Chat] Platform layout applied:', normalized.join(', '));
+}
+
+function setLayoutDraftCount(count) {
+  const nextCount = Math.max(1, Math.min(platforms.length, Number(count) || platforms.length));
+
+  if (nextCount < layoutDraft.length) {
+    layoutDraft = layoutDraft.slice(0, nextCount);
+  } else if (nextCount > layoutDraft.length) {
+    const unused = platforms.filter(platform => !layoutDraft.includes(platform));
+    layoutDraft = [...layoutDraft, ...unused.slice(0, nextCount - layoutDraft.length)];
+  }
+
+  renderLayoutConfig();
+}
+
+function moveLayoutSlot(index, direction) {
+  const destination = index + direction;
+  if (destination < 0 || destination >= layoutDraft.length) return;
+
+  [layoutDraft[index], layoutDraft[destination]] = [layoutDraft[destination], layoutDraft[index]];
+  renderLayoutConfig();
+}
+
+function renderLayoutConfig() {
+  const dialog = document.getElementById('layout-config-dialog');
+  const countOptions = document.getElementById('layout-count-options');
+  const slotList = document.getElementById('layout-slot-list');
+  const errorElement = document.getElementById('layout-config-error');
+  if (!dialog || !countOptions || !slotList) return;
+
+  countOptions.replaceChildren();
+  for (let count = 1; count <= platforms.length; count += 1) {
+    const button = document.createElement('button');
+    const active = count === layoutDraft.length;
+    button.type = 'button';
+    button.className = 'layout-count-option';
+    button.textContent = String(count);
+    button.dataset.layoutCount = String(count);
+    button.setAttribute('role', 'radio');
+    button.setAttribute('aria-checked', String(active));
+    button.setAttribute('aria-label', t('layoutPaneCountLabel', '$1 panes', [count]));
+    button.addEventListener('click', () => setLayoutDraftCount(count));
+    countOptions.appendChild(button);
+  }
+
+  slotList.replaceChildren();
+  layoutDraft.forEach((selectedPlatform, index) => {
+    const row = document.createElement('div');
+    row.className = 'layout-slot-row';
+    row.dataset.slotIndex = String(index);
+
+    const label = document.createElement('label');
+    const selectId = `layout-slot-select-${index}`;
+    label.className = 'layout-slot-number';
+    label.htmlFor = selectId;
+    label.textContent = t('layoutSlotLabel', 'Pane $1', [index + 1]);
+
+    const select = document.createElement('select');
+    select.id = selectId;
+    select.className = 'layout-slot-select';
+    select.dataset.slotIndex = String(index);
+    select.setAttribute('aria-label', label.textContent);
+
+    platforms.forEach((platform) => {
+      const option = document.createElement('option');
+      option.value = platform;
+      option.textContent = getPlatformDisplayName(platform);
+      option.selected = platform === selectedPlatform;
+      option.disabled = platform !== selectedPlatform && layoutDraft.includes(platform);
+      select.appendChild(option);
+    });
+
+    select.addEventListener('change', () => {
+      const nextPlatform = select.value;
+      if (layoutDraft.some((platform, slotIndex) => platform === nextPlatform && slotIndex !== index)) {
+        if (errorElement) {
+          errorElement.textContent = t('layoutDuplicateError', 'Each pane must use a different AI platform.');
+        }
+        renderLayoutConfig();
+        return;
+      }
+
+      layoutDraft[index] = nextPlatform;
+      renderLayoutConfig();
+    });
+
+    const moveLeftButton = document.createElement('button');
+    moveLeftButton.type = 'button';
+    moveLeftButton.className = 'layout-slot-move';
+    moveLeftButton.dataset.direction = '-1';
+    moveLeftButton.textContent = '←';
+    moveLeftButton.disabled = index === 0;
+    moveLeftButton.title = t('layoutMoveLeft', 'Move left');
+    moveLeftButton.setAttribute('aria-label', t('layoutMoveLeft', 'Move left'));
+    moveLeftButton.addEventListener('click', () => moveLayoutSlot(index, -1));
+
+    const moveRightButton = document.createElement('button');
+    moveRightButton.type = 'button';
+    moveRightButton.className = 'layout-slot-move';
+    moveRightButton.dataset.direction = '1';
+    moveRightButton.textContent = '→';
+    moveRightButton.disabled = index === layoutDraft.length - 1;
+    moveRightButton.title = t('layoutMoveRight', 'Move right');
+    moveRightButton.setAttribute('aria-label', t('layoutMoveRight', 'Move right'));
+    moveRightButton.addEventListener('click', () => moveLayoutSlot(index, 1));
+
+    row.append(label, select, moveLeftButton, moveRightButton);
+    slotList.appendChild(row);
+  });
+
+  if (errorElement) errorElement.textContent = '';
+}
+
+function openPlatformLayoutDialog() {
+  const dialog = document.getElementById('layout-config-dialog');
+  if (!dialog) {
+    pendingLayoutDialogOpen = true;
+    return;
+  }
+
+  closeLanguageMenu();
+  closeSendOnePlatformMenu();
+  closeSummaryPlatformMenu();
+  layoutDraft = [...activePlatformLayout];
+  renderLayoutConfig();
+
+  if (!dialog.open) dialog.showModal();
+  document.getElementById('layout-count-options')?.querySelector('[aria-checked="true"]')?.focus();
+
+  if (window.location.hash === LAYOUT_CONFIG_HASH) {
+    history.replaceState(null, '', `${window.location.pathname}${window.location.search}`);
+  }
+}
+
+function closePlatformLayoutDialog() {
+  const dialog = document.getElementById('layout-config-dialog');
+  if (dialog?.open) dialog.close();
+  layoutDraft = [...activePlatformLayout];
+}
+
+function savePlatformLayout() {
+  const normalized = normalizePlatformLayout(layoutDraft);
+  const errorElement = document.getElementById('layout-config-error');
+  const isValid = normalized.length === layoutDraft.length
+    && new Set(layoutDraft).size === layoutDraft.length;
+
+  if (!isValid) {
+    if (errorElement) {
+      errorElement.textContent = t('layoutDuplicateError', 'Each pane must use a different AI platform.');
+    }
+    return;
+  }
+
+  applyPlatformLayout(normalized, { persist: true, refreshAdded: true });
+  closePlatformLayoutDialog();
+}
+
+function bindLayoutConfigurator() {
+  const dialog = document.getElementById('layout-config-dialog');
+  const form = document.getElementById('layout-config-form');
+
+  document.getElementById('layout-config-btn')?.addEventListener('click', (event) => {
+    event.preventDefault();
+    event.stopPropagation();
+    openPlatformLayoutDialog();
+  });
+  document.getElementById('close-layout-config-btn')?.addEventListener('click', closePlatformLayoutDialog);
+  document.getElementById('cancel-layout-config-btn')?.addEventListener('click', closePlatformLayoutDialog);
+
+  form?.addEventListener('submit', (event) => {
+    event.preventDefault();
+    savePlatformLayout();
+  });
+
+  dialog?.addEventListener('cancel', (event) => {
+    event.preventDefault();
+    closePlatformLayoutDialog();
+  });
+  dialog?.addEventListener('click', (event) => {
+    if (event.target === dialog) closePlatformLayoutDialog();
+  });
+}
 
 async function getRestorableGrokUrl(url) {
   const conversationId = String(url || '').match(
@@ -198,6 +567,9 @@ async function initI18n() {
     const message = t(key);
     if (message) {
       element.title = message;
+      if (element.matches('button') && !element.hasAttribute('aria-label')) {
+        element.setAttribute('aria-label', message);
+      }
     }
   });
 
@@ -209,141 +581,113 @@ async function initI18n() {
     }
   });
 
+  document.querySelectorAll('[data-i18n-alt]').forEach(element => {
+    const message = t(element.getAttribute('data-i18n-alt'));
+    if (message) element.alt = message;
+  });
+
   syncSummaryPromptInput();
   syncLanguageMenu();
+  syncLayoutButton();
+  if (document.getElementById('layout-config-dialog')?.open) {
+    renderLayoutConfig();
+  }
   console.log('[AI Multi-Chat] i18n initialized');
 }
 
+function requestPlatformReadyState(platform) {
+  const iframe = iframes[platform];
+  if (!iframe?.contentWindow || !isPlatformInLayout(platform)) return;
+  iframe.contentWindow.postMessage({
+    type: 'AI_READY_CHECK',
+    platform,
+    source: 'popup'
+  }, '*');
+}
+
+function handleProviderFrameLoad(platform) {
+  console.log(`[${platform}] iframe loaded`);
+  updateStatus(platform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
+
+  // Ask the adapter directly instead of depending on a one-shot READY event.
+  setTimeout(() => requestPlatformReadyState(platform), 100);
+  setTimeout(() => requestPlatformReadyState(platform), 1200);
+
+  if (isComparePanelVisible() && isPlatformEnabled(platform)) {
+    const state = compareWatchState[platform];
+    if (!state || state.complete) {
+      const textEl = document.getElementById(`compare-text-${platform}`);
+      if (textEl) textEl.textContent = t('loadingConversationHistory', 'Loading conversation history...');
+      const navigationEpoch = Number(iframes[platform]?.dataset.navigationEpoch || compareNavigationEpoch);
+      setTimeout(() => requestPlatformHistory(platform, {
+        force: true,
+        navigationEpoch
+      }), 800);
+    }
+  }
+}
+
 // 初始化
-document.addEventListener('DOMContentLoaded', async () => {
+document.addEventListener('DOMContentLoaded', () => {
   console.log('[AI Multi-Chat] DOM loaded, initializing...');
   syncResizeControlsHint();
 
-  // 首先初始化 i18n
-  await initI18n();
-
-  const storedGrokUrl = normalizePlatformUrl('grok', localStorage.getItem('ai-chat-url-grok'));
-  const restorableGrokUrl = await getRestorableGrokUrl(storedGrokUrl);
-  if (storedGrokUrl && !restorableGrokUrl) {
-    localStorage.removeItem('ai-chat-url-grok');
-  }
-
-  // 獲取所有 iframe 和狀態元素
+  // Bind provider frames before any network/localization await.
   platforms.forEach(platform => {
     iframes[platform] = document.getElementById(`${platform}-iframe`);
     statusElements[platform] = document.getElementById(`${platform}-status`);
+    iframes[platform]?.addEventListener('load', () => handleProviderFrameLoad(platform));
+  });
 
-    // 恢復上次的 URL
-    const savedUrl = platform === 'grok'
-      ? restorableGrokUrl
-      : normalizePlatformUrl(platform, localStorage.getItem(`ai-chat-url-${platform}`));
+  initI18n().catch(error => console.warn('[AI Multi-Chat] i18n initialization failed:', error));
+  applyPlatformLayout(activePlatformLayout, { persist: false, refreshAdded: false });
+  bindLayoutConfigurator();
+
+  const storedGrokUrl = normalizePlatformUrl('grok', localStorage.getItem('ai-chat-url-grok'));
+  const restoreEpoch = compareNavigationEpoch;
+  getRestorableGrokUrl(storedGrokUrl).then(restorableGrokUrl => {
+    if (restoreEpoch !== compareNavigationEpoch) return;
+    if (storedGrokUrl !== normalizePlatformUrl('grok', localStorage.getItem('ai-chat-url-grok'))) return;
+    if (storedGrokUrl && !restorableGrokUrl) localStorage.removeItem('ai-chat-url-grok');
+    if (restorableGrokUrl && restorableGrokUrl !== defaultUrls.grok && iframes.grok) {
+      iframes.grok.src = restorableGrokUrl;
+    }
+  }).catch(error => console.warn('[Grok] Saved URL validation failed:', error));
+
+  // Restore all non-Grok URLs synchronously. Grok is validated above without
+  // delaying the rest of the controller.
+  platforms.forEach(platform => {
+    if (platform === 'grok') return;
+    const savedUrl = normalizePlatformUrl(platform, localStorage.getItem(`ai-chat-url-${platform}`));
     if (savedUrl && savedUrl !== defaultUrls[platform]) {
       console.log(`[${platform}] Restoring saved URL:`, savedUrl);
       iframes[platform].src = savedUrl;
     }
-
-    // 監聽 iframe 載入
-    if (iframes[platform]) {
-      iframes[platform].addEventListener('load', () => {
-        console.log(`[${platform}] iframe loaded`);
-        updateStatus(platform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
-
-        // iframe 載入後重新聚焦到目前可用的輸入框（防止焦點被 iframe 內部搶走）
-        setTimeout(() => {
-          const targetInput = getPreferredQuestionInput();
-          if (targetInput && document.activeElement !== targetInput) {
-            targetInput.focus();
-            console.log(`[${platform}] Refocused question input after iframe load`);
-          }
-        }, 100);
-
-        if (isComparePanelVisible() && isPlatformEnabled(platform)) {
-          const state = compareWatchState[platform];
-          if (!state || state.complete) {
-            const textEl = document.getElementById(`compare-text-${platform}`);
-            if (textEl) textEl.textContent = t('loadingConversationHistory', 'Loading conversation history...');
-            setTimeout(() => requestPlatformHistory(platform), 800);
-          }
-        }
-      });
-    }
   });
 
-  // 監聽來自 iframe 的消息
-  window.addEventListener('message', handleMessage);
+  platforms.forEach(platform => requestPlatformReadyState(platform));
 
   // 發送按鈕
   const mainQuestionInput = document.getElementById('question-input');
   const sendAllBtn = document.getElementById('send-all-btn');
   if (sendAllBtn) {
-    let suppressNextSendAllClick = false;
-    let suppressSendAllClickTimer = null;
     const sendAllFromButton = (e) => {
       e.preventDefault();
       e.stopPropagation();
       sendQuestionToAll(mainQuestionInput);
     };
-
-    sendAllBtn.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      suppressNextSendAllClick = true;
-      clearTimeout(suppressSendAllClickTimer);
-      suppressSendAllClickTimer = setTimeout(() => {
-        suppressNextSendAllClick = false;
-        suppressSendAllClickTimer = null;
-      }, 500);
-      sendAllFromButton(e);
-    });
-
-    sendAllBtn.addEventListener('click', (e) => {
-      if (suppressNextSendAllClick) {
-        suppressNextSendAllClick = false;
-        clearTimeout(suppressSendAllClickTimer);
-        suppressSendAllClickTimer = null;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      sendAllFromButton(e);
-    });
+    sendAllBtn.addEventListener('click', sendAllFromButton);
   }
 
   const sendOneBtn = document.getElementById('send-one-btn');
   if (sendOneBtn) {
-    let suppressNextSendOneClick = false;
-    let suppressSendOneClickTimer = null;
     const toggleSendOneFromButton = (e) => {
       e.preventDefault();
       e.stopPropagation();
       toggleSendOnePlatformMenu();
     };
 
-    sendOneBtn.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      suppressNextSendOneClick = true;
-      clearTimeout(suppressSendOneClickTimer);
-      suppressSendOneClickTimer = setTimeout(() => {
-        suppressNextSendOneClick = false;
-        suppressSendOneClickTimer = null;
-      }, 500);
-      toggleSendOneFromButton(e);
-    });
-
-    sendOneBtn.addEventListener('click', (e) => {
-      if (suppressNextSendOneClick) {
-        suppressNextSendOneClick = false;
-        clearTimeout(suppressSendOneClickTimer);
-        suppressSendOneClickTimer = null;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      toggleSendOneFromButton(e);
-    });
+    sendOneBtn.addEventListener('click', toggleSendOneFromButton);
   }
 
   document.querySelectorAll('[data-send-one-platform]').forEach((button) => {
@@ -357,38 +701,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   // 智慧對比按鈕
   const compareBtn = document.getElementById('compare-btn');
   if (compareBtn) {
-    let suppressNextCompareClick = false;
-    let suppressCompareClickTimer = null;
     const toggleComparePanelFromButton = (e) => {
       e.preventDefault();
       e.stopPropagation();
       toggleComparePanel();
     };
 
-    compareBtn.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      suppressNextCompareClick = true;
-      clearTimeout(suppressCompareClickTimer);
-      suppressCompareClickTimer = setTimeout(() => {
-        suppressNextCompareClick = false;
-        suppressCompareClickTimer = null;
-      }, 500);
-      toggleComparePanelFromButton(e);
-    });
-
-    compareBtn.addEventListener('click', (e) => {
-      if (suppressNextCompareClick) {
-        suppressNextCompareClick = false;
-        clearTimeout(suppressCompareClickTimer);
-        suppressCompareClickTimer = null;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      toggleComparePanelFromButton(e);
-    });
+    compareBtn.addEventListener('click', toggleComparePanelFromButton);
   }
 
   const closeCompareBtn = document.getElementById('close-compare-btn');
@@ -436,38 +755,13 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   const languageBtn = document.getElementById('language-btn');
   if (languageBtn) {
-    let suppressNextLanguageClick = false;
-    let suppressLanguageClickTimer = null;
     const toggleLanguageFromButton = (e) => {
       e.preventDefault();
       e.stopPropagation();
       toggleLanguageMenu();
     };
 
-    languageBtn.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      suppressNextLanguageClick = true;
-      clearTimeout(suppressLanguageClickTimer);
-      suppressLanguageClickTimer = setTimeout(() => {
-        suppressNextLanguageClick = false;
-        suppressLanguageClickTimer = null;
-      }, 500);
-      toggleLanguageFromButton(e);
-    });
-
-    languageBtn.addEventListener('click', (e) => {
-      if (suppressNextLanguageClick) {
-        suppressNextLanguageClick = false;
-        clearTimeout(suppressLanguageClickTimer);
-        suppressLanguageClickTimer = null;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      toggleLanguageFromButton(e);
-    });
+    languageBtn.addEventListener('click', toggleLanguageFromButton);
   }
 
   document.querySelectorAll('[data-language-option]').forEach((button) => {
@@ -496,34 +790,20 @@ document.addEventListener('DOMContentLoaded', async () => {
   document.getElementById('copy-share-btn')?.addEventListener('click', copyShareText);
   document.getElementById('download-share-btn')?.addEventListener('click', downloadShareMarkdown);
   document.getElementById('native-share-btn')?.addEventListener('click', nativeShareCompareText);
+  document.getElementById('share-panel')?.addEventListener('click', (event) => {
+    if (event.target === event.currentTarget) closeSharePanel();
+  });
 
   // 新對話按鈕
   const newChatBtn = document.getElementById('new-chat-btn');
   if (newChatBtn) {
-    let suppressNextNewChatClick = false;
     const startNewChatFromButton = (e) => {
       e.preventDefault();
       e.stopPropagation();
       startNewChatForAll();
     };
 
-    newChatBtn.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      suppressNextNewChatClick = true;
-      startNewChatFromButton(e);
-    });
-
-    newChatBtn.addEventListener('click', (e) => {
-      if (suppressNextNewChatClick) {
-        suppressNextNewChatClick = false;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      startNewChatFromButton(e);
-    });
+    newChatBtn.addEventListener('click', startNewChatFromButton);
   }
 
   document.getElementById('history-toggle-btn').addEventListener('click', toggleSessionSwitcher);
@@ -618,7 +898,8 @@ document.addEventListener('DOMContentLoaded', async () => {
   function switchMaximizedIframe(direction) {
     if (!currentMaximizedPlatform) return;
 
-    const currentIndex = platforms.indexOf(currentMaximizedPlatform);
+    const configuredPlatforms = getConfiguredPlatforms();
+    const currentIndex = configuredPlatforms.indexOf(currentMaximizedPlatform);
     let steps = 0;
     let newIndex = currentIndex;
 
@@ -626,24 +907,22 @@ document.addEventListener('DOMContentLoaded', async () => {
     do {
       newIndex = newIndex + direction;
       if (newIndex < 0) {
-        newIndex = platforms.length - 1;
-      } else if (newIndex >= platforms.length) {
+        newIndex = configuredPlatforms.length - 1;
+      } else if (newIndex >= configuredPlatforms.length) {
         newIndex = 0;
       }
       steps++;
 
-      const potentialPlatform = platforms[newIndex];
+      const potentialPlatform = configuredPlatforms[newIndex];
       if (isPlatformEnabled(potentialPlatform)) {
         console.log(`[AI Multi-Chat] Switching maximized iframe from ${currentMaximizedPlatform} to ${potentialPlatform}`);
         toggleMaximize(potentialPlatform);
         return;
       }
-    } while (steps < platforms.length);
+    } while (steps < configuredPlatforms.length);
   }
 
   document.querySelectorAll('.prev-platform-btn, .next-platform-btn').forEach(btn => {
-    let suppressNextSwitchClick = false;
-    let suppressSwitchClickTimer = null;
     const switchFromButton = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -651,30 +930,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       switchMaximizedIframe(direction);
     };
 
-    btn.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      suppressNextSwitchClick = true;
-      clearTimeout(suppressSwitchClickTimer);
-      suppressSwitchClickTimer = setTimeout(() => {
-        suppressNextSwitchClick = false;
-        suppressSwitchClickTimer = null;
-      }, 500);
-      switchFromButton(e);
-    });
-
-    btn.addEventListener('click', (e) => {
-      if (suppressNextSwitchClick) {
-        suppressNextSwitchClick = false;
-        clearTimeout(suppressSwitchClickTimer);
-        suppressSwitchClickTimer = null;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      switchFromButton(e);
-    });
+    btn.addEventListener('click', switchFromButton);
   });
 
   // --- Refresh iframe Logic ---
@@ -690,8 +946,6 @@ document.addEventListener('DOMContentLoaded', async () => {
   // --- Maximize/Minimize iframe Logic ---
   // 為所有放大按鈕添加事件監聽器
   document.querySelectorAll('.maximize-btn').forEach(btn => {
-    let suppressNextMaximizeClick = false;
-    let suppressMaximizeClickTimer = null;
     const toggleMaximizeFromButton = (e) => {
       e.preventDefault();
       e.stopPropagation();
@@ -700,30 +954,7 @@ document.addEventListener('DOMContentLoaded', async () => {
       toggleMaximize(platform);
     };
 
-    btn.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      suppressNextMaximizeClick = true;
-      clearTimeout(suppressMaximizeClickTimer);
-      suppressMaximizeClickTimer = setTimeout(() => {
-        suppressNextMaximizeClick = false;
-        suppressMaximizeClickTimer = null;
-      }, 500);
-      toggleMaximizeFromButton(e);
-    });
-
-    btn.addEventListener('click', (e) => {
-      if (suppressNextMaximizeClick) {
-        suppressNextMaximizeClick = false;
-        clearTimeout(suppressMaximizeClickTimer);
-        suppressMaximizeClickTimer = null;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      toggleMaximizeFromButton(e);
-    });
+    btn.addEventListener('click', toggleMaximizeFromButton);
   });
 
   function toggleMaximize(platform) {
@@ -741,39 +972,43 @@ document.addEventListener('DOMContentLoaded', async () => {
   let initialY;
   let pointerStartX;
   let pointerStartY;
-  let xOffset = 0;
-  let yOffset = 0;
+  function readSavedInputPosition() {
+    const raw = localStorage.getItem('ai-chat-input-pos');
+    if (!raw) return null;
+    try {
+      const parsed = JSON.parse(raw);
+      if (!parsed || typeof parsed !== 'object') return null;
+      const left = Number.parseFloat(parsed.left ?? parsed.x);
+      const top = Number.parseFloat(parsed.top ?? parsed.y);
+      return Number.isFinite(left) && Number.isFinite(top) ? { left, top } : null;
+    } catch (error) {
+      console.warn('[AI Multi-Chat] Ignoring malformed input position:', error);
+      localStorage.removeItem('ai-chat-input-pos');
+      return null;
+    }
+  }
 
-  // Load saved position
-  const savedPosition = localStorage.getItem('ai-chat-input-pos');
-  if (savedPosition) {
-    const pos = JSON.parse(savedPosition);
-    xOffset = pos.x;
-    yOffset = pos.y;
-    setTranslate(pos.x, pos.y, inputSection);
-    // Remove bottom/left to allow transform to work fully or reset them
+  function clampInputSectionPosition() {
+    if (!inputSection.style.top) return;
+    const rect = inputSection.getBoundingClientRect();
+    const currentLeft = Number.parseFloat(inputSection.style.left);
+    const currentTop = Number.parseFloat(inputSection.style.top);
+    const maxLeft = Math.max(0, window.innerWidth - rect.width);
+    const maxTop = Math.max(0, window.innerHeight - rect.height);
+    inputSection.style.left = `${Math.max(0, Math.min(Number.isFinite(currentLeft) ? currentLeft : rect.left, maxLeft))}px`;
+    inputSection.style.top = `${Math.max(0, Math.min(Number.isFinite(currentTop) ? currentTop : rect.top, maxTop))}px`;
     inputSection.style.bottom = 'auto';
-    inputSection.style.left = '0px';
-    inputSection.style.top = '0px';
-    // We are using translate, so we set top/left to 0 and move with transform
-  } else {
-    // Initial State is handled by CSS (bottom: 30px, left: 20px),
-    // but for translate logic, we might want to capture that or just start from 0,0 relative to its CSS position?
-    // A simpler approach for absolute positioning: modify top/left directly.
-
-    // Let's switch to top/left manipulation for simplicity and compatibility with resize.
-    // However, CSS sets 'bottom'. Let's initialize top/left from computed style if not saved.
+    positionSessionSwitcher();
   }
 
-  // Simpler Drag Implementation: Direct Top/Left manipulation
-  // This avoids fighting with 'bottom' and transforms.
-
+  const savedPosition = readSavedInputPosition();
   if (savedPosition) {
-    const pos = JSON.parse(savedPosition);
-    inputSection.style.bottom = 'auto'; // clear bottom
-    inputSection.style.left = pos.left;
-    inputSection.style.top = pos.top;
+    inputSection.style.bottom = 'auto';
+    inputSection.style.left = `${savedPosition.left}px`;
+    inputSection.style.top = `${savedPosition.top}px`;
+    requestAnimationFrame(clampInputSectionPosition);
   }
+  window.addEventListener('resize', clampInputSectionPosition);
 
   // Use Pointer Events for better capture (handles iframes and fast movement)
   inputSection.addEventListener('pointerdown', dragStart);
@@ -784,9 +1019,13 @@ document.addEventListener('DOMContentLoaded', async () => {
   function dragStart(e) {
     if (e.button !== undefined && e.button !== 0) return;
 
-    // Prevent dragging if clicking on interactive elements (unless minimized)
+    // 圖示 (svg/path/span) 也是控制項的一部分，不能只比對直接 target 的 tagName。
+    // 否則 setPointerCapture 會把 pointerup/click 轉交面板，造成按鈕中央點不到。
+    const interactiveTarget = e.target.closest?.(
+      'button, textarea, input, select, a[href], [contenteditable]:not([contenteditable="false"]), [role="button"]'
+    );
     if (!inputSection.classList.contains('minimized') &&
-        (e.target.tagName === 'TEXTAREA' || e.target.tagName === 'BUTTON')) {
+        interactiveTarget && inputSection.contains(interactiveTarget)) {
       return;
     }
 
@@ -863,16 +1102,25 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  function setTranslate(xPos, yPos, el) {
-    el.style.transform = "translate3d(" + xPos + "px, " + yPos + "px, 0)";
-  }
-
   // --- 懸浮面板最小化與還原邏輯 ---
   const minimizeBtn = document.getElementById('minimize-input-btn');
+
+  function syncMinimizedInputSemantics(minimized) {
+    if (minimized) {
+      inputSection.setAttribute('role', 'button');
+      inputSection.tabIndex = 0;
+      inputSection.setAttribute('aria-label', t('restoreInputPanelLabel', 'Restore question panel'));
+    } else {
+      inputSection.removeAttribute('role');
+      inputSection.removeAttribute('tabindex');
+      inputSection.removeAttribute('aria-label');
+    }
+  }
 
   function minimizeInputSection() {
     markResizeControlSeen('minimize');
     inputSection.classList.add('minimized');
+    syncMinimizedInputSemantics(true);
     localStorage.setItem('ai-chat-input-minimized', 'true');
     closeSendOnePlatformMenu();
     closeSummaryPlatformMenu();
@@ -882,42 +1130,19 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   function restoreInputSection() {
     inputSection.classList.remove('minimized');
+    syncMinimizedInputSemantics(false);
     localStorage.setItem('ai-chat-input-minimized', 'false');
+    document.getElementById('question-input')?.focus();
   }
 
   if (minimizeBtn) {
-    let suppressNextMinimizeClick = false;
-    let suppressMinimizeClickTimer = null;
     const minimizeFromButton = (e) => {
       e.preventDefault();
       e.stopPropagation();
       minimizeInputSection();
     };
 
-    minimizeBtn.addEventListener('pointerdown', (e) => {
-      if (e.button !== undefined && e.button !== 0) return;
-
-      suppressNextMinimizeClick = true;
-      clearTimeout(suppressMinimizeClickTimer);
-      suppressMinimizeClickTimer = setTimeout(() => {
-        suppressNextMinimizeClick = false;
-        suppressMinimizeClickTimer = null;
-      }, 500);
-      minimizeFromButton(e);
-    });
-
-    minimizeBtn.addEventListener('click', (e) => {
-      if (suppressNextMinimizeClick) {
-        suppressNextMinimizeClick = false;
-        clearTimeout(suppressMinimizeClickTimer);
-        suppressMinimizeClickTimer = null;
-        e.preventDefault();
-        e.stopPropagation();
-        return;
-      }
-
-      minimizeFromButton(e);
-    });
+    minimizeBtn.addEventListener('click', minimizeFromButton);
   }
 
   // 點擊最小化後的懸浮球還原為完整面板
@@ -930,16 +1155,29 @@ document.addEventListener('DOMContentLoaded', async () => {
       }
     }
   });
+  document.addEventListener('keydown', handlePopupKeydown);
+  inputSection.addEventListener('keydown', (event) => {
+    if (!inputSection.classList.contains('minimized')) return;
+    if (event.key !== 'Enter' && event.key !== ' ') return;
+    event.preventDefault();
+    markResizeControlSeen('panelRestore');
+    restoreInputSection();
+  });
 
   // 載入時復原之前的最小化狀態
   const isMinimized = localStorage.getItem('ai-chat-input-minimized') === 'true';
   if (isMinimized) {
     inputSection.classList.add('minimized');
+    syncMinimizedInputSemantics(true);
   }
 
   console.log('[AI Multi-Chat] Popup initialized');
   initializePlatformToggles();
   renderSessionList();
+  if (pendingLayoutDialogOpen) {
+    pendingLayoutDialogOpen = false;
+    openPlatformLayoutDialog();
+  }
 });
 
 function getQuestionInputs() {
@@ -1004,6 +1242,44 @@ function clearSentQuestionInputs(sourceInput, question) {
   });
 }
 
+function createSubmissionId(platform) {
+  submissionSequence += 1;
+  return `${Date.now().toString(36)}-${submissionSequence.toString(36)}-${platform}`;
+}
+
+function cancelPlatformOperation(platform) {
+  delete activeSubmissionIds[platform];
+  const iframe = iframes[platform];
+  if (!iframe?.contentWindow) return;
+  try {
+    iframe.contentWindow.postMessage({
+      type: 'AI_CANCEL_OPERATIONS',
+      platform,
+      source: 'popup'
+    }, '*');
+  } catch (error) {
+    console.warn(`[${platform}] Could not cancel pending operations:`, error);
+  }
+}
+
+function clearPlatformRuntimeState(platform, options = {}) {
+  if (options.cancelRemote !== false) cancelPlatformOperation(platform);
+  delete compareWatchState[platform];
+  delete compareHistoryRequestState[platform];
+  if (options.clearHistory !== false) delete compareLatestHistories[platform];
+  stopComparePollTimerIfDone();
+}
+
+function isCurrentSubmissionEvent(platform, data) {
+  return !!data.submissionId && activeSubmissionIds[platform] === data.submissionId;
+}
+
+function syncSubmissionBoundary(platform, data) {
+  const state = compareWatchState[platform];
+  if (!state || !Number.isFinite(Number(data.baselineOccurrences))) return;
+  state.baselineOccurrences = Math.max(0, Number(data.baselineOccurrences));
+}
+
 // 發送問題到所有 AI
 function sendQuestionToAll(sourceInput = document.getElementById('question-input')) {
   const questionInput = sourceInput || document.getElementById('question-input');
@@ -1044,6 +1320,7 @@ function sendQuestionToOnePlatform(platform, sourceInput = document.getElementBy
   console.log(`[AI Multi-Chat] Sending question to ${platform}:`, question);
   window.lastSentQuestion = question;
   startSessionCapture(question, [platform]);
+  startComparePlatformWatch(platform, question, { deferHistoryRequests: true });
   clearSentQuestionInputs(questionInput, question);
   sendQuestionToPlatform(platform, question);
 }
@@ -1065,6 +1342,7 @@ function resetCompareState(options = {}) {
   compareIgnoreScrapeResponsesUntil = options.ignoreScrapeResponsesUntil || 0;
 
   platforms.forEach(platform => {
+    cancelPlatformOperation(platform);
     delete compareWatchState[platform];
     delete compareLatestHistories[platform];
     delete compareHistoryRequestState[platform];
@@ -1089,6 +1367,7 @@ function startNewChatForAll() {
   }
 
   console.log('[AI Multi-Chat] Starting new chat for all platforms');
+  compareNavigationEpoch += 1;
   window.lastSentQuestion = '';
   resetCompareState({
     resetText: true,
@@ -1106,18 +1385,18 @@ function startNewChatForAll() {
 
     const iframe = iframes[platform];
     if (iframe) {
-       iframe.contentWindow.postMessage({
+      iframe.contentWindow.postMessage({
         type: 'AI_NEW_CHAT',
         platform: platform,
         source: 'popup'
       }, '*');
-    updateStatus(platform, '🔄', t('statusResetting', 'Resetting...'));
+      updateStatus(platform, '🔄', t('statusResetting', 'Resetting...'));
     }
   });
 }
 
 // 發送問題到單個平台
-function sendQuestionToPlatform(platform, question) {
+function sendQuestionToPlatform(platform, question, options = {}) {
   if (!isPlatformEnabled(platform)) {
     console.log(`[${platform}] Platform disabled, skipping question send`);
     updateStatus(platform, '⏸️', t('statusDisabledNotSending', 'Disabled, not sending'));
@@ -1132,6 +1411,11 @@ function sendQuestionToPlatform(platform, question) {
   }
 
   console.log(`[${platform}] Sending question...`);
+  const submissionId = options.submissionId || createSubmissionId(platform);
+  activeSubmissionIds[platform] = submissionId;
+  if (compareWatchState[platform]) {
+    compareWatchState[platform].submissionId = submissionId;
+  }
 
   // 獲取 iframe 的 tab ID（通過 Chrome API）
   // 由於 iframe 在同一個 tab 中，我們需要直接向 iframe 中的頁面發送消息
@@ -1143,14 +1427,18 @@ function sendQuestionToPlatform(platform, question) {
       type: 'AI_SUBMIT_QUESTION',
       question: question,
       platform: platform,
+      submissionId,
       source: 'popup'
     }, '*');
 
     // 更新狀態
     updateStatus(platform, '🔄', t('statusSending'));
+    return submissionId;
   } catch (error) {
     console.error(`[${platform}] Error sending message:`, error);
     updateStatus(platform, '❌', t('statusSendFailed', 'Send failed'));
+    if (activeSubmissionIds[platform] === submissionId) delete activeSubmissionIds[platform];
+    return null;
   }
 }
 
@@ -1177,39 +1465,55 @@ function handleMessage(event) {
   const platform = data.platform;
   console.log(`[popup] Received message from ${platform}:`, data.type);
 
+  if (SUBMISSION_LIFECYCLE_TYPES.has(data.type) && !isCurrentSubmissionEvent(platform, data)) {
+    console.log(`[popup] Ignoring stale submission event for ${platform}:`, data.submissionId);
+    return;
+  }
+
   if (!isPlatformEnabled(platform)) {
-      updateStatus(platform, '⏸️', t('statusDisabled', 'Disabled'));
+    if (data.type === 'AI_SCRAPE_HISTORY_RESPONSE') clearCompareHistoryRequest(platform);
+    updateStatus(platform, '⏸️', t('statusDisabled', 'Disabled'));
     return;
   }
 
   switch (data.type) {
     case 'AI_READY':
       console.log(`[${platform}] Ready`);
-        updateStatus(platform, '✅', t('statusReady'));
+      updateStatus(platform, '✅', t('statusReady'));
       break;
 
     case 'AI_QUESTION_SENT':
       console.log(`[${platform}] Question sent successfully`);
+      syncSubmissionBoundary(platform, data);
+      if (compareWatchState[platform]) compareWatchState[platform].sent = true;
       updateStatus(platform, '🔄', t('statusWaiting'));
       markComparePlatformPending(platform, t('compareResponding', 'Responding...'));
       requestPlatformHistory(platform);
       break;
 
+    case 'AI_RESPONSE_UPDATE':
     case 'AI_RESPONSE_START':
       console.log(`[${platform}] Response started`);
+      syncSubmissionBoundary(platform, data);
+      if (compareWatchState[platform]) compareWatchState[platform].sent = true;
       updateStatus(platform, '🔄', t('statusResponding', 'Responding...'));
       if (Array.isArray(data.history)) {
-        updateCompareFromHistory(platform, data.history, !!data.isGenerating);
+        updateCompareFromHistory(platform, data.history, !!data.isGenerating, { explicitComplete: !!data.isComplete });
       }
-        markComparePlatformPending(platform, t('compareResponding', 'Responding...'));
+      markComparePlatformPending(platform, t('compareResponding', 'Responding...'));
       break;
 
     case 'AI_RESPONSE_RECEIVED':
       console.log(`[${platform}] Response received:`, String(data.response || '').substring(0, 100) + '...');
+      syncSubmissionBoundary(platform, data);
+      if (compareWatchState[platform]) compareWatchState[platform].sent = true;
       if (Array.isArray(data.history)) {
-        updateCompareFromHistory(platform, data.history, false, { forceComplete: true });
+        // Content scripts can briefly lose ChatGPT's generating indicator between
+        // tool/reasoning phases. Treat this as a completion hint and let the popup
+        // confirm a quiet, stable tail instead of stopping immediately.
+        updateCompareFromHistory(platform, data.history, false, { completionHint: true, explicitComplete: !!data.isComplete });
       } else if (compareWatchState[platform] && !compareWatchState[platform].complete) {
-      updateStatus(platform, '🔄', t('statusSyncingResponse', 'Syncing response...'));
+        updateStatus(platform, '🔄', t('statusSyncingResponse', 'Syncing response...'));
         requestPlatformHistory(platform);
       } else {
         updateStatus(platform, '✅', t('statusComplete', 'Complete'));
@@ -1224,9 +1528,17 @@ function handleMessage(event) {
       console.log(`[${platform}] Network response received`);
       break;
 
+    case 'AI_NETWORK_DIAGNOSTIC_ERROR':
+      console.warn(`[${platform}] Ignored network diagnostic error:`, data.message);
+      break;
+
     case 'AI_ERROR':
       console.error(`[${platform}] Error:`, data.message);
-      updateStatus(platform, '❌', data.message);
+      if (compareWatchState[platform] && !compareWatchState[platform].complete) {
+        failComparePlatform(platform, data.message);
+      } else {
+        updateStatus(platform, '❌', data.message);
+      }
       break;
 
     case 'AI_INFO':
@@ -1263,11 +1575,15 @@ function handleMessage(event) {
           console.log(`[popup] Ignoring stale scraped history for ${platform}`);
           break;
         }
+        if (data.navigationEpoch !== undefined && data.navigationEpoch !== requestState.navigationEpoch) {
+          console.log(`[popup] Ignoring history from an older navigation for ${platform}`);
+          break;
+        }
       }
 
       clearCompareHistoryRequest(platform);
       const history = data.history || [];
-      updateCompareFromHistory(platform, history, !!data.isGenerating);
+      updateCompareFromHistory(platform, history, !!data.isGenerating, { explicitComplete: !!data.isComplete });
       break;
 
     default:
@@ -1290,7 +1606,35 @@ function getSessionList() {
   try {
     const raw = localStorage.getItem(SESSION_LIST_STORAGE_KEY);
     const sessions = raw ? JSON.parse(raw) : [];
-    return Array.isArray(sessions) ? sessions : [];
+    if (!Array.isArray(sessions)) return [];
+
+    return sessions.map((session) => {
+      if (!session || typeof session !== 'object') return null;
+      const id = typeof session.id === 'string' ? session.id : '';
+      const title = typeof session.title === 'string' ? session.title : '';
+      const createdAt = Number(session.createdAt);
+      if (!id || !Number.isFinite(createdAt)) return null;
+
+      const urls = {};
+      if (session.urls && typeof session.urls === 'object') {
+        platforms.forEach(platform => {
+          if (typeof session.urls[platform] === 'string' && session.urls[platform]) {
+            urls[platform] = session.urls[platform];
+          }
+        });
+      }
+
+      return {
+        ...session,
+        id,
+        title: title || t('untitledConversation', 'Untitled conversation'),
+        question: typeof session.question === 'string' ? session.question : '',
+        createdAt,
+        updatedAt: Number.isFinite(Number(session.updatedAt)) ? Number(session.updatedAt) : createdAt,
+        urls,
+        platforms: Object.keys(urls)
+      };
+    }).filter(Boolean);
   } catch (error) {
     console.error('[AI Multi-Chat] Failed to read session list:', error);
     return [];
@@ -1385,7 +1729,8 @@ function captureSessionUrl(platform, url) {
 }
 
 function formatSessionOption(session) {
-  const time = new Date(session.createdAt).toLocaleString('zh-TW', {
+  const locale = selectedLanguage === 'auto' ? undefined : selectedLanguage.replace('_', '-');
+  const time = new Date(session.createdAt).toLocaleString(locale, {
     month: '2-digit',
     day: '2-digit',
     hour: '2-digit',
@@ -1471,13 +1816,16 @@ function showSessionSwitcher() {
   if (!switcher) return;
   renderSessionList();
   switcher.classList.remove('hidden');
+  document.getElementById('history-toggle-btn')?.setAttribute('aria-expanded', 'true');
   positionSessionSwitcher();
+  document.getElementById('session-select')?.focus();
 }
 
 function hideSessionSwitcher() {
   const switcher = document.getElementById('session-switcher');
   if (!switcher) return;
   switcher.classList.add('hidden');
+  document.getElementById('history-toggle-btn')?.setAttribute('aria-expanded', 'false');
 }
 
 function toggleSessionSwitcher() {
@@ -1491,15 +1839,17 @@ function toggleSessionSwitcher() {
   }
 }
 
-function prepareComparePanelForSessionSwitch(session) {
+function prepareComparePanelForSessionSwitch(session, navigationEpoch) {
   if (comparePollTimer) {
     clearInterval(comparePollTimer);
     comparePollTimer = null;
   }
 
+  clearCompareOpenRefreshTimers();
+  compareIgnoreScrapeResponsesUntil = 0;
   platforms.forEach(platform => {
-    delete compareWatchState[platform];
-    delete compareLatestHistories[platform];
+    clearPlatformRuntimeState(platform, { clearHistory: true, cancelRemote: true });
+    if (iframes[platform]) iframes[platform].dataset.navigationEpoch = String(navigationEpoch);
   });
 
   const promptEl = document.getElementById('compare-prompt-text');
@@ -1529,37 +1879,69 @@ async function loadSelectedSession() {
   const session = getSelectedSession();
   if (!session) return;
 
-  prepareComparePanelForSessionSwitch(session);
+  const navigationEpoch = ++compareNavigationEpoch;
+  sessionLoadInProgress = true;
+  const loadButton = document.getElementById('load-session-btn');
+  if (loadButton) {
+    loadButton.disabled = true;
+    loadButton.setAttribute('aria-busy', 'true');
+  }
+  prepareComparePanelForSessionSwitch(session, navigationEpoch);
 
-  for (const platform of platforms) {
-    const url = session.urls && session.urls[platform];
-    const iframe = iframes[platform];
-    if (!url || !iframe) continue;
+  try {
+    for (const platform of getConfiguredPlatforms()) {
+      if (navigationEpoch !== compareNavigationEpoch) return;
+      const url = session.urls && session.urls[platform];
+      const iframe = iframes[platform];
+      if (!iframe) continue;
 
-    let normalizedUrl = normalizePlatformUrl(platform, url);
-    if (platform === 'grok') {
-      normalizedUrl = await getRestorableGrokUrl(normalizedUrl);
-      if (!normalizedUrl) {
-        localStorage.removeItem('ai-chat-url-grok');
-        iframe.src = defaultUrls.grok;
-        updateStatus(platform, '⏳', t('loadingTitle', 'Loading...'));
+      iframe.dataset.navigationEpoch = String(navigationEpoch);
+      if (!url) {
+        // A history group may predate a newly added platform. Leaving that
+        // iframe on an unrelated current conversation makes the group look
+        // mixed, so reset only the missing pane to its clean start page.
+        localStorage.removeItem(`ai-chat-url-${platform}`);
+        iframe.src = defaultUrls[platform];
+        updateStatus(platform, '⏳', t('statusResetting', 'Resetting...'));
         continue;
       }
+
+      let normalizedUrl = normalizePlatformUrl(platform, url);
+      if (platform === 'grok') {
+        normalizedUrl = await getRestorableGrokUrl(normalizedUrl);
+        if (navigationEpoch !== compareNavigationEpoch) return;
+        if (!normalizedUrl) {
+          localStorage.removeItem('ai-chat-url-grok');
+          iframe.src = defaultUrls.grok;
+          updateStatus(platform, '⏳', t('loadingTitle', 'Loading...'));
+          continue;
+        }
+      }
+
+      localStorage.setItem(`ai-chat-url-${platform}`, normalizedUrl);
+      iframe.src = normalizedUrl;
+      updateStatus(platform, '⏳', t('switchingConversation', 'Switching conversation...'));
     }
 
-    localStorage.setItem(`ai-chat-url-${platform}`, normalizedUrl);
-    iframe.src = normalizedUrl;
-    updateStatus(platform, '⏳', t('switchingConversation', 'Switching conversation...'));
-  }
-
-  if (isComparePanelVisible()) {
-    setTimeout(() => {
-      platforms.forEach(platform => {
-        if (isPlatformEnabled(platform) && session.urls?.[platform]) {
-          requestPlatformHistory(platform);
-        }
-      });
-    }, 2500);
+    if (isComparePanelVisible()) {
+      setTimeout(() => {
+        if (navigationEpoch !== compareNavigationEpoch) return;
+        platforms.forEach(platform => {
+          if (isPlatformEnabled(platform) && session.urls?.[platform]) {
+            requestPlatformHistory(platform, { force: true, navigationEpoch });
+          }
+        });
+      }, 2500);
+    }
+    hideSessionSwitcher();
+  } finally {
+    if (navigationEpoch === compareNavigationEpoch) {
+      sessionLoadInProgress = false;
+      if (loadButton) {
+        loadButton.disabled = false;
+        loadButton.removeAttribute('aria-busy');
+      }
+    }
   }
 }
 
@@ -1587,6 +1969,7 @@ function updateStatus(platform, emoji, title) {
   if (statusEl) {
     statusEl.textContent = emoji;
     statusEl.title = `[${platform}] ${title}`;
+    statusEl.setAttribute('aria-label', `${getPlatformDisplayName(platform)}: ${title}`);
 
     // 如果是載入中，添加旋轉動畫
     if (emoji === '⏳' || emoji === '🔄') {
@@ -1601,6 +1984,7 @@ function updateStatus(platform, emoji, title) {
   if (compareStatusEl) {
     compareStatusEl.textContent = emoji;
     compareStatusEl.title = `[${platform}] ${title}`;
+    compareStatusEl.setAttribute('aria-label', `${getPlatformDisplayName(platform)}: ${title}`);
     if (emoji === '⏳' || emoji === '🔄') {
       compareStatusEl.classList.add('loading');
     } else {
@@ -1615,6 +1999,7 @@ function refreshIframe(platform) {
   const btn = document.querySelector(`.refresh-btn[data-platform="${platform}"]`);
 
   if (!iframe) return;
+  clearPlatformRuntimeState(platform, { clearHistory: false, cancelRemote: true });
 
   // 添加旋轉動畫
   if (btn) {
@@ -1777,7 +2162,7 @@ function getPlatformEnabledStorageKey(platform) {
   return `ai-platform-enabled-${platform}`;
 }
 
-function isPlatformEnabled(platform) {
+function isPlatformToggleEnabled(platform) {
   if (!(platform in platformEnabledState)) {
     const saved = localStorage.getItem(getPlatformEnabledStorageKey(platform));
     platformEnabledState[platform] = saved === null ? true : saved === 'true';
@@ -1786,25 +2171,39 @@ function isPlatformEnabled(platform) {
   return platformEnabledState[platform];
 }
 
+function isPlatformEnabled(platform) {
+  return isPlatformInLayout(platform) && isPlatformToggleEnabled(platform);
+}
+
 function setPlatformEnabled(platform, enabled) {
   platformEnabledState[platform] = enabled;
   localStorage.setItem(getPlatformEnabledStorageKey(platform), String(enabled));
+  if (!enabled) {
+    clearPlatformRuntimeState(platform, { clearHistory: true, cancelRemote: true });
+    const textEl = document.getElementById(`compare-text-${platform}`);
+    if (textEl) textEl.textContent = t('platformDisabled', 'This platform is disabled');
+  } else {
+    requestPlatformReadyState(platform);
+    if (isComparePanelVisible()) requestPlatformHistory(platform, { force: true });
+  }
   renderPlatformToggle(platform);
   syncSummaryPlatformMenu();
   syncSendOnePlatformMenu();
 }
 
-function renderPlatformToggle(platform) {
+function renderPlatformToggle(platform, options = {}) {
   const enabled = isPlatformEnabled(platform);
+  const displayName = getPlatformDisplayName(platform);
   const toggleButtons = document.querySelectorAll(`[data-platform-toggle="${platform}"]`);
   const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
   const compareCol = document.querySelector(`.compare-col[data-platform="${platform}"]`);
 
   toggleButtons.forEach(toggleButton => {
-    toggleButton.textContent = enabled ? 'ON' : 'OFF';
+    toggleButton.textContent = enabled ? t('toggleOn', 'ON') : t('toggleOff', 'OFF');
+    toggleButton.setAttribute('aria-pressed', String(enabled));
     toggleButton.title = enabled
-      ? t('disablePlatformTitle', 'Disable $1', platform)
-      : t('enablePlatformTitle', 'Enable $1', platform);
+      ? t('disablePlatformTitle', 'Disable $1', displayName)
+      : t('enablePlatformTitle', 'Enable $1', displayName);
     toggleButton.classList.toggle('enabled', enabled);
     toggleButton.classList.toggle('disabled', !enabled);
   });
@@ -1817,21 +2216,17 @@ function renderPlatformToggle(platform) {
     compareCol.classList.toggle('platform-disabled', !enabled);
   }
 
-  if (!enabled) {
-    updateStatus(platform, '⏸️', t('statusDisabled', 'Disabled'));
-  } else {
-    updateStatus(platform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
+  if (!options.preserveStatus) {
+    if (!enabled) {
+      updateStatus(platform, '⏸️', t('statusDisabled', 'Disabled'));
+    } else {
+      updateStatus(platform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
+    }
   }
 }
 
 function syncPlatformToggleTitles() {
-  document.querySelectorAll('[data-platform-toggle]').forEach(toggleButton => {
-    const platform = toggleButton.dataset.platformToggle;
-    const enabled = isPlatformEnabled(platform);
-    toggleButton.title = enabled
-      ? t('disablePlatformTitle', 'Disable $1', platform)
-      : t('enablePlatformTitle', 'Enable $1', platform);
-  });
+  platforms.forEach(platform => renderPlatformToggle(platform, { preserveStatus: true }));
 }
 
 function initializePlatformToggles() {
@@ -1977,10 +2372,7 @@ function escapeHtml(unsafe) {
 }
 
 function normalizeCompareText(text) {
-  return String(text || '')
-    .replace(/\s+/g, ' ')
-    .trim()
-    .toLowerCase();
+  return window.AIZooUtils.normalizeMatchText(text);
 }
 
 function isCompareHeadingLine(line) {
@@ -2078,8 +2470,9 @@ function findCompareSourceLinkMatch(text, sourceLinkState) {
     const index = value.lastIndexOf(link.text);
     if (index < 0) continue;
 
+    // 來源標籤通常在句尾，可能後面接標點（例如「…基本工資調整。」）或「+1」。
     const suffix = value.slice(index + link.text.length).trim();
-    if (suffix && !/^\+\d+$/.test(suffix)) continue;
+    if (suffix && !/^[。．.，,、；;：:！!？?）)」』\]\s]*(?:\+\d+)?$/.test(suffix)) continue;
 
     sourceLinkState.usedIndexes.add(i);
     return { index, link };
@@ -2127,7 +2520,9 @@ function formatCompareMessageContent(content, options = {}) {
 
   if (!normalized) return '';
 
-  const lines = normalized.split('\n');
+  // ChatGPT 引用標籤會多出單獨一行「+1」（表示還有其他來源），有來源連結時把它拿掉。
+  const hasSourceLinks = sourceLinkState.links.length > 0;
+  const lines = normalized.split('\n').filter(line => !(hasSourceLinks && /^\s*\+\d+\s*$/.test(line)));
   const blocks = [];
   let paragraphLines = [];
 
@@ -2225,8 +2620,11 @@ function buildCompareBubble(message, options = {}) {
     ? 'rgba(255, 255, 255, 0.06)'
     : (isPending ? 'rgba(96, 165, 250, 0.35)' : 'rgba(168, 85, 247, 0.18)');
   const pendingClass = isPending ? ' compare-pending-bubble' : '';
+  const progressHtml = role === 'assistant' && options.progress
+    ? `<div class="compare-response-progress" role="status">${escapeHtml(options.progress)}</div>`
+    : '';
 
-  return `<div class="compare-msg-bubble msg-bubble-${role}${pendingClass}" style="margin-bottom: 14px; padding: 11px 12px; border-radius: 10px; background: ${bubbleBg}; border: 1px solid ${borderColor}; box-shadow: 0 4px 10px rgba(0,0,0,0.15)"><div class="compare-bubble-label">${label}</div><div class="compare-message-content">${formatCompareMessageContent(message.content, { allowHeadings: role === 'assistant', links: message.links })}</div></div>`;
+  return `<div class="compare-msg-bubble msg-bubble-${role}${pendingClass}" style="margin-bottom: 14px; padding: 11px 12px; border-radius: 10px; background: ${bubbleBg}; border: 1px solid ${borderColor}; box-shadow: 0 4px 10px rgba(0,0,0,0.15)"><div class="compare-bubble-label">${label}</div><div class="compare-message-content">${formatCompareMessageContent(message.content, { allowHeadings: role === 'assistant', links: message.links })}</div>${progressHtml}</div>`;
 }
 
 function filterPendingPlaceholderMessages(platform, messages, pendingMessage) {
@@ -2244,13 +2642,13 @@ function filterPendingPlaceholderMessages(platform, messages, pendingMessage) {
   return messages;
 }
 
-function renderCompareHistory(platform, history, pendingMessage = '') {
+function renderCompareHistory(platform, history, pendingMessage = '', options = {}) {
   const colTextEl = document.getElementById(`compare-text-${platform}`);
   if (!colTextEl) return;
 
   const messages = Array.isArray(history) ? history.filter(m => m && m.content) : [];
   const visibleMessages = filterPendingPlaceholderMessages(platform, messages, pendingMessage);
-  compareLatestHistories[platform] = visibleMessages;
+  if (options.cache !== false) compareLatestHistories[platform] = visibleMessages;
   if (messages.length === 0 && !pendingMessage) {
     const emptyText = t('platformNoConversation', 'This platform has no conversation content yet.');
     if (colTextEl.textContent !== emptyText || colTextEl.children.length > 0) {
@@ -2259,8 +2657,14 @@ function renderCompareHistory(platform, history, pendingMessage = '') {
     return false;
   }
 
-  let html = visibleMessages.map(m => buildCompareBubble(m)).join('');
-  if (pendingMessage) {
+  // Once text arrives, keep the streaming status inside that answer's bubble.
+  // A separate pending bubble is only needed before the answer starts.
+  const lastIndex = visibleMessages.length - 1;
+  const hasAnswerBubble = visibleMessages[lastIndex]?.role === 'assistant';
+  let html = visibleMessages.map((message, index) => buildCompareBubble(message, {
+    progress: pendingMessage && hasAnswerBubble && index === lastIndex ? pendingMessage : ''
+  })).join('');
+  if (pendingMessage && !hasAnswerBubble) {
     html += buildCompareBubble({ role: 'assistant', content: pendingMessage }, { pending: true });
   }
 
@@ -2325,7 +2729,7 @@ function formatShareTimestamp(date = new Date()) {
 }
 
 function formatMarkdownMessage(message) {
-  const role = message.role === 'user' ? 'You' : 'AI';
+  const role = message.role === 'user' ? t('shareRoleYou', 'You') : t('shareRoleAI', 'AI');
   const content = String(message.content || '').trim();
   if (!content) return '';
   return `### ${role}\n\n${content}`;
@@ -2338,23 +2742,23 @@ function buildCompareShareMarkdown() {
   const lines = [
     `# ${title}`,
     '',
-    `Generated: ${formatShareTimestamp()}`,
+    `${t('shareGeneratedLabel', 'Generated')}: ${formatShareTimestamp()}`,
     '',
-    '## Status',
+    `## ${t('shareStatusHeading', 'Status')}`,
     ''
   ];
 
-  platforms.forEach(platform => {
-    lines.push(`- ${platform}: ${getCompareStatusLabel(platform)}`);
+  getConfiguredPlatforms().filter(isPlatformEnabled).forEach(platform => {
+    lines.push(`- ${getPlatformDisplayName(platform)}: ${getCompareStatusLabel(platform)}`);
   });
 
   if (hasPrompt) {
-    lines.push('', '## Latest Question', '', promptText);
+    lines.push('', `## ${t('shareLatestQuestionHeading', 'Latest Question')}`, '', promptText);
   }
 
-  platforms.forEach(platform => {
+  getConfiguredPlatforms().filter(isPlatformEnabled).forEach(platform => {
     const messages = compareLatestHistories[platform] || [];
-    lines.push('', `## ${platform}`, '');
+    lines.push('', `## ${getPlatformDisplayName(platform)}`, '');
 
     if (!messages.length) {
       lines.push(getCompareStatusLabel(platform));
@@ -2377,6 +2781,7 @@ function getLanguageMenu() {
 
 function closeLanguageMenu() {
   getLanguageMenu()?.classList.add('hidden');
+  document.getElementById('language-btn')?.setAttribute('aria-expanded', 'false');
 }
 
 function syncLanguageMenu() {
@@ -2404,7 +2809,12 @@ function toggleLanguageMenu() {
   closeSendOnePlatformMenu();
   closeSummaryPlatformMenu();
   syncLanguageMenu();
-  menu.classList.toggle('hidden');
+  const willOpen = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !willOpen);
+  document.getElementById('language-btn')?.setAttribute('aria-expanded', String(willOpen));
+  if (willOpen) {
+    (menu.querySelector('[aria-checked="true"]') || menu.querySelector('button:not([hidden]):not(:disabled)'))?.focus();
+  }
 }
 
 async function setSelectedLanguage(languageCode) {
@@ -2419,6 +2829,10 @@ async function setSelectedLanguage(languageCode) {
   syncPlatformToggleTitles();
   syncSendOnePlatformMenu();
   syncSummaryPlatformMenu();
+  syncLayoutButton();
+  if (document.getElementById('layout-config-dialog')?.open) {
+    renderLayoutConfig();
+  }
   renderSessionList();
   positionSessionSwitcher();
 }
@@ -2429,14 +2843,17 @@ function getSendOnePlatformMenu() {
 
 function closeSendOnePlatformMenu() {
   getSendOnePlatformMenu()?.classList.add('hidden');
+  document.getElementById('send-one-btn')?.setAttribute('aria-expanded', 'false');
 }
 
 function syncSendOnePlatformMenu() {
   document.querySelectorAll('[data-send-one-platform]').forEach(button => {
     const platform = button.dataset.sendOnePlatform;
+    const inLayout = isPlatformInLayout(platform);
     const enabled = isPlatformEnabled(platform);
+    button.hidden = !inLayout;
     button.disabled = !enabled;
-    const capPlatform = platform === 'chatgpt' ? 'ChatGPT' : (platform.charAt(0).toUpperCase() + platform.slice(1));
+    const capPlatform = getPlatformDisplayName(platform);
     button.title = enabled
       ? t('sendQuestionToPlatformTitle', `Send question to ${capPlatform}`, capPlatform)
       : t('statusDisabled', 'Disabled');
@@ -2450,7 +2867,10 @@ function toggleSendOnePlatformMenu() {
   closeLanguageMenu();
   closeSummaryPlatformMenu();
   syncSendOnePlatformMenu();
-  menu.classList.toggle('hidden');
+  const willOpen = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !willOpen);
+  document.getElementById('send-one-btn')?.setAttribute('aria-expanded', String(willOpen));
+  if (willOpen) menu.querySelector('button:not([hidden]):not(:disabled)')?.focus();
 }
 
 function getSummaryPlatformMenu() {
@@ -2459,6 +2879,7 @@ function getSummaryPlatformMenu() {
 
 function closeSummaryPlatformMenu() {
   getSummaryPlatformMenu()?.classList.add('hidden');
+  document.getElementById('summary-compare-btn')?.setAttribute('aria-expanded', 'false');
 }
 
 function getDefaultSummaryPrompt() {
@@ -2497,9 +2918,11 @@ function getCompareSummaryInstruction() {
 function syncSummaryPlatformMenu() {
   document.querySelectorAll('[data-summary-platform]').forEach(button => {
     const platform = button.dataset.summaryPlatform;
+    const inLayout = isPlatformInLayout(platform);
     const enabled = isPlatformEnabled(platform);
+    button.hidden = !inLayout;
     button.disabled = !enabled;
-    const capPlatform = platform === 'chatgpt' ? 'ChatGPT' : (platform.charAt(0).toUpperCase() + platform.slice(1));
+    const capPlatform = getPlatformDisplayName(platform);
     button.title = enabled
       ? t('sendCompareToPlatformTitle', `Send compare content to ${capPlatform}`, capPlatform)
       : t('statusDisabled', 'Disabled');
@@ -2514,7 +2937,10 @@ function toggleSummaryPlatformMenu() {
   closeSendOnePlatformMenu();
   syncSummaryPromptInput();
   syncSummaryPlatformMenu();
-  menu.classList.toggle('hidden');
+  const willOpen = menu.classList.contains('hidden');
+  menu.classList.toggle('hidden', !willOpen);
+  document.getElementById('summary-compare-btn')?.setAttribute('aria-expanded', String(willOpen));
+  if (willOpen) document.getElementById('summary-prompt-input')?.focus();
 }
 
 function buildCompareSummaryPrompt() {
@@ -2529,6 +2955,10 @@ function sendCompareSummaryToPlatform(platform) {
 
   const prompt = buildCompareSummaryPrompt();
   console.log(`[AI Multi-Chat] Sending compare summary content to ${platform}`);
+  startComparePlatformWatch(platform, prompt, {
+    deferHistoryRequests: true,
+    preservePanel: true
+  });
   sendQuestionToPlatform(platform, prompt);
   setMaximizedPlatform(platform);
 }
@@ -2539,19 +2969,94 @@ function setShareActionStatus(message) {
   subtitle.textContent = message;
 }
 
+function getVisibleFocusableElements(container) {
+  if (!container) return [];
+  return Array.from(container.querySelectorAll(
+    'button:not(:disabled), textarea:not(:disabled), input:not(:disabled), select:not(:disabled), a[href], [tabindex]:not([tabindex="-1"])'
+  )).filter(element => !element.hidden && element.getClientRects().length > 0);
+}
+
+function setShareBackgroundInert(inert) {
+  document.querySelectorAll('.container > :not(#share-panel)').forEach(element => {
+    element.inert = inert;
+  });
+}
+
+function handlePopupKeydown(event) {
+  const sharePanel = document.getElementById('share-panel');
+  if (sharePanel && !sharePanel.classList.contains('hidden')) {
+    if (event.key === 'Escape') {
+      event.preventDefault();
+      closeSharePanel();
+      return;
+    }
+    if (event.key === 'Tab') {
+      const focusable = getVisibleFocusableElements(sharePanel);
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && document.activeElement === first) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    }
+    return;
+  }
+
+  if (event.key === 'Escape') {
+    const openControls = [
+      ['summary-platform-menu', 'summary-compare-btn', closeSummaryPlatformMenu],
+      ['send-one-platform-menu', 'send-one-btn', closeSendOnePlatformMenu],
+      ['language-menu', 'language-btn', closeLanguageMenu],
+      ['session-switcher', 'history-toggle-btn', hideSessionSwitcher]
+    ];
+    for (const [panelId, triggerId, close] of openControls) {
+      const panel = document.getElementById(panelId);
+      if (!panel || panel.classList.contains('hidden')) continue;
+      event.preventDefault();
+      close();
+      document.getElementById(triggerId)?.focus();
+      return;
+    }
+  }
+
+  const menu = event.target.closest?.('[role="menu"]');
+  if (!menu || !['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key)) return;
+  const items = getVisibleFocusableElements(menu).filter(element => element.matches('[role^="menuitem"]'));
+  if (!items.length) return;
+  event.preventDefault();
+  const currentIndex = Math.max(0, items.indexOf(document.activeElement));
+  let nextIndex = currentIndex;
+  if (event.key === 'ArrowDown') nextIndex = (currentIndex + 1) % items.length;
+  if (event.key === 'ArrowUp') nextIndex = (currentIndex - 1 + items.length) % items.length;
+  if (event.key === 'Home') nextIndex = 0;
+  if (event.key === 'End') nextIndex = items.length - 1;
+  items[nextIndex].focus();
+}
+
 function openSharePanel() {
   const panel = document.getElementById('share-panel');
   const output = document.getElementById('share-output');
   if (!panel || !output) return;
 
+  shareLastFocusedElement = document.activeElement instanceof HTMLElement ? document.activeElement : null;
   output.value = buildCompareShareMarkdown();
+  setShareBackgroundInert(true);
   panel.classList.remove('hidden');
-    setShareActionStatus(t('sharePanelSubtitle', 'Organized as Markdown. You can copy or download it. Nothing is uploaded automatically.'));
+  setShareActionStatus(t('sharePanelSubtitle', 'Organized as Markdown. You can copy or download it. Nothing is uploaded automatically.'));
   setTimeout(() => output.focus(), 50);
 }
 
-function closeSharePanel() {
+function closeSharePanel(options = {}) {
   document.getElementById('share-panel')?.classList.add('hidden');
+  setShareBackgroundInert(false);
+  if (options.restoreFocus !== false && shareLastFocusedElement?.isConnected) {
+    shareLastFocusedElement.focus();
+  }
+  shareLastFocusedElement = null;
 }
 
 async function copyShareText() {
@@ -2607,6 +3112,7 @@ async function nativeShareCompareText() {
 }
 
 function requestPlatformHistory(platform, options = {}) {
+  if (!isPlatformEnabled(platform)) return false;
   const now = Date.now();
   const requestState = compareHistoryRequestState[platform];
   if (requestState && !options.force) {
@@ -2625,6 +3131,7 @@ function requestPlatformHistory(platform, options = {}) {
   compareHistoryRequestState[platform] = {
     inFlight: true,
     requestId: ++compareHistoryRequestId,
+    navigationEpoch: options.navigationEpoch ?? compareNavigationEpoch,
     startedAt: now,
     lastRequestedAt: now
   };
@@ -2633,6 +3140,7 @@ function requestPlatformHistory(platform, options = {}) {
     type: 'AI_SCRAPE_HISTORY_REQUEST',
     platform: platform,
     requestId: compareHistoryRequestState[platform].requestId,
+    navigationEpoch: compareHistoryRequestState[platform].navigationEpoch,
     timeoutMs: options.timeoutMs || COMPARE_HISTORY_SCRAPE_TIMEOUT_MS,
     source: 'popup'
   }, '*');
@@ -2647,34 +3155,8 @@ function clearCompareHistoryRequest(platform) {
   requestState.finishedAt = Date.now();
 }
 
-function findQuestionAnswer(history, question) {
-  const target = normalizeCompareText(question);
-  if (!target || !Array.isArray(history)) return { questionIndex: -1, answer: null };
-
-  let questionIndex = -1;
-  for (let i = history.length - 1; i >= 0; i--) {
-    const message = history[i];
-    if (!message || message.role !== 'user') continue;
-
-    const content = normalizeCompareText(message.content);
-    if (content === target || content.includes(target) || target.includes(content)) {
-      questionIndex = i;
-      break;
-    }
-  }
-
-  if (questionIndex < 0) return { questionIndex: -1, answer: null };
-
-  let answer = null;
-  for (let i = history.length - 1; i > questionIndex; i--) {
-    const message = history[i];
-    if (message && message.role === 'assistant' && String(message.content || '').trim()) {
-      answer = message;
-      break;
-    }
-  }
-
-  return { questionIndex, answer };
+function findQuestionAnswer(history, question, baselineOccurrences = 0) {
+  return window.AIZooUtils.findAnswerAfterQuestion(history, question, baselineOccurrences);
 }
 
 function isLikelyIncompleteAssistantAnswer(platform, text) {
@@ -2701,35 +3183,65 @@ function findLatestMessage(history, role) {
   return null;
 }
 
+function renderTrackedCompareHistory(platform, history, pendingMessage = '', options = {}) {
+  if (compareWatchState[platform]?.preservePanel) return false;
+  return renderCompareHistory(platform, history, pendingMessage, options);
+}
+
 function markComparePlatformPending(platform, message = t('compareResponding', 'Responding...')) {
   const state = compareWatchState[platform];
   if (!state || state.complete || !isComparePanelVisible()) return;
 
   const colTextEl = document.getElementById(`compare-text-${platform}`);
   if (colTextEl && (!colTextEl.innerText || colTextEl.innerText.includes(t('loadingConversationHistory', 'Loading conversation history')))) {
-    renderCompareHistory(platform, [{ role: 'user', content: state.question }], message);
+    renderTrackedCompareHistory(platform, [{ role: 'user', content: state.question }], message, { cache: false });
   }
 }
 
 function completeComparePlatform(platform, history) {
-  if (compareWatchState[platform]) {
-    compareWatchState[platform].complete = true;
+  const state = compareWatchState[platform];
+  if (state) {
+    const now = Date.now();
+    state.complete = true;
+    state.isGenerating = false;
+    state.completedAt = now;
+    // Keep a low-frequency watcher alive while Smart Compare remains open.
+    // Long tool/research runs can resume after looking complete for minutes.
+    state.settleUntil = Number.POSITIVE_INFINITY;
+    state.lastSettlingPollAt = 0;
   }
 
-  renderCompareHistory(platform, history);
+  renderTrackedCompareHistory(platform, history);
   updateStatus(platform, '✅', t('statusComplete', 'Complete'));
+  ensureComparePollTimer();
   stopComparePollTimerIfDone();
 }
 
-function timeoutComparePlatform(platform) {
+function failComparePlatform(platform, message) {
   const state = compareWatchState[platform];
   if (state) {
     state.complete = true;
+    state.isGenerating = false;
+    state.failed = true;
+    state.error = String(message || '');
+    state.completedAt = Date.now();
+    state.settleUntil = 0;
   }
 
   const latestHistory = compareLatestHistories[platform] || [];
-  renderCompareHistory(platform, latestHistory);
-  updateStatus(platform, '⚠️', t('statusResponseTimeout', 'Timed out waiting for platform response'));
+  const hasCurrentQuestion = state && findQuestionAnswer(
+    latestHistory,
+    state.question,
+    state.baselineOccurrences
+  ).questionIndex >= 0;
+  const visibleHistory = state && !hasCurrentQuestion
+    ? latestHistory.concat([{ role: 'user', content: state.question }])
+    : latestHistory;
+
+  // Remove the animated "Responding..." placeholder immediately. The red
+  // status icon retains the exact platform error in its tooltip.
+  renderTrackedCompareHistory(platform, visibleHistory, '', { cache: hasCurrentQuestion });
+  updateStatus(platform, '❌', message || t('statusSendFailed', 'Send failed'));
   stopComparePollTimerIfDone();
 }
 
@@ -2747,13 +3259,26 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
       if (promptEl) promptEl.textContent = latestUserMsg;
       if (!window.lastSentQuestion) window.lastSentQuestion = latestUserMsg;
 
-      if (isLikelyIncompleteAssistantAnswer(platform, latestAssistant?.content)) {
+      if (isGenerating || isLikelyIncompleteAssistantAnswer(platform, latestAssistant?.content)) {
+        const now = Date.now();
         compareWatchState[platform] = {
           question: latestUserMsg,
-          startedAt: Date.now(),
+          baselineOccurrences: Math.max(
+            0,
+            window.AIZooUtils.countExactUserQuestions(messages, latestUserMsg) - 1
+          ),
+          sent: true,
+          startedAt: now,
           complete: false,
+          isGenerating: !!isGenerating,
           lastAnswerText: String(latestAssistant?.content || '').trim(),
-          stableCount: 0
+          lastAnswerChangedAt: now,
+          lastActivityAt: now,
+          stableCount: 0,
+          completionHintAt: 0,
+          completedAt: 0,
+          settleUntil: 0,
+          lastSettlingPollAt: 0
         };
         renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
         updateStatus(platform, '🔄', t('statusResponding', 'Responding...'));
@@ -2763,45 +3288,101 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
     return;
   }
 
-  const elapsed = Date.now() - state.startedAt;
-  const result = findQuestionAnswer(messages, state.question);
+  const now = Date.now();
+  if (!state.sent) {
+    compareLatestHistories[platform] = messages;
+    const queuedHistory = messages.concat([{ role: 'user', content: state.question }]);
+    renderTrackedCompareHistory(
+      platform,
+      queuedHistory,
+      t('compareResponding', 'Responding...'),
+      { cache: false }
+    );
+    return;
+  }
+  const wasGenerating = state.isGenerating;
+  state.isGenerating = !!isGenerating;
+  if (isGenerating && !wasGenerating) {
+    state.lastActivityAt = now;
+  }
+  const result = findQuestionAnswer(messages, state.question, state.baselineOccurrences);
 
   if (result.questionIndex < 0) {
-    renderCompareHistory(platform, messages.concat([{ role: 'user', content: state.question }]), t('compareResponding', 'Responding...'));
-    if (elapsed > COMPARE_MAX_WATCH_MS) {
-      timeoutComparePlatform(platform);
-    }
+    renderTrackedCompareHistory(platform, messages.concat([{ role: 'user', content: state.question }]), t('compareResponding', 'Responding...'), { cache: false });
     return;
   }
 
   const answerText = result.answer ? String(result.answer.content || '').trim() : '';
   if (!answerText) {
-    renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
+    renderTrackedCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
     return;
   }
 
   if (isLikelyIncompleteAssistantAnswer(platform, answerText)) {
+    state.complete = false;
     state.lastAnswerText = answerText;
+    state.lastAnswerChangedAt = now;
+    state.lastActivityAt = now;
     state.stableCount = 0;
-    renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
+    state.completedAt = 0;
+    state.settleUntil = 0;
+    renderTrackedCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
     updateStatus(platform, '🔄', t('statusResponding', 'Responding...'));
+    ensureComparePollTimer();
     return;
   }
 
-  if (answerText === state.lastAnswerText) {
-    state.stableCount += 1;
-  } else {
-    state.lastAnswerText = answerText;
-    state.stableCount = 0;
+  if (options.completionHint) {
+    state.completionHintAt = now;
   }
 
-  const isStable = state.stableCount >= COMPARE_STABLE_POLLS_REQUIRED;
-  const isDone = options.forceComplete || (!isGenerating && isStable);
+  if (answerText === state.lastAnswerText) {
+    if (!isGenerating) {
+      state.stableCount += 1;
+    }
+  } else {
+    state.lastAnswerText = answerText;
+    state.lastAnswerChangedAt = now;
+    state.lastActivityAt = now;
+    state.stableCount = 0;
+
+    // A platform can emit a premature completion signal between long-answer
+    // phases. If more text arrives during the settling window, resume the watch.
+    if (state.complete) {
+      state.complete = false;
+      state.completedAt = 0;
+      state.settleUntil = 0;
+      ensureComparePollTimer();
+    }
+  }
+
+  if (isGenerating) {
+    state.complete = false;
+    state.stableCount = 0;
+    state.completedAt = 0;
+    state.settleUntil = 0;
+  }
+
+  if (state.complete) {
+    renderTrackedCompareHistory(platform, messages);
+    updateStatus(platform, '✅', t('statusComplete', 'Complete'));
+    return;
+  }
+
+  const stablePollsRequired = COMPARE_STABLE_POLLS_REQUIRED_BY_PLATFORM[platform]
+    || COMPARE_STABLE_POLLS_REQUIRED;
+  const quietPeriodMs = COMPARE_QUIET_PERIOD_MS_BY_PLATFORM[platform] || COMPARE_QUIET_PERIOD_MS;
+  const isStable = state.stableCount >= stablePollsRequired;
+  const isQuiet = now - (state.lastAnswerChangedAt || state.startedAt) >= quietPeriodMs;
+  // 平台明確標記完成（ChatGPT turn-state、Meta streaming-state）時直接採信，不再等穩定輪數與安靜期。
+  const isDone = !isGenerating && (!!options.explicitComplete || (isStable && isQuiet));
 
   if (isDone) {
     completeComparePlatform(platform, messages);
   } else {
-    renderCompareHistory(platform, messages, t('compareResponding', 'Responding...'));
+    // Keep confirming a stable tail internally, but stop showing "Responding"
+    // as soon as the platform stops generating a substantive answer.
+    renderTrackedCompareHistory(platform, messages, isGenerating ? t('compareResponding', 'Responding...') : '');
     updateStatus(platform, '🔄', isGenerating ? t('statusResponding', 'Responding...') : t('statusConfirmingResponseDone', 'Confirming response completion...'));
   }
 }
@@ -2810,10 +3391,15 @@ function pollActiveCompareHistories() {
   const now = Date.now();
   platforms.forEach(platform => {
     const state = compareWatchState[platform];
-    if (!state || state.complete) return;
+    if (!state) return;
+    if (!isComparePanelVisible() || !isPlatformEnabled(platform)) return;
 
-    if (now - state.startedAt > COMPARE_MAX_WATCH_MS) {
-      timeoutComparePlatform(platform);
+    if (state.complete) {
+      if (!state.settleUntil || now >= state.settleUntil) return;
+      if (now - (state.lastSettlingPollAt || 0) < COMPARE_COMPLETED_RECHECK_INTERVAL_MS) return;
+
+      state.lastSettlingPollAt = now;
+      requestPlatformHistory(platform, { force: true });
       return;
     }
 
@@ -2824,7 +3410,14 @@ function pollActiveCompareHistories() {
 }
 
 function stopComparePollTimerIfDone() {
-  const hasActive = platforms.some(platform => compareWatchState[platform] && !compareWatchState[platform].complete);
+  const now = Date.now();
+  const hasActive = platforms.some(platform => {
+    const state = compareWatchState[platform];
+    return isComparePanelVisible()
+      && isPlatformEnabled(platform)
+      && state
+      && (!state.complete || (state.settleUntil && now < state.settleUntil));
+  });
   if (!hasActive && comparePollTimer) {
     clearInterval(comparePollTimer);
     comparePollTimer = null;
@@ -2832,7 +3425,7 @@ function stopComparePollTimerIfDone() {
 }
 
 function ensureComparePollTimer() {
-  if (comparePollTimer) return;
+  if (comparePollTimer || !isComparePanelVisible()) return;
   comparePollTimer = setInterval(pollActiveCompareHistories, COMPARE_POLL_INTERVAL_MS);
 }
 
@@ -2885,6 +3478,58 @@ function scheduleCompareSendHistoryRefresh() {
   ));
 }
 
+function createCompareWatchState(platform, question, options = {}) {
+  const now = Date.now();
+  const baselineOccurrences = options.baselineOccurrences ?? window.AIZooUtils.countExactUserQuestions(
+    compareLatestHistories[platform] || [],
+    question
+  );
+  return {
+    question,
+    baselineOccurrences,
+    sent: !!options.sent,
+    startedAt: now,
+    complete: false,
+    isGenerating: false,
+    lastAnswerText: '',
+    lastAnswerChangedAt: now,
+    lastActivityAt: now,
+    stableCount: 0,
+    completionHintAt: 0,
+    completedAt: 0,
+    settleUntil: 0,
+    lastSettlingPollAt: 0,
+    preservePanel: !!options.preservePanel
+  };
+}
+
+function startComparePlatformWatch(platform, question, options = {}) {
+  if (!platforms.includes(platform) || !isPlatformEnabled(platform)) return;
+
+  compareWatchState[platform] = createCompareWatchState(platform, question, options);
+
+  if (isComparePanelVisible() && !options.preservePanel) {
+    const promptEl = document.getElementById('compare-prompt-text');
+    if (promptEl) promptEl.textContent = question;
+
+    const latestHistory = compareLatestHistories[platform] || [];
+    const hasCurrentQuestion = findQuestionAnswer(
+      latestHistory,
+      question,
+      compareWatchState[platform].baselineOccurrences
+    ).questionIndex >= 0;
+    const visibleHistory = hasCurrentQuestion
+      ? latestHistory
+      : latestHistory.concat([{ role: 'user', content: question }]);
+    renderCompareHistory(platform, visibleHistory, t('compareResponding', 'Responding...'), { cache: false });
+  }
+
+  if (!options.deferHistoryRequests) {
+    requestPlatformHistory(platform);
+  }
+  ensureComparePollTimer();
+}
+
 function startCompareWatch(question, options = {}) {
   showComparePanel();
   const promptEl = document.getElementById('compare-prompt-text');
@@ -2898,15 +3543,9 @@ function startCompareWatch(question, options = {}) {
       return;
     }
 
-    compareWatchState[platform] = {
-      question,
-      startedAt: Date.now(),
-      complete: false,
-      lastAnswerText: '',
-      stableCount: 0
-    };
+    compareWatchState[platform] = createCompareWatchState(platform, question);
 
-    renderCompareHistory(platform, [{ role: 'user', content: question }], t('compareResponding', 'Responding...'));
+    renderCompareHistory(platform, [{ role: 'user', content: question }], t('compareResponding', 'Responding...'), { cache: false });
     if (!options.deferHistoryRequests) {
       requestPlatformHistory(platform);
     }
@@ -2917,6 +3556,7 @@ function startCompareWatch(question, options = {}) {
 
 function openComparePanel() {
   showComparePanel();
+  ensureComparePollTimer();
   resetComparePrompt();
 
   platforms.forEach(platform => {
@@ -2958,6 +3598,7 @@ function closeComparePanel() {
   setCompareInputDocked(false);
   closeSummaryPlatformMenu();
   clearCompareOpenRefreshTimers();
+  stopComparePollTimerIfDone();
   if (window.compareFocusTimeout) {
     clearTimeout(window.compareFocusTimeout);
     window.compareFocusTimeout = null;

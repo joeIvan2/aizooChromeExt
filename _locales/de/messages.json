@@ -1,4 +1,160 @@
 {
+  "tourNavSetup": {
+    "message": "Anmelden & anheften"
+  },
+  "tourNavInterface": {
+    "message": "Oberfläche"
+  },
+  "tourSkip": {
+    "message": "AI Zoo starten"
+  },
+  "tourTitle": {
+    "message": "Einmal fragen. Verschiedene KI-Antworten sehen."
+  },
+  "tourIntro": {
+    "message": "Anmelden, fragen, vergleichen und zusammenfassen lassen. Nummern und Linien erklären die Oberfläche."
+  },
+  "tourLoginTitle": {
+    "message": "Zuerst bei diesen vier KI-Plattformen anmelden"
+  },
+  "tourLoginHint": {
+    "message": "Öffne die Links in separaten Tabs desselben Chrome-Browsers. Melde dich an und kehre zu AI Zoo zurück."
+  },
+  "tourLoginReturn": {
+    "message": "Noch ein Anmeldebildschirm? Klicke über der Plattform auf ⟳. Anmeldung und Verifizierung führst du selbst durch."
+  },
+  "tourPinHint": {
+    "message": "Puzzlesymbol oben rechts → AI Zoo → Stecknadel. Danach öffnest du AI Zoo über das Symbol in der Symbolleiste."
+  },
+  "tourWorkspaceTitle": {
+    "message": "Plattformen und gemeinsame Werkzeugleiste"
+  },
+  "tourWorkspaceHint": {
+    "message": "Jede KI hat dieselben Bedienelemente. Nummern und Linien zeigen die Positionen. Im Layout kannst du auch Meta AI wählen."
+  },
+  "tourDemoLabel": {
+    "message": "Oberflächenbeispiel · sendet keine Fragen"
+  },
+  "tourScrollHint": {
+    "message": "Auf kleinen Bildschirmen kannst du die Diagramme seitlich scrollen."
+  },
+  "tourToggleTitle": {
+    "message": "Aktivieren / deaktivieren"
+  },
+  "tourToggleHint": {
+    "message": "Fragen werden nur an aktive Plattformen gesendet."
+  },
+  "tourRefreshHint": {
+    "message": "Dieses Feld nach der Anmeldung oder bei Problemen neu laden."
+  },
+  "tourMaximizeHint": {
+    "message": "Eine KI vergrößern; erneut klicken, um zur Übersicht zurückzukehren."
+  },
+  "tourStatusTitle": {
+    "message": "Antwortstatus"
+  },
+  "tourStatusHint": {
+    "message": "Laden, Warten, Abschluss oder Fehler erkennen."
+  },
+  "tourSampleQuestion": {
+    "message": "Plane eine dreitägige Reise nach Tokio."
+  },
+  "tourInputTitle": {
+    "message": "Gemeinsames Eingabefeld"
+  },
+  "tourInputHint": {
+    "message": "Hier die Frage eingeben. Das Bedienfeld an einer freien Stelle ziehen. Strg / ⌘ + Enter sendet an aktive Plattformen."
+  },
+  "tourToolbarTitle": {
+    "message": "Was bedeuten die Symbole?"
+  },
+  "tourNewChatHint": {
+    "message": "Eine neue Gesprächsgruppe beginnen."
+  },
+  "tourHistoryHint": {
+    "message": "Gespeicherte Gesprächsgruppen wieder öffnen."
+  },
+  "tourCompareHint": {
+    "message": "Antworten nebeneinander lesen und verschiedene Sichtweisen erkennen."
+  },
+  "tourLayoutHint": {
+    "message": "1–5 Felder, Plattformen und Reihenfolge wählen."
+  },
+  "tourLanguageHint": {
+    "message": "Die Sprache der AI Zoo-Oberfläche ändern."
+  },
+  "tourMinimizeHint": {
+    "message": "Eingabe einklappen; über das schwebende Symbol wieder öffnen."
+  },
+  "tourSingleHint": {
+    "message": "Eine aktive Plattform auswählen und nur an sie senden."
+  },
+  "tourAllHint": {
+    "message": "An alle aktiven Plattformen senden; inaktive werden übersprungen."
+  },
+  "tourSummaryTitle": {
+    "message": "Viele Antworten. Eine KI fasst sie zusammen."
+  },
+  "tourSummaryIntro": {
+    "message": "Antworten im Vergleich lesen und eine KI Gemeinsamkeiten, Unterschiede und Vorschläge zusammenfassen lassen."
+  },
+  "tourSummaryExample": {
+    "message": "Gemeinsame Ergebnisse, unterschiedliche Sichtweisen und nächste Schritte zusammenfassen."
+  },
+  "tourSummaryButtonHint": {
+    "message": "Oben rechts im Vergleich die KI-Zusammenfassung öffnen."
+  },
+  "tourSummaryChooseHint": {
+    "message": "Bei Bedarf die Anweisung bearbeiten, dann eine angemeldete, aktive Plattform wählen. Dort erscheint die Zusammenfassung."
+  },
+  "tourSummaryDisclosure": {
+    "message": "Die Auswahl sendet den aktuellen Vergleich und die Anweisung an diese KI. Warte für ein vollständigeres Ergebnis auf alle Antworten."
+  },
+  "tourReady": {
+    "message": "Bereit für deine erste Frage?"
+  },
+  "tourReopen": {
+    "message": "Diese Seite lässt sich oben rechts über die Kurzanleitung erneut öffnen."
+  },
+  "pinGuideHelp": {
+    "message": "Kurzanleitung"
+  },
+  "pinGuideDirection": {
+    "message": "Oben rechts in Chrome"
+  },
+  "pinGuideEyebrow": {
+    "message": "10 Sekunden jetzt. Nächstes Mal leichter finden."
+  },
+  "pinGuideTitle": {
+    "message": "AI Zoo anheften"
+  },
+  "pinGuideClose": {
+    "message": "Kurzanleitung schließen"
+  },
+  "pinGuideStepOne": {
+    "message": "Klicke oben rechts in Chrome auf das Puzzlesymbol"
+  },
+  "pinGuidePuzzleHint": {
+    "message": "Dieses Symbol findest du neben der Adressleiste."
+  },
+  "pinGuideStepTwo": {
+    "message": "Suche AI Zoo und klicke rechts auf die Stecknadel"
+  },
+  "pinGuidePuzzleAlt": {
+    "message": "Puzzlesymbol für Erweiterungen in Chrome"
+  },
+  "pinGuidePinAlt": {
+    "message": "AI Zoo im Erweiterungsmenü mit der Stecknadel rechts"
+  },
+  "pinGuideNextTime": {
+    "message": "Klicke beim nächsten Mal auf das AI Zoo-Symbol in der Symbolleiste. Auch ohne Anheften kannst du AI Zoo über das Puzzlemenü öffnen."
+  },
+  "pinGuideQuickStart": {
+    "message": "Loslegen: Melde dich bei den gewünschten KI-Plattformen an, gib unten eine Frage ein und klicke rechts auf die Schaltfläche mit mehreren Pfeilen, um sie an aktivierte Plattformen zu senden."
+  },
+  "pinGuideDone": {
+    "message": "Verstanden, los geht’s"
+  },
   "extensionName": {
     "message": "AI Zoo",
     "description": "Name of the extension"
@@ -462,5 +618,107 @@
   "languageMenuLabel": {
     "message": "Oberflächensprache auswählen",
     "description": "Language menu aria label"
+  },
+  "layoutButtonTitle": {
+    "message": "Geteiltes Layout konfigurieren"
+  },
+  "layoutButtonCurrentTitle": {
+    "message": "Layout: $1 Bereiche"
+  },
+  "layoutDialogTitle": {
+    "message": "Bildschirmaufteilung"
+  },
+  "layoutDialogSubtitle": {
+    "message": "Wählen Sie zuerst die Anzahl der Bereiche und ordnen Sie dann die KI-Plattformen zu."
+  },
+  "layoutCountLabel": {
+    "message": "1. Anzahl der Bereiche"
+  },
+  "layoutCountHint": {
+    "message": "Standardmäßig 5, mindestens 1"
+  },
+  "layoutSlotsLabel": {
+    "message": "2. Plattformen und Reihenfolge"
+  },
+  "layoutSlotsHint": {
+    "message": "Jede Plattform kann nur einmal verwendet werden. Mit den Pfeilen ändern Sie die Reihenfolge."
+  },
+  "layoutSlotLabel": {
+    "message": "Bereich $1"
+  },
+  "layoutPaneCountLabel": {
+    "message": "$1 Bereiche"
+  },
+  "layoutMoveLeft": {
+    "message": "Nach links"
+  },
+  "layoutMoveRight": {
+    "message": "Nach rechts"
+  },
+  "layoutCloseLabel": {
+    "message": "Layout-Einstellungen schließen"
+  },
+  "layoutCancelButton": {
+    "message": "Abbrechen"
+  },
+  "layoutSaveButton": {
+    "message": "Layout speichern"
+  },
+  "layoutDuplicateError": {
+    "message": "Jeder Bereich muss eine andere KI-Plattform verwenden."
+  },
+  "restoreInputPanelLabel": {
+    "message": "Fragebereich wiederherstellen"
+  },
+  "toggleOn": {
+    "message": "AN"
+  },
+  "toggleOff": {
+    "message": "AUS"
+  },
+  "shareRoleYou": {
+    "message": "Du"
+  },
+  "shareRoleAI": {
+    "message": "KI"
+  },
+  "shareGeneratedLabel": {
+    "message": "Erstellt"
+  },
+  "shareStatusHeading": {
+    "message": "Status"
+  },
+  "shareLatestQuestionHeading": {
+    "message": "Neueste Frage"
+  },
+  "claudeHistoryTitle": {
+    "message": "Claude-Verlauf"
+  },
+  "claudeHistoryOpen": {
+    "message": "Claude-Verlauf öffnen"
+  },
+  "claudeHistoryClose": {
+    "message": "Claude-Verlauf schließen"
+  },
+  "claudeHistoryEmpty": {
+    "message": "Keine früheren Unterhaltungen gefunden."
+  },
+  "claudeHistoryUntitled": {
+    "message": "Unbenannte Unterhaltung"
+  },
+  "claudeHistoryLoading": {
+    "message": "Unterhaltungen werden geladen..."
+  },
+  "claudeHistoryNotReady": {
+    "message": "Der Claude-Verlauf ist noch nicht bereit. Bitte erneut versuchen."
+  },
+  "claudeHistoryLoadFailed": {
+    "message": "Claude-Verlauf konnte nicht geladen werden. Bitte erneut versuchen."
+  },
+  "claudeHistoryNewChat": {
+    "message": "Neuer Chat"
+  },
+  "claudeHistoryPastLabel": {
+    "message": "Frühere Claude-Unterhaltungen"
   }
 }

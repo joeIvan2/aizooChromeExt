@@ -13,10 +13,10 @@
 由於你的擴充功能要求取得網站存取權限，因此可能必須接受深入審查，這會造成發布作業延遲。
 
 要求declarativeNetRequest的理由
-此權限用於修改 HTTP 標頭（例如移除 X-Frame-Options 和 Content-Security-Policy），以便讓各個 AI 平台（如 Grok, Gemini, Claude, ChatGPT）能夠在擴充功能的 iframe 中正常顯示並進行並排對話。這是核心功能所必需。
+此權限用於修改 HTTP 標頭（例如移除 X-Frame-Options 和 Content-Security-Policy），以便讓各個 AI 平台（Grok、Gemini、Claude、ChatGPT、Meta AI）能夠在擴充功能的 iframe 中正常顯示並進行並排對話。這是核心功能所必需。
 
 要求網站存取權限的理由
-擴充功能需要存取 grok.com, gemini.google.com, claude.ai, chatgpt.com 等網站，以便：
+擴充功能需要存取 grok.com、gemini.google.com、claude.ai、chatgpt.com、meta.ai 及必要的官方登入網域，以便：
 1. 在 iframe 中載入這些平台。
 2. 注入內容指令碼（content scripts）以實現統一輸入、自動填寫問題及獲取 AI 回應的功能。
 3. 修改這些特定網域的 HTTP 請求/回應標頭。

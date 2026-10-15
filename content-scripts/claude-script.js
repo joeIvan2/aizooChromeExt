@@ -2,6 +2,8 @@
 (function() {
   'use strict';
 
+  if (window.parent !== window && window.parent !== window.top) return;
+
   console.log('[Claude] Content script initializing...');
 
   const config = window.PLATFORM_CONFIGS.claude;
@@ -18,16 +20,26 @@
     'button[aria-label="Open sidebar"]',
     'button[aria-label="Close sidebar"]'
   ];
+  // Claude's current responsive UI already provides an accessible native
+  // sidebar toggle. The old custom implementation forced obsolete DOM nodes
+  // to 18rem and could prevent React from cleaning up responsive layouts.
+  const CLAUDE_CUSTOM_SIDEBAR_ENABLED = false;
+  const CLAUDE_HISTORY_DRAWER_ENABLED = true;
   let claudeSidebarBreakpointEnabled = false;
   let lastClaudeSidebarState = null;
+
+  function claudeT(key, fallback) {
+    return chrome.i18n.getMessage(key) || fallback;
+  }
 
   try {
     claudeSidebarBreakpointEnabled = sessionStorage.getItem(CLAUDE_BREAKPOINT_SESSION_KEY) === 'armed';
   } catch (error) {}
 
   try {
-    sessionStorage.setItem(CLAUDE_PROTECT_ENABLED_KEY, 'true');
-    refreshClaudeProtectionWindow(5000);
+    sessionStorage.setItem(CLAUDE_PROTECT_ENABLED_KEY, 'false');
+    sessionStorage.setItem('ai-multichat-claude-protect-sidebar', 'false');
+    sessionStorage.removeItem('ai-multichat-claude-protect-sidebar-until');
   } catch (error) {}
 
   function ensureClaudeNewChatDefaultModel() {
@@ -171,9 +183,9 @@
   }
 
   try {
-    if (window.self !== window.top && location.hostname === 'claude.ai') {
+    if (CLAUDE_CUSTOM_SIDEBAR_ENABLED && window.self !== window.top && location.hostname === 'claude.ai') {
       refreshClaudeProtectionWindow(8000);
-    } else if (sessionStorage.getItem(CLAUDE_PROTECT_ENABLED_KEY) === 'true') {
+    } else if (CLAUDE_CUSTOM_SIDEBAR_ENABLED && sessionStorage.getItem(CLAUDE_PROTECT_ENABLED_KEY) === 'true') {
       refreshClaudeProtectionWindow(5000);
     }
   } catch (error) {}
@@ -196,8 +208,7 @@
 
   injectClaudeTopLevelShim();
 
-  window.InjectionCore.setupFetchMonitor(config);
-  window.InjectionCore.setupUrlMonitor(config);
+  if (window.parent !== window) window.InjectionCore.setupUrlMonitor(config);
 
   window.addEventListener('message', async (event) => {
     const data = event.data;
@@ -209,12 +220,23 @@
 
     if (data.type === 'AI_SUBMIT_QUESTION' && data.platform === 'claude') {
       console.log('[Claude] Received submit question command:', data.question);
-      await window.InjectionCore.submitQuestion(config, data.question);
+      await window.InjectionCore.enqueueQuestion(config, data.question, {
+        submissionId: data.submissionId
+      });
     }
 
     if (data.type === 'AI_NEW_CHAT' && data.platform === 'claude') {
       console.log('[Claude] Starting new chat...');
+      window.InjectionCore.cancelOperations(config);
       window.location.href = CLAUDE_NEW_CHAT_URL;
+    }
+
+    if (data.type === 'AI_CANCEL_OPERATIONS' && data.platform === 'claude') {
+      window.InjectionCore.cancelOperations(config);
+    }
+
+    if (data.type === 'AI_READY_CHECK' && data.platform === 'claude') {
+      try { if (config.detectTextarea()) notifyReady(); } catch (error) {}
     }
 
     if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'claude') {
@@ -230,6 +252,7 @@
           type: 'AI_SCRAPE_HISTORY_RESPONSE',
           platform: 'claude',
           requestId: data.requestId,
+          navigationEpoch: data.navigationEpoch,
           history: history,
           isGenerating: window.InjectionCore.isGenerating(config),
           source: 'content-script'
@@ -272,6 +295,8 @@
       const sidebarNav = document.querySelector('nav[aria-label="Sidebar"]');
       const customReopenButton = document.getElementById(CLAUDE_LIVE_REOPEN_BUTTON_ID);
       const customCloseHitArea = document.getElementById(CLAUDE_CLOSE_HITAREA_ID);
+      const historyLauncher = document.getElementById(CLAUDE_HISTORY_LAUNCHER_ID);
+      const historyDrawer = document.getElementById(CLAUDE_HISTORY_DRAWER_ID);
       const sidebarStorageKeys = Object.keys(localStorage).filter((key) => /sidebar|nav|recents|drawer|collapsed|panel|model|paprika|console/i.test(key));
 
       window.parent.postMessage({
@@ -321,6 +346,13 @@
               ariaLabel: customCloseHitArea.getAttribute('aria-label')
             } : null
           },
+          historyDrawer: {
+            enabled: CLAUDE_HISTORY_DRAWER_ENABLED,
+            launcherExists: !!historyLauncher,
+            open: historyDrawer?.dataset.open === 'true',
+            itemCount: historyDrawer?.querySelectorAll('.ai-multichat-history-item').length || 0,
+            organizationReady: !!getClaudeOrganizationId()
+          },
           localStorageSubset: Object.fromEntries(sidebarStorageKeys.map((key) => [key, localStorage.getItem(key)])),
           scrape: getClaudeScrapeDiagnostics()
         }
@@ -346,7 +378,479 @@
   const CLAUDE_IFRAME_SIDEBAR_STYLE_ID = 'ai-multichat-claude-sidebar-style';
   const CLAUDE_LIVE_REOPEN_BUTTON_ID = 'ai-multichat-claude-live-reopen-btn';
   const CLAUDE_CLOSE_HITAREA_ID = 'ai-multichat-claude-close-hitarea';
-  const CLAUDE_CUSTOM_SIDEBAR_ENABLED = true;
+  const CLAUDE_HISTORY_STYLE_ID = 'ai-multichat-claude-history-style';
+  const CLAUDE_HISTORY_LAUNCHER_ID = 'ai-multichat-claude-history-launcher';
+  const CLAUDE_HISTORY_DRAWER_ID = 'ai-multichat-claude-history-drawer';
+  const CLAUDE_HISTORY_BACKDROP_ID = 'ai-multichat-claude-history-backdrop';
+  const CLAUDE_HISTORY_LIST_ID = 'ai-multichat-claude-history-list';
+  let claudeHistoryLastFocusedElement = null;
+
+  function getClaudeOrganizationId() {
+    const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+    const storageKeys = ['lastActiveOrg', 'last-active-org', 'last_active_org'];
+
+    for (const key of storageKeys) {
+      try {
+        const value = localStorage.getItem(key);
+        if (value && uuidPattern.test(value)) return value;
+      } catch (error) {}
+    }
+
+    try {
+      const resources = performance.getEntriesByType('resource');
+      for (let index = resources.length - 1; index >= 0; index -= 1) {
+        const match = String(resources[index].name || '').match(/\/api\/organizations\/([0-9a-f-]{36})(?:\/|\?)/i);
+        if (match && uuidPattern.test(match[1])) return match[1];
+      }
+    } catch (error) {}
+
+    return '';
+  }
+
+  function getCurrentClaudeConversationId() {
+    const match = location.pathname.match(/^\/chat\/([0-9a-f-]{36})(?:\/|$)/i);
+    return match ? match[1] : '';
+  }
+
+  function ensureClaudeHistoryStyle() {
+    if (document.getElementById(CLAUDE_HISTORY_STYLE_ID) || !document.head) return;
+
+    const style = document.createElement('style');
+    style.id = CLAUDE_HISTORY_STYLE_ID;
+    style.textContent = `
+      #${CLAUDE_HISTORY_LAUNCHER_ID} {
+        position: fixed;
+        left: 12px;
+        top: 12px;
+        z-index: 1000;
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 1px solid rgba(161, 161, 170, 0.28);
+        border-radius: 12px;
+        background: rgba(24, 24, 27, 0.92);
+        color: rgb(212, 212, 216);
+        box-shadow: 0 8px 24px rgba(0, 0, 0, 0.22);
+        cursor: pointer;
+        transition: color 180ms ease, background-color 180ms ease, border-color 180ms ease;
+      }
+      #${CLAUDE_HISTORY_LAUNCHER_ID}:hover {
+        color: rgb(250, 250, 250);
+        background: rgba(39, 39, 42, 0.98);
+        border-color: rgba(212, 212, 216, 0.45);
+      }
+      #${CLAUDE_HISTORY_LAUNCHER_ID}:focus-visible,
+      #${CLAUDE_HISTORY_DRAWER_ID} button:focus-visible,
+      #${CLAUDE_HISTORY_DRAWER_ID} a:focus-visible {
+        outline: 2px solid rgb(147, 197, 253);
+        outline-offset: 2px;
+      }
+      #${CLAUDE_HISTORY_BACKDROP_ID} {
+        position: fixed;
+        inset: 0;
+        z-index: 1090;
+        display: none;
+        border: 0;
+        background: rgba(0, 0, 0, 0.48);
+        cursor: pointer;
+      }
+      #${CLAUDE_HISTORY_BACKDROP_ID}[data-open="true"] {
+        display: block;
+      }
+      #${CLAUDE_HISTORY_DRAWER_ID} {
+        position: fixed;
+        inset: 0 auto 0 0;
+        z-index: 1100;
+        width: min(320px, calc(100vw - 24px));
+        display: flex;
+        flex-direction: column;
+        background: rgba(24, 24, 27, 0.98);
+        color: rgb(244, 244, 245);
+        border-right: 1px solid rgba(161, 161, 170, 0.24);
+        box-shadow: 18px 0 44px rgba(0, 0, 0, 0.34);
+        transform: translateX(-102%);
+        visibility: hidden;
+        transition: transform 200ms ease, visibility 0s linear 200ms;
+      }
+      #${CLAUDE_HISTORY_DRAWER_ID}[data-open="true"] {
+        transform: translateX(0);
+        visibility: visible;
+        transition: transform 200ms ease;
+      }
+      #${CLAUDE_HISTORY_DRAWER_ID} .ai-multichat-history-header {
+        min-height: 68px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        padding: 12px 12px 12px 18px;
+        border-bottom: 1px solid rgba(161, 161, 170, 0.2);
+      }
+      #${CLAUDE_HISTORY_DRAWER_ID} .ai-multichat-history-title {
+        margin: 0;
+        font: 600 16px/1.3 ui-sans-serif, system-ui, sans-serif;
+      }
+      #${CLAUDE_HISTORY_DRAWER_ID} .ai-multichat-history-close {
+        width: 44px;
+        height: 44px;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border: 0;
+        border-radius: 10px;
+        background: transparent;
+        color: rgb(212, 212, 216);
+        cursor: pointer;
+      }
+      #${CLAUDE_HISTORY_DRAWER_ID} .ai-multichat-history-close:hover {
+        background: rgba(63, 63, 70, 0.72);
+        color: rgb(250, 250, 250);
+      }
+      #${CLAUDE_HISTORY_DRAWER_ID} .ai-multichat-history-new-chat {
+        min-height: 44px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        margin: 12px;
+        padding: 0 14px;
+        border: 1px solid rgba(251, 146, 60, 0.38);
+        border-radius: 10px;
+        background: rgba(194, 65, 12, 0.18);
+        color: rgb(255, 237, 213);
+        font: 600 14px/1.35 ui-sans-serif, system-ui, sans-serif;
+        text-decoration: none;
+        cursor: pointer;
+      }
+      #${CLAUDE_HISTORY_DRAWER_ID} .ai-multichat-history-new-chat:hover {
+        background: rgba(194, 65, 12, 0.3);
+      }
+      #${CLAUDE_HISTORY_LIST_ID} {
+        min-height: 0;
+        flex: 1;
+        overflow-y: auto;
+        padding: 0 8px 16px;
+      }
+      #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-status {
+        padding: 20px 12px;
+        color: rgb(161, 161, 170);
+        font: 400 14px/1.5 ui-sans-serif, system-ui, sans-serif;
+      }
+      #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-item {
+        min-height: 52px;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: 3px;
+        padding: 9px 12px;
+        border-radius: 10px;
+        color: rgb(212, 212, 216);
+        text-decoration: none;
+        cursor: pointer;
+      }
+      #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-item:hover,
+      #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-item[aria-current="page"] {
+        background: rgba(63, 63, 70, 0.76);
+        color: rgb(250, 250, 250);
+      }
+      #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-name {
+        overflow: hidden;
+        color: inherit;
+        font: 500 14px/1.35 ui-sans-serif, system-ui, sans-serif;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+      }
+      #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-time {
+        color: rgb(161, 161, 170);
+        font: 400 12px/1.3 ui-sans-serif, system-ui, sans-serif;
+      }
+      @media (prefers-color-scheme: light) {
+        #${CLAUDE_HISTORY_LAUNCHER_ID},
+        #${CLAUDE_HISTORY_DRAWER_ID} {
+          background: rgba(250, 250, 249, 0.98);
+          color: rgb(28, 25, 23);
+        }
+        #${CLAUDE_HISTORY_LAUNCHER_ID} {
+          border-color: rgba(68, 64, 60, 0.24);
+        }
+        #${CLAUDE_HISTORY_LAUNCHER_ID}:hover,
+        #${CLAUDE_HISTORY_DRAWER_ID} .ai-multichat-history-close:hover,
+        #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-item:hover,
+        #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-item[aria-current="page"] {
+          background: rgba(231, 229, 228, 0.96);
+          color: rgb(12, 10, 9);
+        }
+        #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-item {
+          color: rgb(41, 37, 36);
+        }
+        #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-time,
+        #${CLAUDE_HISTORY_LIST_ID} .ai-multichat-history-status {
+          color: rgb(87, 83, 78);
+        }
+      }
+      @media (prefers-reduced-motion: reduce) {
+        #${CLAUDE_HISTORY_LAUNCHER_ID},
+        #${CLAUDE_HISTORY_DRAWER_ID} {
+          transition: none !important;
+        }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  function setClaudeHistoryStatus(message) {
+    const list = document.getElementById(CLAUDE_HISTORY_LIST_ID);
+    if (!list) return;
+
+    list.replaceChildren();
+    const status = document.createElement('div');
+    status.className = 'ai-multichat-history-status';
+    status.setAttribute('role', 'status');
+    status.textContent = message;
+    list.appendChild(status);
+  }
+
+  function formatClaudeHistoryTime(value) {
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return '';
+
+    try {
+      return new Intl.DateTimeFormat(undefined, {
+        month: 'short',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      }).format(date);
+    } catch (error) {
+      return date.toLocaleString();
+    }
+  }
+
+  function renderClaudeHistory(conversations) {
+    const list = document.getElementById(CLAUDE_HISTORY_LIST_ID);
+    if (!list) return;
+    list.replaceChildren();
+
+    if (!Array.isArray(conversations) || conversations.length === 0) {
+      setClaudeHistoryStatus(claudeT('claudeHistoryEmpty', 'No previous conversations found.'));
+      return;
+    }
+
+    const currentConversationId = getCurrentClaudeConversationId();
+    conversations.forEach((conversation) => {
+      if (!conversation || !conversation.uuid) return;
+
+      const link = document.createElement('a');
+      link.className = 'ai-multichat-history-item';
+      link.href = `/chat/${conversation.uuid}`;
+      if (conversation.uuid === currentConversationId) {
+        link.setAttribute('aria-current', 'page');
+      }
+
+      const name = document.createElement('span');
+      name.className = 'ai-multichat-history-name';
+      name.textContent = String(conversation.name || claudeT('claudeHistoryUntitled', 'Untitled conversation'));
+      link.appendChild(name);
+
+      const updatedAt = formatClaudeHistoryTime(conversation.updated_at || conversation.created_at);
+      if (updatedAt) {
+        const time = document.createElement('span');
+        time.className = 'ai-multichat-history-time';
+        time.textContent = updatedAt;
+        link.appendChild(time);
+      }
+
+      link.addEventListener('click', (event) => {
+        event.preventDefault();
+        closeClaudeHistoryDrawer({ restoreFocus: false });
+        window.location.assign(link.href);
+      });
+      list.appendChild(link);
+    });
+  }
+
+  async function loadClaudeHistory() {
+    setClaudeHistoryStatus(claudeT('claudeHistoryLoading', 'Loading conversations...'));
+
+    const organizationId = getClaudeOrganizationId();
+    if (!organizationId) {
+      setClaudeHistoryStatus(claudeT('claudeHistoryNotReady', 'Claude history is not ready yet. Please try again.'));
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `/api/organizations/${encodeURIComponent(organizationId)}/chat_conversations_v2?limit=30&offset=0&consistency=eventual`,
+        { credentials: 'include', headers: { Accept: 'application/json' } }
+      );
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+      const payload = await response.json();
+      const conversations = Array.isArray(payload) ? payload : payload?.data;
+      renderClaudeHistory(conversations);
+    } catch (error) {
+      console.error('[Claude] Failed to load history drawer', error);
+      setClaudeHistoryStatus(claudeT('claudeHistoryLoadFailed', 'Could not load Claude history. Please try again.'));
+    }
+  }
+
+  function closeClaudeHistoryDrawer(options = {}) {
+    const launcher = document.getElementById(CLAUDE_HISTORY_LAUNCHER_ID);
+    const drawer = document.getElementById(CLAUDE_HISTORY_DRAWER_ID);
+    const backdrop = document.getElementById(CLAUDE_HISTORY_BACKDROP_ID);
+    if (!drawer || !backdrop) return;
+
+    drawer.dataset.open = 'false';
+    drawer.setAttribute('aria-hidden', 'true');
+    backdrop.dataset.open = 'false';
+    launcher?.setAttribute('aria-expanded', 'false');
+
+    if (options.restoreFocus !== false && claudeHistoryLastFocusedElement instanceof HTMLElement) {
+      claudeHistoryLastFocusedElement.focus({ preventScroll: true });
+    }
+  }
+
+  function openClaudeHistoryDrawer() {
+    ensureClaudeHistoryDrawer();
+    const launcher = document.getElementById(CLAUDE_HISTORY_LAUNCHER_ID);
+    const drawer = document.getElementById(CLAUDE_HISTORY_DRAWER_ID);
+    const backdrop = document.getElementById(CLAUDE_HISTORY_BACKDROP_ID);
+    if (!drawer || !backdrop) return;
+
+    claudeHistoryLastFocusedElement = document.activeElement;
+    drawer.dataset.open = 'true';
+    drawer.setAttribute('aria-hidden', 'false');
+    backdrop.dataset.open = 'true';
+    launcher?.setAttribute('aria-expanded', 'true');
+    drawer.querySelector('.ai-multichat-history-close')?.focus({ preventScroll: true });
+    loadClaudeHistory();
+  }
+
+  function ensureClaudeHistoryDrawer() {
+    if (!CLAUDE_HISTORY_DRAWER_ENABLED) return;
+    if (window.self === window.top || location.hostname !== 'claude.ai') return;
+    if (!document.body) return;
+
+    ensureClaudeHistoryStyle();
+
+    let launcher = document.getElementById(CLAUDE_HISTORY_LAUNCHER_ID);
+    if (!launcher) {
+      launcher = document.createElement('button');
+      launcher.id = CLAUDE_HISTORY_LAUNCHER_ID;
+      launcher.type = 'button';
+      launcher.title = claudeT('claudeHistoryTitle', 'Claude history');
+      launcher.setAttribute('aria-label', claudeT('claudeHistoryOpen', 'Open Claude history'));
+      launcher.setAttribute('aria-controls', CLAUDE_HISTORY_DRAWER_ID);
+      launcher.setAttribute('aria-expanded', 'false');
+      launcher.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M3 12a9 9 0 1 0 3-6.7L3 8"></path>
+          <path d="M3 3v5h5"></path>
+          <path d="M12 7v5l3 2"></path>
+        </svg>
+      `;
+      launcher.addEventListener('click', openClaudeHistoryDrawer);
+      document.body.appendChild(launcher);
+    }
+
+    let backdrop = document.getElementById(CLAUDE_HISTORY_BACKDROP_ID);
+    if (!backdrop) {
+      backdrop = document.createElement('button');
+      backdrop.id = CLAUDE_HISTORY_BACKDROP_ID;
+      backdrop.type = 'button';
+      backdrop.dataset.open = 'false';
+      backdrop.setAttribute('aria-label', claudeT('claudeHistoryClose', 'Close Claude history'));
+      backdrop.addEventListener('click', () => closeClaudeHistoryDrawer());
+      document.body.appendChild(backdrop);
+    }
+
+    let drawer = document.getElementById(CLAUDE_HISTORY_DRAWER_ID);
+    if (!drawer) {
+      drawer = document.createElement('aside');
+      drawer.id = CLAUDE_HISTORY_DRAWER_ID;
+      drawer.dataset.open = 'false';
+      drawer.setAttribute('role', 'dialog');
+      drawer.setAttribute('aria-modal', 'true');
+      drawer.setAttribute('aria-hidden', 'true');
+      drawer.setAttribute('aria-label', claudeT('claudeHistoryTitle', 'Claude history'));
+
+      const header = document.createElement('div');
+      header.className = 'ai-multichat-history-header';
+
+      const title = document.createElement('h2');
+      title.className = 'ai-multichat-history-title';
+      title.textContent = claudeT('claudeHistoryTitle', 'Claude history');
+      header.appendChild(title);
+
+      const closeButton = document.createElement('button');
+      closeButton.className = 'ai-multichat-history-close';
+      closeButton.type = 'button';
+      closeButton.setAttribute('aria-label', claudeT('claudeHistoryClose', 'Close Claude history'));
+      closeButton.innerHTML = `
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+          <path d="M18 6 6 18"></path>
+          <path d="m6 6 12 12"></path>
+        </svg>
+      `;
+      closeButton.addEventListener('click', () => closeClaudeHistoryDrawer());
+      header.appendChild(closeButton);
+      drawer.appendChild(header);
+
+      const newChat = document.createElement('a');
+      newChat.className = 'ai-multichat-history-new-chat';
+      newChat.href = CLAUDE_NEW_CHAT_URL;
+      newChat.textContent = `＋  ${claudeT('claudeHistoryNewChat', 'New chat')}`;
+      newChat.addEventListener('click', (event) => {
+        event.preventDefault();
+        closeClaudeHistoryDrawer({ restoreFocus: false });
+        window.location.assign(CLAUDE_NEW_CHAT_URL);
+      });
+      drawer.appendChild(newChat);
+
+      const list = document.createElement('nav');
+      list.id = CLAUDE_HISTORY_LIST_ID;
+      list.setAttribute('aria-label', claudeT('claudeHistoryPastLabel', 'Past Claude conversations'));
+      drawer.appendChild(list);
+
+      document.body.appendChild(drawer);
+    }
+  }
+
+  function initializeClaudeHistoryDrawer() {
+    ensureClaudeHistoryDrawer();
+    window.addEventListener('keydown', (event) => {
+      const drawer = document.getElementById(CLAUDE_HISTORY_DRAWER_ID);
+      if (drawer?.dataset.open !== 'true') return;
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        closeClaudeHistoryDrawer();
+        return;
+      }
+      if (event.key === 'Tab') {
+        const focusable = Array.from(drawer.querySelectorAll('button:not(:disabled), a[href]'));
+        if (!focusable.length) return;
+        const first = focusable[0];
+        const last = focusable[focusable.length - 1];
+        if (event.shiftKey && document.activeElement === first) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    });
+  }
+
+  if (CLAUDE_HISTORY_DRAWER_ENABLED && window.self !== window.top && location.hostname === 'claude.ai') {
+    const scheduleClaudeHistoryDrawer = () => setTimeout(initializeClaudeHistoryDrawer, 600);
+    if (document.readyState === 'complete') {
+      scheduleClaudeHistoryDrawer();
+    } else {
+      window.addEventListener('load', scheduleClaudeHistoryDrawer, { once: true });
+    }
+  }
 
   function nodeMatchesClaudeSidebar(node) {
     if (!node || node.nodeType !== Node.ELEMENT_NODE) return false;

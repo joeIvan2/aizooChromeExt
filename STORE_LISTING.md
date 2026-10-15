@@ -12,8 +12,8 @@
 - **扩展名称 (英文)**: AI Zoo - Multi-Chat Assistant
 - **扩展名称 (繁体中文)**: AI Zoo - 多平台聊天助手
 - **简短描述 (132 字符内)**:
-  - 英文: Compare and chat with 4 leading AI chatbots simultaneously in a unified dashboard!
-  - 繁体中文: 同時與四大主流 AI 平台聊天，並排比較與一鍵摘要！
+  - 英文: Compare and chat with 5 leading AI chatbots simultaneously in a unified dashboard!
+  - 繁体中文: 同時與五大主流 AI 平台聊天，並排比較與一鍵摘要！
 
 #### 详细描述 (建议)
 
@@ -21,12 +21,12 @@
 ```
 AI Zoo maximizes the value of your free AI platform accounts!
 
-No more switching back and forth between browser tabs, no more repeatedly copying and pasting the same prompt, and no more relying on your memory to distinguish which model said what. AI Zoo lets you operate four leading AI platforms side-by-side in a single, unified workspace: type once, broadcast simultaneously, directly compare responses, and ultimately select any AI to help synthesize the entire multi-model debate into a clean summary.
+No more switching back and forth between browser tabs, no more repeatedly copying and pasting the same prompt, and no more relying on your memory to distinguish which model said what. AI Zoo lets you operate Grok, Gemini, Claude, ChatGPT, and Meta AI side-by-side in a single, unified workspace: type once, broadcast simultaneously, directly compare responses, and ultimately select any AI to help synthesize the entire multi-model debate into a clean summary.
 
 This is not just a simple time-saving utility, but a constant learning assistant that significantly elevates the quality of your answers through synthesis and aggregation. By combining the free accounts of multiple platforms, you can save a massive amount of subscription fees while still obtaining exceptionally high-quality results!
 
 AI Zoo's Powerful Features:
-- Four AI Platforms Side-by-Side: Operate four leading AI platforms simultaneously on a single screen.
+- Five AI Platforms Side-by-Side: Operate five leading AI platforms simultaneously on a single screen.
 - Send to All: Type your question once and broadcast it directly to all enabled platforms.
 - Send to Single AI: Selectively send prompts to a specific platform when precise targeting is needed.
 - Smart Compare Panel: Extract and organize responses from all platforms into a clean, side-by-side comparison view.
@@ -56,12 +56,12 @@ AI Zoo 會將你多個免費 AI 帳號的價值發揮到極致！
 
 許多人因為單一免費 AI 的回答品質不穩定（容易有幻覺、深度不足或回答偏頗），而不得不考慮訂閱每個月動輒 20 美元（加起來上百美元）的付費 Premium 服務。現在，你完全不需要花這筆高昂的冤枉錢！
 
-AI Zoo 不只是一個幫你省時間的並排小工具，更是一個能透過「橫向彙整與聚合」大幅提升回答品質的常備型學習與決策助手。藉由將四大主流 AI 平台的免費版本並排在一起，你只需輸入一次問題，就能同步廣播、交叉驗證，輕鬆篩選掉單一模型的胡言亂語。最後，還能一鍵呼叫其中任何一個 AI，幫你把其他所有平台的觀點交鋒整理成精準的對照摘要！讓我們用完全免費的帳號，省下大筆的高昂訂閱費用，卻依然獲得極其優秀、嚴謹且高品質的智慧回答！
+AI Zoo 不只是一個幫你省時間的並排小工具，更是一個能透過「橫向彙整與聚合」大幅提升回答品質的常備型學習與決策助手。藉由將五大主流 AI 平台並排在一起，你只需輸入一次問題，就能同步廣播、交叉驗證，輕鬆篩選掉單一模型的胡言亂語。最後，還能一鍵呼叫其中任何一個 AI，幫你把其他所有平台的觀點交鋒整理成精準的對照摘要！
 
 ✨ 核心功能特色：
-• **四平台並排對話**：四大主流 AI 平台同步並排，完美截長補短，徹底消除單一模型回答不佳的窘境。
+• **五平台並排對話**：Grok、Gemini、Claude、ChatGPT 與 Meta AI 同步並排，完美截長補短，徹底消除單一模型回答不佳的窘境。
 • **統一輸入與單點發送**：一次輸入即可同步廣播至所有已啟用平台，亦可透過選單靈活發送至單一特定平台。
-• **AI 智慧摘要**：只需點擊一下，即可選擇任一模型對其他三家平台的回答結果進行深度整理、對比與對照摘要。
+• **AI 智慧摘要**：只需點擊一下，即可選擇任一模型對其他四家平台的回答結果進行深度整理、對比與對照摘要。
 • **智慧對比面板**：一鍵開啟全螢幕並排對照網格，助您快速閱讀、審查與分析跨模型的觀點。
 • **對話歷史群組管理器**：儲存、切換與刪除對話紀錄。完整的會話持久化技術，讓各個平台的聊天狀態時刻保持完美同步。
 • **放大專注與無縫切換**：可放大單一平台進行專注互動，並能使用簡約小藥丸按鈕或鍵盤快捷鍵（Ctrl + 左右方向鍵）流暢切換（自動跳過已停用的平台）。
@@ -69,8 +69,8 @@ AI Zoo 不只是一個幫你省時間的並排小工具，更是一個能透過�
 • **多國語言介面**：原生支援多國語言，介面流暢美觀。
 
 🚀 它是如何幫您省錢並提升品質的？
-1. **省下高昂訂閱費**：無需購買任何付費版，結合四款免費平台的集體智慧，回答精確度直逼甚至超越單一付費模型！
-2. **徹底消除 AI 幻覺**：當一個平台答錯時，另外三個平台能立即幫你指正，交叉比對一目了然。
+1. **靈活使用既有帳號**：結合五個平台的集體智慧，不必把工作流綁在單一模型。
+2. **降低 AI 幻覺風險**：當一個平台答錯時，另外四個平台能協助交叉檢查，比對一目了然。
 3. **優勢互補，強強聯手**：同時獲得不同主流模型在程式編寫、嚴谨推理、強大檢索、以及即時資訊上的各自優勢。
 
 💡 適用場景：
@@ -95,7 +95,7 @@ AI Zoo 是一款獨立的網頁生產力工具，與任何受支援的 AI 平台
 - **格式**: PNG 或 JPG
 
 **建议截图内容:**
-1. 主界面 - 显示 4 个平台并排
+1. 主界面 - 显示 5 个平台并排
 2. 统一输入框和发送按钮特写
 3. 比较不同 AI 的回答结果
 4. 放大单一平台的效果
@@ -181,11 +181,12 @@ Last Updated: [日期]
 
 ## ✅ 当前权限 (已优化)
 
-只需要以下 5 个网站的权限：
+只需要以下受支援平台與官方登入網域的權限：
 - `*://grok.com/*` - Grok AI 平台
 - `*://gemini.google.com/*` - Gemini AI 平台
 - `*://claude.ai/*` - Claude AI 平台
 - `*://chatgpt.com/*` - ChatGPT 主域名
+- `*://meta.ai/*`、`*://*.meta.ai/*` - Meta AI 主域名與子網域
 - `*://auth.openai.com/*` - ChatGPT 登录页面
 
 ## 📞 需要帮助？

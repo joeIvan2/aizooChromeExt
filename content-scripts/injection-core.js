@@ -81,7 +81,7 @@ const InjectionCore = {
             } catch (error) {
               console.error(`[${config.id}] Stream reading error:`, error);
               sendMessageToPopup({
-                type: 'AI_ERROR',
+                type: 'AI_NETWORK_DIAGNOSTIC_ERROR',
                 platform: config.id,
                 message: '❌ 響應流讀取失敗: ' + error.message
               });
@@ -147,7 +147,7 @@ const InjectionCore = {
           } catch (error) {
             console.error(`[${config.id}] Response parsing error:`, error);
             sendMessageToPopup({
-              type: 'AI_ERROR',
+              type: 'AI_NETWORK_DIAGNOSTIC_ERROR',
               platform: config.id,
               message: '❌ 響應解析失敗: ' + error.message
             });
@@ -232,6 +232,17 @@ const InjectionCore = {
     return Array.isArray(lastHistory) ? lastHistory : [];
   },
 
+  // 平台自己標記的「已完成」訊號（例如 ChatGPT 的 turn-state、Meta 的 streaming-state）。
+  // 沒有提供時回傳 false，改由「文字穩定 + 安靜期」判定。
+  isResponseComplete(config) {
+    try {
+      return !!(config.detectResponseComplete && config.detectResponseComplete());
+    } catch (error) {
+      console.error(`[${config.id}] Completion detection error:`, error);
+      return false;
+    }
+  },
+
   isGenerating(config) {
     try {
       if (config.detectGenerating) {
@@ -259,10 +270,7 @@ const InjectionCore = {
   },
 
   normalizeLifecycleText(text) {
-    return String(text || '')
-      .replace(/\s+/g, ' ')
-      .trim()
-      .toLowerCase();
+    return window.AIZooUtils.normalizeMatchText(text);
   },
 
   isLikelyPlanningOnlyAnswer(text) {
@@ -276,61 +284,99 @@ const InjectionCore = {
     return startsLikePlanning && containsPlanningAction && !hasSubstantialStructure;
   },
 
-  findAnswerAfterQuestion(history, question) {
-    const target = this.normalizeLifecycleText(question);
-    if (!target || !Array.isArray(history)) {
-      return { questionIndex: -1, answer: null };
+  findAnswerAfterQuestion(history, question, baselineOccurrences = 0) {
+    return window.AIZooUtils.findAnswerAfterQuestion(history, question, baselineOccurrences);
+  },
+
+  getOperationEpoch(platform) {
+    window.__aiOperationEpochs = window.__aiOperationEpochs || {};
+    return window.__aiOperationEpochs[platform] || 0;
+  },
+
+  isOperationCurrent(platform, epoch) {
+    return this.getOperationEpoch(platform) === epoch;
+  },
+
+  stopResponseLifecycleWatcher(platform) {
+    const watcher = window.__aiResponseLifecycleWatchers?.[platform];
+    if (!watcher) return;
+    if (watcher.timer) clearInterval(watcher.timer);
+    watcher.observer?.disconnect();
+    delete window.__aiResponseLifecycleWatchers[platform];
+  },
+
+  cancelOperations(config) {
+    const platform = typeof config === 'string' ? config : config.id;
+    window.__aiOperationEpochs = window.__aiOperationEpochs || {};
+    window.__aiOperationEpochs[platform] = this.getOperationEpoch(platform) + 1;
+    this.stopResponseLifecycleWatcher(platform);
+    console.log(`[${platform}] Pending operations cancelled`);
+  },
+
+  async waitForPreviousLifecycleCompletion(config, epoch) {
+    while (this.isOperationCurrent(config.id, epoch)) {
+      const watcher = window.__aiResponseLifecycleWatchers?.[config.id];
+      if (!watcher || watcher.completedNotified) return true;
+      await new Promise(resolve => setTimeout(resolve, 500));
     }
+    return false;
+  },
 
-    let questionIndex = -1;
-    for (let i = history.length - 1; i >= 0; i--) {
-      const message = history[i];
-      if (!message || message.role !== 'user') continue;
+  enqueueQuestion(config, question, options = {}) {
+    window.__aiSubmitQueues = window.__aiSubmitQueues || {};
+    const core = this;
+    const epoch = this.getOperationEpoch(config.id);
+    const previous = window.__aiSubmitQueues[config.id] || Promise.resolve();
+    const task = previous.catch(() => {}).then(async () => {
+      if (!core.isOperationCurrent(config.id, epoch)) return false;
+      const previousFinished = await core.waitForPreviousLifecycleCompletion(config, epoch);
+      if (!previousFinished) return false;
+      return core.submitQuestion(config, question, { ...options, epoch });
+    });
 
-      const content = this.normalizeLifecycleText(message.content);
-      if (content === target || content.includes(target) || target.includes(content)) {
-        questionIndex = i;
-        break;
-      }
-    }
-
-    if (questionIndex < 0) return { questionIndex: -1, answer: null };
-
-    let answer = null;
-    for (let i = history.length - 1; i > questionIndex; i--) {
-      const message = history[i];
-      if (message && message.role === 'assistant' && String(message.content || '').trim()) {
-        answer = message;
-        break;
-      }
-    }
-
-    return { questionIndex, answer };
+    window.__aiSubmitQueues[config.id] = task.catch((error) => {
+      console.error(`[${config.id}] Queued submission failed:`, error);
+      return false;
+    });
+    return task;
   },
 
   watchResponseLifecycle(config, question, options = {}) {
-    const pollMs = options.pollMs || 700;
-    const timeoutMs = options.timeoutMs || 180000;
-    const stablePollsRequired = options.stablePollsRequired || 2;
+    const pollMs = options.pollMs || 1000;
+    const stablePollsRequired = options.stablePollsRequired || config.responseStablePollsRequired || 2;
+    const quietPeriodMs = options.quietPeriodMs ?? config.responseQuietPeriodMs ?? 0;
+    const submissionId = options.submissionId;
+    const operationEpoch = options.epoch ?? this.getOperationEpoch(config.id);
+    const baselineOccurrences = Math.max(0, Number(options.baselineOccurrences) || 0);
 
     window.__aiResponseLifecycleWatchers = window.__aiResponseLifecycleWatchers || {};
-    if (window.__aiResponseLifecycleWatchers[config.id]) {
-      clearInterval(window.__aiResponseLifecycleWatchers[config.id]);
-    }
+    this.stopResponseLifecycleWatcher(config.id);
 
     const startedAt = Date.now();
     let hasStarted = false;
     let lastAnswerText = '';
+    let lastAnswerChangedAt = startedAt;
+    let lastActivityAt = startedAt;
     let stableCount = 0;
-
-    const finish = (timer) => {
-      clearInterval(timer);
-      if (window.__aiResponseLifecycleWatchers) {
-        delete window.__aiResponseLifecycleWatchers[config.id];
-      }
+    let completedNotified = false;
+    let lastGenerating = null;
+    const watcher = {
+      timer: null,
+      observer: null,
+      submissionId,
+      operationEpoch,
+      baselineOccurrences,
+      completedNotified: false,
+      lastActivityAt
     };
 
-    const timer = setInterval(() => {
+    const checkResponse = (countStablePoll = true) => {
+      if (window.__aiResponseLifecycleWatchers[config.id] !== watcher || watcher.completedNotified) return;
+      if (!this.isOperationCurrent(config.id, operationEpoch)) {
+        this.stopResponseLifecycleWatcher(config.id);
+        return;
+      }
+
       let history = [];
       let generating = false;
 
@@ -341,68 +387,138 @@ const InjectionCore = {
         console.error(`[${config.id}] Response lifecycle watch error:`, error);
       }
 
-      const result = this.findAnswerAfterQuestion(history, question);
+      const result = this.findAnswerAfterQuestion(history, question, baselineOccurrences);
       const answerText = result.answer ? String(result.answer.content || '').trim() : '';
       const hasFinalAnswerText = !!answerText && !this.isLikelyPlanningOnlyAnswer(answerText);
+      const answerChanged = answerText !== lastAnswerText;
+      const explicitComplete = hasFinalAnswerText && !generating && this.isResponseComplete(config);
 
       if (!hasStarted && (generating || result.questionIndex >= 0 || answerText)) {
         hasStarted = true;
         sendMessageToPopup({
           type: 'AI_RESPONSE_START',
           platform: config.id,
+          submissionId,
+          baselineOccurrences,
           history,
-          isGenerating: generating
+          isGenerating: generating,
+          isComplete: explicitComplete
+        });
+      } else if (hasStarted && (answerChanged || generating !== lastGenerating)) {
+        // Push visible text without waiting for the completion quiet period or
+        // for the popup's next history request (which can be throttled).
+        sendMessageToPopup({
+          type: 'AI_RESPONSE_UPDATE',
+          platform: config.id,
+          submissionId,
+          baselineOccurrences,
+          history,
+          isGenerating: generating,
+          isComplete: explicitComplete
+        });
+      }
+      lastGenerating = generating;
+
+      if (completedNotified && (generating || answerChanged)) {
+        completedNotified = false;
+        watcher.completedNotified = false;
+        stableCount = 0;
+        sendMessageToPopup({
+          type: 'AI_RESPONSE_START',
+          platform: config.id,
+          submissionId,
+          baselineOccurrences,
+          history,
+          isGenerating: generating,
+          isComplete: explicitComplete,
+          resumed: true
         });
       }
 
       if (hasFinalAnswerText) {
-        if (answerText === lastAnswerText) {
-          stableCount++;
+        if (!answerChanged && !generating) {
+          if (countStablePoll) stableCount++;
         } else {
-          lastAnswerText = answerText;
+          if (answerChanged) {
+            lastAnswerText = answerText;
+            lastAnswerChangedAt = Date.now();
+            lastActivityAt = lastAnswerChangedAt;
+            watcher.lastActivityAt = lastActivityAt;
+          }
           stableCount = 0;
         }
       } else if (answerText) {
-        lastAnswerText = answerText;
+        if (answerText !== lastAnswerText) {
+          lastAnswerText = answerText;
+          lastAnswerChangedAt = Date.now();
+          lastActivityAt = lastAnswerChangedAt;
+          watcher.lastActivityAt = lastActivityAt;
+        }
         stableCount = 0;
       }
 
-      if (hasFinalAnswerText && !generating && stableCount >= stablePollsRequired) {
+      const isQuiet = Date.now() - lastAnswerChangedAt >= quietPeriodMs;
+      // 平台明確標記完成時，只需再確認一次文字沒變就結束，不必等安靜期。
+      const confirmedByPlatform = explicitComplete && stableCount >= 1;
+      if (!completedNotified && hasFinalAnswerText && !generating &&
+          (confirmedByPlatform || (stableCount >= stablePollsRequired && isQuiet))) {
+        completedNotified = true;
+        watcher.completedNotified = true;
         sendMessageToPopup({
           type: 'AI_RESPONSE_RECEIVED',
           platform: config.id,
+          submissionId,
+          baselineOccurrences,
           response: answerText,
           history,
-          isGenerating: false
+          isGenerating: false,
+          isComplete: explicitComplete
         });
-        finish(timer);
-        return;
+        // The popup keeps a low-frequency recheck alive while Smart Compare is
+        // open. Stop this fast DOM scan once the turn has settled.
+        clearInterval(timer);
+        watcher.timer = null;
+        watcher.observer?.disconnect();
       }
+    };
 
-      if (Date.now() - startedAt > timeoutMs) {
-        sendMessageToPopup({
-          type: 'AI_ERROR',
-          platform: config.id,
-          message: '等待回覆完成逾時'
-        });
-        finish(timer);
-      }
-    }, pollMs);
-
-    window.__aiResponseLifecycleWatchers[config.id] = timer;
+    const timer = setInterval(checkResponse, pollMs);
+    watcher.timer = timer;
+    window.__aiResponseLifecycleWatchers[config.id] = watcher;
+    if (config.responseObserveMutations && typeof MutationObserver !== 'undefined' && document.body) {
+      // DOM changes run even when Chrome delays interval timers in a hidden tab.
+      // They publish text immediately but do not count as stable polling samples.
+      watcher.observer = new MutationObserver(() => checkResponse(false));
+      watcher.observer.observe(document.body, {
+        subtree: true,
+        childList: true,
+        characterData: true,
+        attributes: true,
+        attributeFilter: [
+          'aria-busy', 'aria-label', 'data-message-streaming', 'data-is-streaming',
+          'data-chatgpt-search-unit-key', 'data-content-search-unit-key',
+          'data-markdown-text-style'
+        ]
+      });
+    }
   },
 
   /**
    * 提交問題（帶重試機制）
    */
-  async submitQuestion(config, question) {
+  async submitQuestion(config, question, options = {}) {
     console.log(`[${config.id}] Submitting question:`, question);
-
-    const maxRetries = 30;
+    const submissionId = options.submissionId;
+    const operationEpoch = options.epoch ?? this.getOperationEpoch(config.id);
+    const emit = (data) => sendMessageToPopup({
+      ...data,
+      platform: config.id,
+      submissionId
+    });
     let retryCount = 0;
 
     // Step 1: 等待 textarea
-    while (retryCount < maxRetries) {
+    while (this.isOperationCurrent(config.id, operationEpoch)) {
       try {
         const textareaFound = config.detectTextarea();
         if (textareaFound) {
@@ -414,9 +530,8 @@ const InjectionCore = {
       }
 
       if (retryCount === 0) {
-        sendMessageToPopup({
+        emit({
           type: 'AI_INFO',
-          platform: config.id,
           message: chrome.i18n.getMessage('infoWaitingTextarea') || '等待 textarea 準備好...'
         });
       }
@@ -425,42 +540,42 @@ const InjectionCore = {
       retryCount++;
     }
 
-    if (retryCount >= maxRetries) {
-      sendMessageToPopup({
-        type: 'AI_ERROR',
-        platform: config.id,
-        message: chrome.i18n.getMessage('errorTextareaNotFound') || '❌ Textarea 未找到（超時）'
-      });
-      return;
+    if (!this.isOperationCurrent(config.id, operationEpoch)) return false;
+
+    let historyBeforeSubmit = [];
+    try {
+      historyBeforeSubmit = config.scrapeHistory ? config.scrapeHistory() : [];
+    } catch (error) {
+      console.warn(`[${config.id}] Could not capture the pre-send turn boundary:`, error);
     }
+    const baselineOccurrences = window.AIZooUtils.countExactUserQuestions(historyBeforeSubmit, question);
 
     // Step 2: 填入問題
     try {
       const fillSuccess = config.fillQuestion(question);
 
       if (!fillSuccess) {
-        sendMessageToPopup({
+        emit({
           type: 'AI_ERROR',
-          platform: config.id,
           message: chrome.i18n.getMessage('errorFillFailed') || '❌ 填充問題失敗'
         });
-        return;
+        return false;
       }
 
       console.log(`[${config.id}] Question filled successfully`);
     } catch (error) {
       console.error(`[${config.id}] Fill question error:`, error);
-      sendMessageToPopup({
+      emit({
         type: 'AI_ERROR',
-        platform: config.id,
         message: (chrome.i18n.getMessage('errorFillFailed') || '❌ 填充問題異常') + ': ' + error.message
       });
-      return;
+      return false;
     }
 
-    // Step 2.5: 驗證內容是否真的被覆蓋（等待最多 5 秒）
+    // Step 2.5: 驗證內容是否真的被覆蓋。Dynamic editors can
+    // settle slowly for long prompts, so keep checking until the operation is
+    // explicitly cancelled instead of converting a slow render into failure.
     let verifyRetries = 0;
-    const maxVerifyRetries = 5;
     let contentVerified = false;
 
     // 輔助函數：規範化文本以便比較（處理換行符、多餘空格等）
@@ -494,7 +609,7 @@ const InjectionCore = {
       return null;
     }
 
-    while (verifyRetries < maxVerifyRetries) {
+    while (this.isOperationCurrent(config.id, operationEpoch)) {
       try {
         // 等待一小段時間讓 DOM 更新
         await new Promise(resolve => setTimeout(resolve, 200));
@@ -503,9 +618,12 @@ const InjectionCore = {
         const normalizedQuestion = normalizeText(question);
         const normalizedContent = normalizeText(currentContent);
 
-        console.log(`[${config.id}] Verify attempt ${verifyRetries + 1}:`);
-        console.log(`  Expected (${normalizedQuestion.length} chars): "${normalizedQuestion.substring(0, 80)}..."`);
-        console.log(`  Actual   (${normalizedContent.length} chars): "${normalizedContent.substring(0, 80)}..."`);
+        const shouldLogAttempt = verifyRetries === 0 || (verifyRetries + 1) % 10 === 0;
+        if (shouldLogAttempt) {
+          console.log(`[${config.id}] Verify attempt ${verifyRetries + 1}:`);
+          console.log(`  Expected (${normalizedQuestion.length} chars): "${normalizedQuestion.substring(0, 80)}..."`);
+          console.log(`  Actual   (${normalizedContent.length} chars): "${normalizedContent.substring(0, 80)}..."`);
+        }
 
         if (normalizedContent === normalizedQuestion) {
           console.log(`[${config.id}] ✅ Content verified successfully`);
@@ -514,7 +632,7 @@ const InjectionCore = {
         } else {
           // 顯示詳細差異
           const diff = findDifference(normalizedQuestion, normalizedContent);
-          if (diff) {
+          if (diff && shouldLogAttempt) {
             console.log(`[${config.id}] ❌ Difference at position ${diff.position}:`);
             console.log(`  Expected: "${diff.context.expected}"`);
             console.log(`  Actual:   "${diff.context.actual}"`);
@@ -523,33 +641,30 @@ const InjectionCore = {
         }
 
         verifyRetries++;
+        if (verifyRetries % 25 === 0 && this.isOperationCurrent(config.id, operationEpoch)) {
+          // Some controlled editors replace their node while reconciling. Refill
+          // occasionally so the verified value remains the user's full prompt.
+          config.fillQuestion(question);
+        }
       } catch (error) {
         console.error(`[${config.id}] Content verification error:`, error);
         verifyRetries++;
       }
     }
 
-    if (!contentVerified) {
-      sendMessageToPopup({
-        type: 'AI_ERROR',
-        platform: config.id,
-        message: chrome.i18n.getMessage('errorVerifyFailed') || '❌ 內容覆蓋驗證失敗，文字未正確填入'
-      });
-      return;
-    }
+    if (!contentVerified) return false;
 
     // Step 3: 立即檢測並點擊按鈕（不等待固定時間）
     retryCount = 0;
     let hasShownWaitingMessage = false;
 
-    while (retryCount < maxRetries) {
+    while (this.isOperationCurrent(config.id, operationEpoch)) {
       try {
         const buttonFound = config.detectButton();
         if (!buttonFound) {
           if (!hasShownWaitingMessage) {
-            sendMessageToPopup({
+            emit({
               type: 'AI_INFO',
-              platform: config.id,
               message: chrome.i18n.getMessage('infoWaitingButton') || '等待發送按鈕準備好...'
             });
             hasShownWaitingMessage = true;
@@ -563,19 +678,22 @@ const InjectionCore = {
         const clickSuccess = config.clickButton();
         if (clickSuccess) {
           console.log(`[${config.id}] Button clicked successfully`);
-          sendMessageToPopup({
+          emit({
             type: 'AI_QUESTION_SENT',
-            platform: config.id
+            baselineOccurrences
           });
-          this.watchResponseLifecycle(config, question);
-          return;
+          this.watchResponseLifecycle(config, question, {
+            submissionId,
+            epoch: operationEpoch,
+            baselineOccurrences
+          });
+          return true;
         }
 
         // 按鈕存在但點擊失敗（可能被禁用），等待 1 秒後重試
         if (!hasShownWaitingMessage) {
-          sendMessageToPopup({
+          emit({
             type: 'AI_INFO',
-            platform: config.id,
             message: chrome.i18n.getMessage('infoWaitingButtonEnabled') || '等待按鈕啟用...'
           });
           hasShownWaitingMessage = true;
@@ -590,11 +708,7 @@ const InjectionCore = {
       }
     }
 
-    sendMessageToPopup({
-      type: 'AI_ERROR',
-      platform: config.id,
-      message: chrome.i18n.getMessage('errorButtonClickFailed') || '❌ 按鈕點擊失敗（超時）'
-    });
+    return false;
   }
 };
 

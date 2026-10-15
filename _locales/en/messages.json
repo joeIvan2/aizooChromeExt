@@ -1,4 +1,160 @@
 {
+  "tourNavSetup": {
+    "message": "Sign in & pin"
+  },
+  "tourNavInterface": {
+    "message": "Interface guide"
+  },
+  "tourSkip": {
+    "message": "Start using AI Zoo"
+  },
+  "tourTitle": {
+    "message": "Ask once. See different AI perspectives."
+  },
+  "tourIntro": {
+    "message": "Sign in, ask, compare, then let an AI summarize. Follow the numbered lines to learn your way around."
+  },
+  "tourLoginTitle": {
+    "message": "Sign in to these four AI platforms first"
+  },
+  "tourLoginHint": {
+    "message": "Use the same Chrome browser. Open the links in separate tabs, sign in, then return to AI Zoo."
+  },
+  "tourLoginReturn": {
+    "message": "Still seeing a login screen? Click ⟳ above that platform. Complete any sign-in or verification yourself."
+  },
+  "tourPinHint": {
+    "message": "Chrome’s top-right puzzle icon → AI Zoo → pin. Next time, open AI Zoo from its toolbar icon."
+  },
+  "tourWorkspaceTitle": {
+    "message": "Your platforms and the shared toolbar"
+  },
+  "tourWorkspaceHint": {
+    "message": "Each AI has the same controls. Numbers and lines show their positions. You can also choose Meta AI in Layout."
+  },
+  "tourDemoLabel": {
+    "message": "Interface preview · does not send questions"
+  },
+  "tourScrollHint": {
+    "message": "On smaller screens, scroll the diagrams sideways."
+  },
+  "tourToggleTitle": {
+    "message": "Enable / disable"
+  },
+  "tourToggleHint": {
+    "message": "Questions go only to enabled platforms."
+  },
+  "tourRefreshHint": {
+    "message": "Reload this panel after signing in or if it gets stuck."
+  },
+  "tourMaximizeHint": {
+    "message": "Focus on one AI; click again to return to the side-by-side view."
+  },
+  "tourStatusTitle": {
+    "message": "Response status"
+  },
+  "tourStatusHint": {
+    "message": "See loading, waiting, completion or errors."
+  },
+  "tourSampleQuestion": {
+    "message": "Plan a three-day trip to Tokyo."
+  },
+  "tourInputTitle": {
+    "message": "Shared question box"
+  },
+  "tourInputHint": {
+    "message": "Type here. Drag empty panel space to move it. Ctrl / ⌘ + Enter sends to enabled platforms."
+  },
+  "tourToolbarTitle": {
+    "message": "What does each toolbar icon do?"
+  },
+  "tourNewChatHint": {
+    "message": "Start a fresh group of conversations."
+  },
+  "tourHistoryHint": {
+    "message": "Return to previously saved conversation groups."
+  },
+  "tourCompareHint": {
+    "message": "Read answers side by side and spot different perspectives."
+  },
+  "tourLayoutHint": {
+    "message": "Choose 1–5 panels, their platforms and order."
+  },
+  "tourLanguageHint": {
+    "message": "Change the AI Zoo interface language."
+  },
+  "tourMinimizeHint": {
+    "message": "Collapse the input panel; click its floating icon to restore it."
+  },
+  "tourSingleHint": {
+    "message": "Choose one enabled platform and send only to it."
+  },
+  "tourAllHint": {
+    "message": "Send to all enabled platforms; disabled ones are skipped."
+  },
+  "tourSummaryTitle": {
+    "message": "Many answers. One AI to organize them."
+  },
+  "tourSummaryIntro": {
+    "message": "Read replies in Smart Compare, then ask your chosen AI to summarize agreement, differences and suggestions."
+  },
+  "tourSummaryExample": {
+    "message": "Summarize common conclusions, different views and actionable next steps."
+  },
+  "tourSummaryButtonHint": {
+    "message": "Open AI Summary at the top right of Smart Compare."
+  },
+  "tourSummaryChooseHint": {
+    "message": "Edit the prompt if needed, then choose a platform you have signed into and enabled. The summary appears there."
+  },
+  "tourSummaryDisclosure": {
+    "message": "Choosing a summary platform sends the current comparison content and prompt to that AI. Wait for replies to finish for a more complete summary."
+  },
+  "tourReady": {
+    "message": "Ready? Start with your first question."
+  },
+  "tourReopen": {
+    "message": "Reopen this page anytime from Quick guide at the top right."
+  },
+  "pinGuideHelp": {
+    "message": "Quick guide"
+  },
+  "pinGuideDirection": {
+    "message": "Look at Chrome’s top right"
+  },
+  "pinGuideEyebrow": {
+    "message": "10 seconds now. Easier to find next time."
+  },
+  "pinGuideTitle": {
+    "message": "Pin AI Zoo for next time"
+  },
+  "pinGuideClose": {
+    "message": "Close quick guide"
+  },
+  "pinGuideStepOne": {
+    "message": "Click the puzzle icon at the top right of Chrome"
+  },
+  "pinGuidePuzzleHint": {
+    "message": "Look for this icon beside the address bar."
+  },
+  "pinGuideStepTwo": {
+    "message": "Find AI Zoo and click the pin on its right"
+  },
+  "pinGuidePuzzleAlt": {
+    "message": "Chrome’s Extensions puzzle button"
+  },
+  "pinGuidePinAlt": {
+    "message": "AI Zoo in the Extensions menu, with the pin on the right"
+  },
+  "pinGuideNextTime": {
+    "message": "Next time, click the AI Zoo icon in your toolbar to open it. You can also open it from the puzzle menu without pinning."
+  },
+  "pinGuideQuickStart": {
+    "message": "Get started: sign in to the AI platforms you want, type a question below, then click the multi-arrow button on the right to send it to enabled platforms."
+  },
+  "pinGuideDone": {
+    "message": "Got it, let’s start"
+  },
   "extensionName": {
     "message": "AI Zoo",
     "description": "Name of the extension"
@@ -462,5 +618,107 @@
   "languageMenuLabel": {
     "message": "Choose interface language",
     "description": "Language menu accessibility label"
+  },
+  "layoutButtonTitle": {
+    "message": "Configure split layout"
+  },
+  "layoutButtonCurrentTitle": {
+    "message": "Layout: $1 panes"
+  },
+  "layoutDialogTitle": {
+    "message": "Split-screen layout"
+  },
+  "layoutDialogSubtitle": {
+    "message": "Choose the number of panes first, then assign and order the AI platforms."
+  },
+  "layoutCountLabel": {
+    "message": "1. Number of panes"
+  },
+  "layoutCountHint": {
+    "message": "Default 5, minimum 1"
+  },
+  "layoutSlotsLabel": {
+    "message": "2. Platforms and order"
+  },
+  "layoutSlotsHint": {
+    "message": "Each platform can be used only once. Use the arrows to change left-to-right order."
+  },
+  "layoutSlotLabel": {
+    "message": "Pane $1"
+  },
+  "layoutPaneCountLabel": {
+    "message": "$1 panes"
+  },
+  "layoutMoveLeft": {
+    "message": "Move left"
+  },
+  "layoutMoveRight": {
+    "message": "Move right"
+  },
+  "layoutCloseLabel": {
+    "message": "Close layout settings"
+  },
+  "layoutCancelButton": {
+    "message": "Cancel"
+  },
+  "layoutSaveButton": {
+    "message": "Save layout"
+  },
+  "layoutDuplicateError": {
+    "message": "Each pane must use a different AI platform."
+  },
+  "restoreInputPanelLabel": {
+    "message": "Restore question panel"
+  },
+  "toggleOn": {
+    "message": "ON"
+  },
+  "toggleOff": {
+    "message": "OFF"
+  },
+  "shareRoleYou": {
+    "message": "You"
+  },
+  "shareRoleAI": {
+    "message": "AI"
+  },
+  "shareGeneratedLabel": {
+    "message": "Generated"
+  },
+  "shareStatusHeading": {
+    "message": "Status"
+  },
+  "shareLatestQuestionHeading": {
+    "message": "Latest Question"
+  },
+  "claudeHistoryTitle": {
+    "message": "Claude history"
+  },
+  "claudeHistoryOpen": {
+    "message": "Open Claude history"
+  },
+  "claudeHistoryClose": {
+    "message": "Close Claude history"
+  },
+  "claudeHistoryEmpty": {
+    "message": "No previous conversations found."
+  },
+  "claudeHistoryUntitled": {
+    "message": "Untitled conversation"
+  },
+  "claudeHistoryLoading": {
+    "message": "Loading conversations..."
+  },
+  "claudeHistoryNotReady": {
+    "message": "Claude history is not ready yet. Please try again."
+  },
+  "claudeHistoryLoadFailed": {
+    "message": "Could not load Claude history. Please try again."
+  },
+  "claudeHistoryNewChat": {
+    "message": "New chat"
+  },
+  "claudeHistoryPastLabel": {
+    "message": "Past Claude conversations"
   }
 }

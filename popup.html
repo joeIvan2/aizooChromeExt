@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>AI Multi-Chat</title>
   <link rel="stylesheet" href="popup.css">
+  <link rel="stylesheet" href="pin-guide.css">
 </head>
 <body>
   <div class="container">
@@ -12,7 +13,7 @@
     <div class="input-section">
       <textarea id="question-input" data-i18n-placeholder="inputPlaceholder"></textarea>
       <div class="single-send-wrap">
-        <button id="send-one-btn" type="button" data-i18n-title="sendOneTitle">
+        <button id="send-one-btn" type="button" data-i18n-title="sendOneTitle" aria-haspopup="menu" aria-controls="send-one-platform-menu" aria-expanded="false">
           <svg class="btn-icon icon-send-one" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
             <path d="M12 19V5" />
             <path d="M8 9l4-4 4 4" />
@@ -23,6 +24,7 @@
           <button type="button" data-send-one-platform="gemini" role="menuitem">Gemini</button>
           <button type="button" data-send-one-platform="claude" role="menuitem">Claude</button>
           <button type="button" data-send-one-platform="chatgpt" role="menuitem">ChatGPT</button>
+          <button type="button" data-send-one-platform="meta" role="menuitem">Meta AI</button>
         </div>
       </div>
       <button id="send-all-btn" type="button" data-i18n-title="sendToAllButton">
@@ -50,7 +52,7 @@
           <circle cx="12" cy="12" r="2" fill="currentColor" />
         </svg>
       </button>
-      <button id="history-toggle-btn" type="button" data-i18n-title="historyButtonTitle">
+      <button id="history-toggle-btn" type="button" data-i18n-title="historyButtonTitle" aria-controls="session-switcher" aria-expanded="false">
         <svg class="btn-icon icon-history" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
           <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
           <polyline points="3 3 3 8 8 8" />
@@ -58,8 +60,16 @@
           <polyline points="12 12 15 14" />
         </svg>
       </button>
+      <button id="layout-config-btn" type="button" data-i18n-title="layoutButtonTitle" data-i18n-aria-label="layoutButtonTitle" aria-haspopup="dialog" aria-controls="layout-config-dialog">
+        <svg class="btn-icon icon-layout" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <rect x="3" y="4" width="5" height="16" rx="1.5" />
+          <rect x="10" y="4" width="5" height="16" rx="1.5" />
+          <rect x="17" y="4" width="4" height="16" rx="1.5" />
+        </svg>
+        <span id="layout-count-badge" aria-hidden="true">5</span>
+      </button>
       <div class="language-wrap">
-        <button id="language-btn" type="button" data-i18n-title="languageButtonTitle">
+        <button id="language-btn" type="button" data-i18n-title="languageButtonTitle" aria-haspopup="menu" aria-controls="language-menu" aria-expanded="false">
           <svg class="btn-icon icon-language" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="12" r="9" />
             <path d="M3 12h18" />
@@ -68,14 +78,14 @@
           </svg>
         </button>
         <div id="language-menu" class="language-menu hidden" role="menu" data-i18n-aria-label="languageMenuLabel">
-          <button type="button" data-language-option="auto" role="menuitem">Auto</button>
-          <button type="button" data-language-option="de" role="menuitem">Deutsch</button>
-          <button type="button" data-language-option="en" role="menuitem">English</button>
-          <button type="button" data-language-option="es" role="menuitem">Español</button>
-          <button type="button" data-language-option="fr" role="menuitem">Français</button>
-          <button type="button" data-language-option="ja" role="menuitem">日本語</button>
-          <button type="button" data-language-option="zh_CN" role="menuitem">简体中文</button>
-          <button type="button" data-language-option="zh_TW" role="menuitem">繁體中文</button>
+          <button type="button" data-language-option="auto" role="menuitemradio">Auto</button>
+          <button type="button" data-language-option="de" role="menuitemradio">Deutsch</button>
+          <button type="button" data-language-option="en" role="menuitemradio">English</button>
+          <button type="button" data-language-option="es" role="menuitemradio">Español</button>
+          <button type="button" data-language-option="fr" role="menuitemradio">Français</button>
+          <button type="button" data-language-option="ja" role="menuitemradio">日本語</button>
+          <button type="button" data-language-option="zh_CN" role="menuitemradio">简体中文</button>
+          <button type="button" data-language-option="zh_TW" role="menuitemradio">繁體中文</button>
         </div>
       </div>
       <button id="minimize-input-btn" type="button" data-i18n-title="minimizeInputTitle">
@@ -85,7 +95,7 @@
       </button>
     </div>
 
-    <div id="session-switcher" class="session-switcher hidden" data-i18n-aria-label="sessionSwitcherLabel">
+    <div id="session-switcher" class="session-switcher hidden" role="region" data-i18n-aria-label="sessionSwitcherLabel">
       <select id="session-select" data-i18n-title="sessionSelectTitle">
         <option value="" data-i18n="noSessionGroups"></option>
       </select>
@@ -94,7 +104,7 @@
       <button id="hide-session-btn" type="button" data-i18n="hideSessionButton" data-i18n-title="hideSessionTitle"></button>
     </div>
 
-    <!-- 4 個 AI iframe -->
+    <!-- 5 個 AI iframe -->
     <div class="iframes-container">
       <div class="iframe-wrapper" data-platform="grok">
         <div class="iframe-header">
@@ -110,7 +120,7 @@
               <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
           </div>
-          <span class="status" id="grok-status" data-i18n-title="loadingTitle">⏳</span>
+          <span class="status" id="grok-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
         <iframe id="grok-iframe" src="https://grok.com/" allow="clipboard-write; clipboard-read"></iframe>
       </div>
@@ -129,7 +139,7 @@
               <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
           </div>
-          <span class="status" id="gemini-status" data-i18n-title="loadingTitle">⏳</span>
+          <span class="status" id="gemini-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
         <iframe id="gemini-iframe" src="https://gemini.google.com/app" allow="clipboard-write; clipboard-read"></iframe>
       </div>
@@ -151,7 +161,7 @@
               <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
           </div>
-          <span class="status" id="claude-status" data-i18n-title="loadingTitle">⏳</span>
+          <span class="status" id="claude-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
         <iframe id="claude-iframe" src="https://claude.ai/new" allow="clipboard-write; clipboard-read"></iframe>
       </div>
@@ -170,9 +180,28 @@
               <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
             </button>
           </div>
-          <span class="status" id="chatgpt-status" data-i18n-title="loadingTitle">⏳</span>
+          <span class="status" id="chatgpt-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
         <iframe id="chatgpt-iframe" src="https://chatgpt.com/" allow="clipboard-write; clipboard-read"></iframe>
+      </div>
+
+      <div class="iframe-wrapper" data-platform="meta">
+        <div class="iframe-header">
+          <div class="header-left">
+            <span class="platform-name">Meta AI</span>
+            <button class="toggle-btn enabled" data-platform-toggle="meta" type="button">ON</button>
+            <button class="refresh-btn" data-platform="meta" data-i18n-title="refreshTitle">⟳</button>
+            <button class="maximize-btn" data-platform="meta" data-i18n-title="maximizeTitle">⤢</button>
+            <button class="prev-platform-btn hidden-btn" data-platform="meta" type="button" data-i18n-title="prevPlatformTitle" title="上一個平台 (Ctrl + 左方向鍵)">
+              <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+            </button>
+            <button class="next-platform-btn hidden-btn" data-platform="meta" type="button" data-i18n-title="nextPlatformTitle" title="下一個平台 (Ctrl + 右方向鍵)">
+              <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+            </button>
+          </div>
+          <span class="status" id="meta-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
+        </div>
+        <iframe id="meta-iframe" src="https://www.meta.ai/" allow="clipboard-write; clipboard-read"></iframe>
       </div>
     </div>
 
@@ -193,14 +222,15 @@
         </div>
         <div class="compare-header-actions">
           <div class="compare-summary-wrap">
-            <button id="summary-compare-btn" type="button" data-i18n="summaryCompareButton" data-i18n-title="summaryCompareTitle">AI摘要</button>
-            <div id="summary-platform-menu" class="summary-platform-menu hidden" role="menu" data-i18n-aria-label="summaryPlatformMenuLabel">
+            <button id="summary-compare-btn" type="button" data-i18n="summaryCompareButton" data-i18n-title="summaryCompareTitle" aria-haspopup="dialog" aria-controls="summary-platform-menu" aria-expanded="false">AI摘要</button>
+            <div id="summary-platform-menu" class="summary-platform-menu hidden" role="dialog" aria-modal="false" data-i18n-aria-label="summaryPlatformMenuLabel">
               <label class="summary-prompt-label" for="summary-prompt-input" data-i18n="summaryPromptLabel"></label>
               <textarea id="summary-prompt-input" class="summary-prompt-input" rows="4" data-i18n-placeholder="summaryPromptPlaceholder"></textarea>
               <button type="button" data-summary-platform="grok" role="menuitem">Grok</button>
               <button type="button" data-summary-platform="gemini" role="menuitem">Gemini</button>
               <button type="button" data-summary-platform="claude" role="menuitem">Claude</button>
               <button type="button" data-summary-platform="chatgpt" role="menuitem">ChatGPT</button>
+              <button type="button" data-summary-platform="meta" role="menuitem">Meta AI</button>
             </div>
           </div>
           <button id="share-compare-btn" type="button" data-i18n="shareButton" data-i18n-title="shareCompareTitle"></button>
@@ -223,7 +253,7 @@
                   <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
               </div>
-              <span class="status" id="compare-status-grok" data-i18n-title="loadingTitle">⏳</span>
+              <span class="status" id="compare-status-grok" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
             </div>
             <div class="col-text" id="compare-text-grok" data-i18n="loadingConversation"></div>
           </div>
@@ -241,7 +271,7 @@
                   <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
               </div>
-              <span class="status" id="compare-status-gemini" data-i18n-title="loadingTitle">⏳</span>
+              <span class="status" id="compare-status-gemini" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
             </div>
             <div class="col-text" id="compare-text-gemini" data-i18n="loadingConversation"></div>
           </div>
@@ -259,7 +289,7 @@
                   <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
               </div>
-              <span class="status" id="compare-status-claude" data-i18n-title="loadingTitle">⏳</span>
+              <span class="status" id="compare-status-claude" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
             </div>
             <div class="col-text" id="compare-text-claude" data-i18n="loadingConversation"></div>
           </div>
@@ -277,13 +307,68 @@
                   <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
                 </button>
               </div>
-              <span class="status" id="compare-status-chatgpt" data-i18n-title="loadingTitle">⏳</span>
+              <span class="status" id="compare-status-chatgpt" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
             </div>
             <div class="col-text" id="compare-text-chatgpt" data-i18n="loadingConversation"></div>
+          </div>
+          <div class="compare-col" data-platform="meta">
+            <div class="iframe-header">
+              <div class="header-left">
+                <span class="platform-name">Meta AI</span>
+                <button class="toggle-btn enabled" data-platform-toggle="meta" type="button">ON</button>
+                <button class="refresh-btn" data-platform="meta" data-i18n-title="refreshTitle">⟳</button>
+                <button class="maximize-btn" data-platform="meta" data-i18n-title="maximizeTitle">⤢</button>
+                <button class="prev-platform-btn hidden-btn" data-platform="meta" type="button" data-i18n-title="prevPlatformTitle" title="上一個平台 (Ctrl + 左方向鍵)">
+                  <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </button>
+                <button class="next-platform-btn hidden-btn" data-platform="meta" type="button" data-i18n-title="nextPlatformTitle" title="下一個平台 (Ctrl + 右方向鍵)">
+                  <svg class="btn-icon" width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 18 15 12 9 6"></polyline></svg>
+                </button>
+              </div>
+              <span class="status" id="compare-status-meta" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
+            </div>
+            <div class="col-text" id="compare-text-meta" data-i18n="loadingConversation"></div>
           </div>
         </div>
       </div>
     </div>
+
+    <dialog id="layout-config-dialog" class="layout-config-dialog" aria-labelledby="layout-config-title" aria-describedby="layout-config-subtitle">
+      <form id="layout-config-form" class="layout-config-card" method="dialog" novalidate>
+        <div class="layout-config-header">
+          <div>
+            <div id="layout-config-title" class="layout-config-title" data-i18n="layoutDialogTitle">分割畫面配置</div>
+            <div id="layout-config-subtitle" class="layout-config-subtitle" data-i18n="layoutDialogSubtitle">先選畫面數量，再指定並排列 AI 平台。</div>
+          </div>
+          <button id="close-layout-config-btn" class="layout-config-close" type="button" data-i18n-title="layoutCloseLabel" data-i18n-aria-label="layoutCloseLabel">×</button>
+        </div>
+
+        <div class="layout-config-body">
+          <section class="layout-config-section" aria-labelledby="layout-count-label">
+            <div class="layout-config-section-heading">
+              <div id="layout-count-label" class="layout-config-label" data-i18n="layoutCountLabel">1. 選擇畫面數量</div>
+              <div class="layout-config-hint" data-i18n="layoutCountHint">預設 5 個，最少 1 個</div>
+            </div>
+            <div id="layout-count-options" class="layout-count-options" role="radiogroup" aria-labelledby="layout-count-label"></div>
+          </section>
+
+          <section class="layout-config-section" aria-labelledby="layout-slots-label">
+            <div class="layout-config-section-heading">
+              <div id="layout-slots-label" class="layout-config-label" data-i18n="layoutSlotsLabel">2. 安排平台與順序</div>
+              <div class="layout-config-hint" data-i18n="layoutSlotsHint">每個平台只能使用一次；使用箭頭調整由左到右的順序。</div>
+            </div>
+            <div id="layout-slot-list" class="layout-slot-list"></div>
+          </section>
+
+          <div id="layout-config-error" class="layout-config-error" role="alert" aria-live="polite"></div>
+        </div>
+
+        <div class="layout-config-actions">
+          <button id="cancel-layout-config-btn" type="button" data-i18n="layoutCancelButton">取消</button>
+          <button id="save-layout-config-btn" type="submit" data-i18n="layoutSaveButton">儲存版面</button>
+        </div>
+      </form>
+    </dialog>
 
     <div id="share-panel" class="share-panel hidden" role="dialog" aria-modal="true" aria-labelledby="share-panel-title">
       <div class="share-card">
@@ -305,6 +390,107 @@
 
   </div>
 
+  <button id="pin-guide-open" type="button" aria-controls="pin-guide" aria-expanded="false" data-i18n="pinGuideHelp">使用教學</button>
+  <dialog id="pin-guide" aria-labelledby="pin-guide-title">
+    <header class="tour-header">
+      <a class="tour-brand" href="#tour-start"><img src="icons/icon48.png" width="32" height="32" alt="">AI Zoo <span data-i18n="pinGuideHelp">使用教學</span></a>
+      <nav class="tour-nav" aria-label="Guide">
+        <a href="#tour-start" data-i18n="tourNavSetup">登入與釘選</a>
+        <a href="#tour-interface" data-i18n="tourNavInterface">介面圖解</a>
+        <a href="#tour-summary" data-i18n="summaryCompareButton">AI 摘要</a>
+      </nav>
+      <button id="pin-guide-close" class="tour-secondary" type="button" data-i18n="tourSkip">先開始使用</button>
+    </header>
+    <main class="tour-content">
+      <section id="tour-start" class="tour-intro">
+        <p class="tour-kicker">WELCOME TO AI ZOO</p>
+        <h1 id="pin-guide-title" data-i18n="tourTitle">問一次，看見不同 AI 的答案。</h1>
+        <p class="tour-lead" data-i18n="tourIntro">先登入，再發問、比較，最後交給 AI 整理。跟著圖上的連線，一次認識整個介面。</p>
+        <div class="tour-setup-grid">
+          <article class="tour-setup-card">
+            <h2><span class="tour-section-number">01</span><span data-i18n="tourLoginTitle">建議先在外面登入這四個 AI</span></h2>
+            <p data-i18n="tourLoginHint">使用同一個 Chrome，點下方連結，在獨立分頁完成登入後再回到 AI Zoo。</p>
+            <div class="tour-login-links">
+              <a href="https://grok.com/" target="_blank" rel="noopener noreferrer" class="tour-grok">Grok <span aria-hidden="true">↗</span></a>
+              <a href="https://gemini.google.com/" target="_blank" rel="noopener noreferrer" class="tour-gemini">Gemini <span aria-hidden="true">↗</span></a>
+              <a href="https://claude.ai/" target="_blank" rel="noopener noreferrer" class="tour-claude">Claude <span aria-hidden="true">↗</span></a>
+              <a href="https://chatgpt.com/" target="_blank" rel="noopener noreferrer" class="tour-chatgpt">ChatGPT <span aria-hidden="true">↗</span></a>
+            </div>
+            <p class="tour-small" data-i18n="tourLoginReturn">回來後若仍顯示登入畫面，點該平台上方的 ⟳。登入或驗證仍須由你完成。</p>
+          </article>
+          <article class="tour-setup-card tour-pin-card">
+            <h2><span class="tour-section-number">02</span><span data-i18n="pinGuideTitle">把 AI Zoo 釘選起來</span><span class="tour-pin-arrow" aria-hidden="true">↗</span></h2>
+            <div class="tour-pin-shots">
+              <img class="tour-puzzle" src="assets/onboarding/chrome-extensions.png" width="87" height="125" alt="Chrome Extensions button" data-i18n-alt="pinGuidePuzzleAlt">
+              <span aria-hidden="true">→</span>
+              <div class="tour-pin-shot"><img src="assets/onboarding/pin-ai-zoo.png" width="547" height="117" alt="AI Zoo pin" data-i18n-alt="pinGuidePinAlt"><span aria-hidden="true"></span></div>
+            </div>
+            <p data-i18n="tourPinHint">點 Chrome 右上角的拼圖 → 找到 AI Zoo → 點圖釘。下次點工具列上的 AI Zoo 圖示就能開啟。</p>
+          </article>
+        </div>
+      </section>
+
+      <section id="tour-interface" class="tour-section">
+        <div class="tour-section-heading"><div><p class="tour-kicker">THE WORKSPACE</p><h2 data-i18n="tourWorkspaceTitle">先看平台，再看下方控制列</h2></div><span class="tour-tag" data-i18n="tourDemoLabel">操作示意・按鈕不會發送問題</span></div>
+        <p class="tour-section-description" data-i18n="tourWorkspaceHint">每個 AI 都有相同的控制鈕。連線與編號，對應你實際會看到的位置；Meta AI 也可在版面設定中選用。</p>
+        <p class="tour-scroll-hint" data-i18n="tourScrollHint">小視窗可左右捲動圖解。</p>
+        <div class="tour-map-scroll" tabindex="0" role="region" data-i18n-aria-label="tourWorkspaceTitle">
+          <div class="tour-wired tour-workspace-map">
+            <svg class="tour-wires" aria-hidden="true"></svg>
+            <div class="tour-platform-notes">
+              <div class="tour-note" data-guide-to="toggle"><b><i>1</i><span data-i18n="tourToggleTitle">啟用 / 停用</span></b><p data-i18n="tourToggleHint">只把問題送到已啟用的平台。</p></div>
+              <div class="tour-note" data-guide-to="refresh"><b><i>2</i><span data-i18n="refreshTitle">重新整理</span></b><p data-i18n="tourRefreshHint">登入完成或畫面卡住時，重新載入這一格。</p></div>
+              <div class="tour-note" data-guide-to="maximize"><b><i>3</i><span data-i18n="maximizeTitle">放大</span></b><p data-i18n="tourMaximizeHint">專心看一個 AI；再點一次回到並排。</p></div>
+              <div class="tour-note" data-guide-to="status"><b><i>4</i><span data-i18n="tourStatusTitle">回應狀態</span></b><p data-i18n="tourStatusHint">查看載入、等待、完成或錯誤。</p></div>
+            </div>
+            <div class="tour-workspace-demo">
+              <div id="tour-platforms" class="tour-platforms"></div>
+              <div class="tour-mini-composer" data-guide-target="input">
+                <div class="tour-demo-input"><span data-i18n="tourSampleQuestion">幫我規劃三天的東京行程。</span><em class="tour-target-number">5</em></div>
+                <div class="tour-mini-tools" aria-hidden="true"><span data-tour-icon="new-chat-btn"></span><span data-tour-icon="history-toggle-btn"></span><span data-tour-icon="compare-btn"></span><span class="tour-spacer"></span><span data-tour-icon="layout-config-btn"></span><span data-tour-icon="language-btn"></span><span data-tour-icon="minimize-input-btn"></span><span data-tour-icon="send-one-btn"></span><span data-tour-icon="send-all-btn" class="tour-accent"></span></div>
+              </div>
+            </div>
+            <div class="tour-note tour-input-note" data-guide-to="input"><b><i>5</i><span data-i18n="tourInputTitle">統一輸入框</span></b><p data-i18n="tourInputHint">在這裡輸入問題。拖曳面板空白處可移動；Ctrl / ⌘ + Enter 可發送給已啟用的平台。</p></div>
+          </div>
+        </div>
+
+        <h3 class="tour-subheading" data-i18n="tourToolbarTitle">控制列的每個圖示，分別做什麼？</h3>
+        <div class="tour-map-scroll" tabindex="0" role="region" data-i18n-aria-label="tourToolbarTitle">
+          <div class="tour-wired tour-toolbar-map">
+            <svg class="tour-wires" aria-hidden="true"></svg>
+            <div id="tour-toolbar" class="tour-toolbar-demo"></div>
+            <div id="tour-toolbar-notes" class="tour-toolbar-notes"></div>
+          </div>
+        </div>
+      </section>
+
+      <section id="tour-summary" class="tour-section">
+        <div class="tour-section-heading"><div><p class="tour-kicker">COMPARE → SUMMARIZE</p><h2 data-i18n="tourSummaryTitle">答案太多？請一個 AI 幫你整理。</h2></div><span class="tour-tag" data-i18n="summaryCompareButton">AI 摘要</span></div>
+        <p class="tour-section-description" data-i18n="tourSummaryIntro">先用智慧對比並排閱讀，再讓你選定的 AI 整理共識、差異與建議。</p>
+        <div class="tour-map-scroll" tabindex="0" role="region" data-i18n-aria-label="tourSummaryTitle">
+          <div class="tour-wired tour-summary-map">
+            <svg class="tour-wires" aria-hidden="true"></svg>
+            <div class="tour-summary-demo">
+              <div class="tour-compare-heading"><span data-guide-target="compare" class="tour-compare-label"><span data-tour-icon="compare-btn"></span><span data-i18n="compareButton">智慧對比</span><em class="tour-target-number">1</em></span><span class="tour-summary-demo-button" data-guide-target="summary"><span data-i18n="summaryCompareButton">AI 摘要</span><em class="tour-target-number">2</em></span><span data-i18n="shareButton">分享</span><span aria-hidden="true">×</span></div>
+              <div class="tour-compare-body"><div class="tour-answer-preview"><b>Grok</b><span></span><span></span><span></span></div><div class="tour-answer-preview"><b>Gemini</b><span></span><span></span><span></span></div><div class="tour-answer-preview"><b>Claude</b><span></span><span></span><span></span></div><div class="tour-answer-preview"><b>ChatGPT</b><span></span><span></span><span></span></div></div>
+              <div class="tour-summary-menu" data-guide-target="choose"><em class="tour-target-number">3</em><b data-i18n="summaryPromptLabel">摘要提示詞</b><p data-i18n="tourSummaryExample">整理共同結論、不同觀點，以及我下一步可以怎麼做。</p><div>Grok <span>Gemini</span> Claude <span>ChatGPT</span></div></div>
+            </div>
+            <div class="tour-summary-notes">
+              <div class="tour-note" data-guide-to="compare"><b><i>1</i><span data-i18n="compareButton">智慧對比</span></b><p data-i18n="tourCompareHint">並排閱讀各平台的回答，找出不同觀點。</p></div>
+              <div class="tour-note" data-guide-to="summary"><b><i>2</i><span data-i18n="summaryCompareButton">AI 摘要</span></b><p data-i18n="tourSummaryButtonHint">在智慧對比右上角，開啟 AI 摘要選單。</p></div>
+              <div class="tour-note" data-guide-to="choose"><b><i>3</i><span data-i18n="summaryPlatformMenuLabel">選擇摘要平台</span></b><p data-i18n="tourSummaryChooseHint">可先修改提示詞，再點已登入且啟用的平台。摘要會在該平台產生。</p></div>
+            </div>
+          </div>
+        </div>
+        <p class="tour-disclosure" data-i18n="tourSummaryDisclosure">點選摘要平台後，目前對比內容與提示詞會送給該 AI。建議等答案完成後再整理。</p>
+      </section>
+
+      <footer class="tour-finish"><div><h2 data-i18n="tourReady">準備好了，就從第一個問題開始。</h2><p data-i18n="tourReopen">之後可從右上角的「使用教學」重新查看這一頁。</p></div><button id="pin-guide-done" class="tour-primary" type="button" data-i18n="pinGuideDone">知道了，開始使用</button></footer>
+    </main>
+  </dialog>
+
+  <script src="pin-guide.js"></script>
+  <script src="content-scripts/shared-utils.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

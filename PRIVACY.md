@@ -1,6 +1,6 @@
 # Privacy Policy for AI Zoo
 
-**Last Updated: December 31, 2024**
+**Last Updated: September 3, 2026**
 
 ## Overview
 
@@ -8,14 +8,15 @@ AI Zoo is committed to protecting your privacy. This privacy policy explains how
 
 ## Data Collection
 
-**AI Zoo does NOT collect, store, or transmit any personal information to external servers.**
+**AI Zoo does NOT collect, store, or transmit personal information to developer-controlled servers.** Questions and conversations are sent directly by your browser to the AI platforms you choose to use.
 
 ## Local Storage
 The extension uses the browser's `localStorage` API solely to save:
 - The current URL of each AI platform (to maintain your conversation state when you switch between them).
 - The position of the input box on the screen.
+- Platform enable/disable choices, language, Smart Compare summary instructions, and local conversation groups.
 
-No data is synchronized to any cloud or shared with third parties.
+These local settings are not synchronized to an AI Zoo server. The AI platforms themselves process your prompts under their own privacy policies and account settings.
 
 ## Permissions
 
@@ -32,6 +33,7 @@ Your use of AI platforms through AI Zoo is subject to each platform's own privac
 - [Google Privacy Policy](https://policies.google.com/privacy)
 - [Anthropic Privacy Policy](https://www.anthropic.com/privacy)
 - [OpenAI Privacy Policy](https://openai.com/privacy/)
+- [Meta Privacy Policy](https://www.facebook.com/privacy/policy/)
 
 ## Data Security
 

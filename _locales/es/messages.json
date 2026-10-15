@@ -1,4 +1,160 @@
 {
+  "tourNavSetup": {
+    "message": "Acceder y fijar"
+  },
+  "tourNavInterface": {
+    "message": "Guía de la interfaz"
+  },
+  "tourSkip": {
+    "message": "Empezar a usar AI Zoo"
+  },
+  "tourTitle": {
+    "message": "Pregunta una vez. Descubre distintas respuestas."
+  },
+  "tourIntro": {
+    "message": "Inicia sesión, pregunta, compara y resume. Los números y las líneas te explican la interfaz."
+  },
+  "tourLoginTitle": {
+    "message": "Primero, inicia sesión en estas cuatro plataformas"
+  },
+  "tourLoginHint": {
+    "message": "Abre los enlaces en pestañas separadas del mismo Chrome. Inicia sesión y vuelve a AI Zoo."
+  },
+  "tourLoginReturn": {
+    "message": "¿Sigue apareciendo el acceso? Pulsa ⟳ encima de esa plataforma. Completa tú el inicio de sesión y la verificación."
+  },
+  "tourPinHint": {
+    "message": "Puzle de Chrome arriba a la derecha → AI Zoo → chincheta. La próxima vez, ábrelo desde la barra de herramientas."
+  },
+  "tourWorkspaceTitle": {
+    "message": "Las plataformas y la barra compartida"
+  },
+  "tourWorkspaceHint": {
+    "message": "Todas las IA tienen los mismos controles. Los números y las líneas indican su posición. También puedes elegir Meta AI en el diseño."
+  },
+  "tourDemoLabel": {
+    "message": "Vista de ejemplo · no envía preguntas"
+  },
+  "tourScrollHint": {
+    "message": "En pantallas pequeñas, desplaza los diagramas hacia los lados."
+  },
+  "tourToggleTitle": {
+    "message": "Activar / desactivar"
+  },
+  "tourToggleHint": {
+    "message": "Las preguntas solo se envían a plataformas activadas."
+  },
+  "tourRefreshHint": {
+    "message": "Recarga este panel después de acceder o si se bloquea."
+  },
+  "tourMaximizeHint": {
+    "message": "Amplía una IA; pulsa de nuevo para volver a la vista conjunta."
+  },
+  "tourStatusTitle": {
+    "message": "Estado de respuesta"
+  },
+  "tourStatusHint": {
+    "message": "Consulta carga, espera, finalización o errores."
+  },
+  "tourSampleQuestion": {
+    "message": "Planifica un viaje de tres días a Tokio."
+  },
+  "tourInputTitle": {
+    "message": "Cuadro de pregunta compartido"
+  },
+  "tourInputHint": {
+    "message": "Escribe aquí. Arrastra una zona vacía del panel para moverlo. Ctrl / ⌘ + Enter envía a las plataformas activadas."
+  },
+  "tourToolbarTitle": {
+    "message": "¿Qué hace cada icono?"
+  },
+  "tourNewChatHint": {
+    "message": "Empieza un grupo nuevo de conversaciones."
+  },
+  "tourHistoryHint": {
+    "message": "Recupera grupos de conversaciones guardados."
+  },
+  "tourCompareHint": {
+    "message": "Lee las respuestas en paralelo y encuentra distintos puntos de vista."
+  },
+  "tourLayoutHint": {
+    "message": "Elige de 1 a 5 paneles, sus plataformas y su orden."
+  },
+  "tourLanguageHint": {
+    "message": "Cambia el idioma de AI Zoo."
+  },
+  "tourMinimizeHint": {
+    "message": "Contrae el panel; pulsa su icono flotante para restaurarlo."
+  },
+  "tourSingleHint": {
+    "message": "Elige una plataforma activada y envíale solo a ella."
+  },
+  "tourAllHint": {
+    "message": "Envía a todas las plataformas activadas; omite las desactivadas."
+  },
+  "tourSummaryTitle": {
+    "message": "Muchas respuestas. Una IA para organizarlas."
+  },
+  "tourSummaryIntro": {
+    "message": "Lee las respuestas en Comparación y pide a la IA elegida que resuma coincidencias, diferencias y sugerencias."
+  },
+  "tourSummaryExample": {
+    "message": "Resume las conclusiones comunes, las diferencias y los siguientes pasos."
+  },
+  "tourSummaryButtonHint": {
+    "message": "Abre Resumen de IA arriba a la derecha de Comparación."
+  },
+  "tourSummaryChooseHint": {
+    "message": "Edita las instrucciones y elige una plataforma activada en la que hayas iniciado sesión. El resumen aparecerá allí."
+  },
+  "tourSummaryDisclosure": {
+    "message": "Al elegir una plataforma se envían el contenido de la comparación y las instrucciones a esa IA. Espera a que terminen las respuestas."
+  },
+  "tourReady": {
+    "message": "¿Listo para tu primera pregunta?"
+  },
+  "tourReopen": {
+    "message": "Puedes volver a esta página desde Guía rápida, arriba a la derecha."
+  },
+  "pinGuideHelp": {
+    "message": "Guía rápida"
+  },
+  "pinGuideDirection": {
+    "message": "Mira arriba a la derecha en Chrome"
+  },
+  "pinGuideEyebrow": {
+    "message": "10 segundos para encontrarlo fácilmente después."
+  },
+  "pinGuideTitle": {
+    "message": "Fija AI Zoo para la próxima vez"
+  },
+  "pinGuideClose": {
+    "message": "Cerrar guía rápida"
+  },
+  "pinGuideStepOne": {
+    "message": "Haz clic en el icono de puzle arriba a la derecha de Chrome"
+  },
+  "pinGuidePuzzleHint": {
+    "message": "Busca este icono junto a la barra de direcciones."
+  },
+  "pinGuideStepTwo": {
+    "message": "Busca AI Zoo y haz clic en la chincheta de la derecha"
+  },
+  "pinGuidePuzzleAlt": {
+    "message": "Botón de extensiones de Chrome con forma de puzle"
+  },
+  "pinGuidePinAlt": {
+    "message": "AI Zoo en el menú de extensiones, con la chincheta a la derecha"
+  },
+  "pinGuideNextTime": {
+    "message": "La próxima vez, haz clic en el icono de AI Zoo de la barra de herramientas. También puedes abrirlo desde el menú de puzle sin fijarlo."
+  },
+  "pinGuideQuickStart": {
+    "message": "Para empezar: inicia sesión en las plataformas de IA que quieras, escribe una pregunta abajo y pulsa el botón de varias flechas a la derecha para enviarla a las plataformas activadas."
+  },
+  "pinGuideDone": {
+    "message": "Entendido, empezar"
+  },
   "extensionName": {
     "message": "AI Zoo",
     "description": "Name of the extension"
@@ -462,5 +618,107 @@
   "languageMenuLabel": {
     "message": "Elegir idioma de la interfaz",
     "description": "Language menu aria label"
+  },
+  "layoutButtonTitle": {
+    "message": "Configurar pantalla dividida"
+  },
+  "layoutButtonCurrentTitle": {
+    "message": "Diseño: $1 paneles"
+  },
+  "layoutDialogTitle": {
+    "message": "Diseño de pantalla dividida"
+  },
+  "layoutDialogSubtitle": {
+    "message": "Elige primero el número de paneles y después asigna y ordena las plataformas de IA."
+  },
+  "layoutCountLabel": {
+    "message": "1. Número de paneles"
+  },
+  "layoutCountHint": {
+    "message": "Predeterminado 5, mínimo 1"
+  },
+  "layoutSlotsLabel": {
+    "message": "2. Plataformas y orden"
+  },
+  "layoutSlotsHint": {
+    "message": "Cada plataforma solo puede usarse una vez. Usa las flechas para cambiar el orden."
+  },
+  "layoutSlotLabel": {
+    "message": "Panel $1"
+  },
+  "layoutPaneCountLabel": {
+    "message": "$1 paneles"
+  },
+  "layoutMoveLeft": {
+    "message": "Mover a la izquierda"
+  },
+  "layoutMoveRight": {
+    "message": "Mover a la derecha"
+  },
+  "layoutCloseLabel": {
+    "message": "Cerrar configuración del diseño"
+  },
+  "layoutCancelButton": {
+    "message": "Cancelar"
+  },
+  "layoutSaveButton": {
+    "message": "Guardar diseño"
+  },
+  "layoutDuplicateError": {
+    "message": "Cada panel debe usar una plataforma de IA diferente."
+  },
+  "restoreInputPanelLabel": {
+    "message": "Restaurar panel de preguntas"
+  },
+  "toggleOn": {
+    "message": "ACTIVO"
+  },
+  "toggleOff": {
+    "message": "INACTIVO"
+  },
+  "shareRoleYou": {
+    "message": "Tú"
+  },
+  "shareRoleAI": {
+    "message": "IA"
+  },
+  "shareGeneratedLabel": {
+    "message": "Generado"
+  },
+  "shareStatusHeading": {
+    "message": "Estado"
+  },
+  "shareLatestQuestionHeading": {
+    "message": "Última pregunta"
+  },
+  "claudeHistoryTitle": {
+    "message": "Historial de Claude"
+  },
+  "claudeHistoryOpen": {
+    "message": "Abrir historial de Claude"
+  },
+  "claudeHistoryClose": {
+    "message": "Cerrar historial de Claude"
+  },
+  "claudeHistoryEmpty": {
+    "message": "No se encontraron conversaciones anteriores."
+  },
+  "claudeHistoryUntitled": {
+    "message": "Conversación sin título"
+  },
+  "claudeHistoryLoading": {
+    "message": "Cargando conversaciones..."
+  },
+  "claudeHistoryNotReady": {
+    "message": "El historial de Claude aún no está listo. Inténtalo de nuevo."
+  },
+  "claudeHistoryLoadFailed": {
+    "message": "No se pudo cargar el historial de Claude. Inténtalo de nuevo."
+  },
+  "claudeHistoryNewChat": {
+    "message": "Nuevo chat"
+  },
+  "claudeHistoryPastLabel": {
+    "message": "Conversaciones anteriores de Claude"
   }
 }

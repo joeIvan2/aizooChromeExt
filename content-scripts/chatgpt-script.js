@@ -2,14 +2,13 @@
 (function() {
   'use strict';
 
+  if (window.parent !== window && window.parent !== window.top) return;
+
   console.log('[ChatGPT] Content script initializing...');
 
   const config = window.PLATFORM_CONFIGS.chatgpt;
 
-  // 初始化 Fetch 監聽
-  window.InjectionCore.setupFetchMonitor(config);
-  // 初始化 URL 監聽
-  window.InjectionCore.setupUrlMonitor(config);
+  if (window.parent !== window) window.InjectionCore.setupUrlMonitor(config);
 
   // 監聽來自 popup 的消息
   window.addEventListener('message', async (event) => {
@@ -23,12 +22,23 @@
 
     if (data.type === 'AI_SUBMIT_QUESTION' && data.platform === 'chatgpt') {
       console.log('[ChatGPT] Received submit question command:', data.question);
-      await window.InjectionCore.submitQuestion(config, data.question);
+      await window.InjectionCore.enqueueQuestion(config, data.question, {
+        submissionId: data.submissionId
+      });
     }
 
     if (data.type === 'AI_NEW_CHAT' && data.platform === 'chatgpt') {
       console.log('[ChatGPT] Starting new chat...');
+      window.InjectionCore.cancelOperations(config);
       window.location.href = 'https://chatgpt.com/';
+    }
+
+    if (data.type === 'AI_CANCEL_OPERATIONS' && data.platform === 'chatgpt') {
+      window.InjectionCore.cancelOperations(config);
+    }
+
+    if (data.type === 'AI_READY_CHECK' && data.platform === 'chatgpt') {
+      if (hasUsableChatInput()) notifyReady();
     }
 
     if (data.type === 'AI_SCRAPE_HISTORY_REQUEST' && data.platform === 'chatgpt') {
@@ -44,8 +54,10 @@
           type: 'AI_SCRAPE_HISTORY_RESPONSE',
           platform: 'chatgpt',
           requestId: data.requestId,
+          navigationEpoch: data.navigationEpoch,
           history: history,
           isGenerating: window.InjectionCore.isGenerating(config),
+          isComplete: window.InjectionCore.isResponseComplete(config),
           source: 'content-script'
         }, '*');
       }

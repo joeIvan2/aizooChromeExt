@@ -1,7 +1,9 @@
 {
   "manifest_version": 3,
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAkYkKvivhnOfcx61p+aGiXVSH+PMJQDtHklSBa+6bUQRJv9RLQ90Btd5wAFNeidwJYbcZh5fN82WUySlv9yfayM/gtTJVMw8mlQkYS0Bw+ewaOTEPwbIkgNz46Epxk3vndciKlrLgNnS3dfCweqK6sK86Q8KjWCrnTqC+p01aGfQt+/XXk2l7doznqY7muO9Z5tm21MF9X1/hmn8JSiRvjohOwBFRU4PatRj3zXQxBca4wppjRT3xqw8FvMYHypvUlsdaTIpH595TEhXdXa854A+qG9OnuTArmRv4VtU6iExNcdRAZ4b7iNQx4hDG67gYNVAZBH+0tChbASjMulrUeQIDAQAB",
   "name": "__MSG_extensionName__",
-  "version": "1.2.6",
+  "version": "1.4.4",
+  "minimum_chrome_version": "130",
   "description": "__MSG_extensionDescription__",
   "default_locale": "en",
   "permissions": [
@@ -14,6 +16,8 @@
     "*://gemini.google.com/*",
     "*://*.claude.ai/*",
     "*://chatgpt.com/*",
+    "*://meta.ai/*",
+    "*://*.meta.ai/*",
     "*://auth.openai.com/*",
     "*://accounts.x.ai/*"
   ],
@@ -36,6 +40,7 @@
         "*://accounts.x.ai/*"
       ],
       "js": [
+        "content-scripts/shared-utils.js",
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
         "content-scripts/grok-script.js"
@@ -48,6 +53,7 @@
         "*://gemini.google.com/*"
       ],
       "js": [
+        "content-scripts/shared-utils.js",
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
         "content-scripts/gemini-script.js"
@@ -71,6 +77,7 @@
         "*://claude.ai/*"
       ],
       "js": [
+        "content-scripts/shared-utils.js",
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
         "content-scripts/claude-script.js"
@@ -84,9 +91,24 @@
         "*://auth.openai.com/*"
       ],
       "js": [
+        "content-scripts/shared-utils.js",
         "content-scripts/platforms-config.js",
         "content-scripts/injection-core.js",
         "content-scripts/chatgpt-script.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://meta.ai/*",
+        "*://*.meta.ai/*"
+      ],
+      "js": [
+        "content-scripts/shared-utils.js",
+        "content-scripts/platforms-config.js",
+        "content-scripts/injection-core.js",
+        "content-scripts/meta-script.js"
       ],
       "run_at": "document_start",
       "all_frames": true

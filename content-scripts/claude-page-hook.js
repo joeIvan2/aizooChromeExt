@@ -270,6 +270,14 @@
     }
   } catch (error) {}
 
+  // Claude now ships a responsive, native sidebar for narrow embedded views.
+  // The legacy DOM protection below treated any ancestor containing a sidebar
+  // toggle as the sidebar itself, which could block React from removing stale
+  // responsive layouts and leave duplicate chat surfaces on screen. Keep the
+  // model/bootstrap patch above, but let Claude own its sidebar DOM lifecycle.
+  const LEGACY_SIDEBAR_DOM_PROTECTION_ENABLED = false;
+  if (!LEGACY_SIDEBAR_DOM_PROTECTION_ENABLED) return;
+
   const isBreakpointArmed = () => {
     try {
       return sessionStorage.getItem(BREAKPOINT_KEY) === 'armed';
@@ -438,4 +446,3 @@
     return originalSetProperty.apply(this, arguments);
   };
 })();
-
