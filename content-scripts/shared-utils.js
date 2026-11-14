@@ -95,7 +95,33 @@
     return strip(a) === strip(b);
   }
 
+  // Grok's cookie notice: which button was pressed, and what was chosen before.
+  const COOKIE_CHOICE_KEY = 'ai-zoo-grok-cookie-choice';
+  function classifyCookieChoice(text) {
+    const value = String(text ?? '');
+    if (/reject|拒絕|拒绝|拒否|rechazar|refuser|ablehnen/i.test(value)) return 'reject';
+    if (/accept|接受|同意|許可|aceptar|akzeptieren/i.test(value)) return 'accept';
+    return '';
+  }
+
+  // '' means no choice is on record, so the notice has to stay visible.
+  function readCookieChoice(storage) {
+    try {
+      const own = storage.getItem(COOKIE_CHOICE_KEY);
+      if (own === 'accept' || own === 'reject') return own;
+      const site = JSON.parse(storage.getItem('_ca_consent'));
+      const values = [site.analytics_consent, site.advertising_consent];
+      if (!values.every(item => typeof item === 'boolean')) return '';
+      return values.every(Boolean) ? 'accept' : values.some(Boolean) ? 'custom' : 'reject';
+    } catch {
+      return '';
+    }
+  }
+
   const api = Object.freeze({
+    COOKIE_CHOICE_KEY,
+    classifyCookieChoice,
+    readCookieChoice,
     pickClaudeChatOrganization,
     sameTextIgnoringWhitespace,
     normalizeMatchText,

@@ -708,8 +708,10 @@ function initializeProviderResources() {
     const back = document.createElement('button'); back.type = 'button'; back.textContent = t('providerBackToAnswers', 'Back to answers'); back.setAttribute('data-i18n', 'providerBackToAnswers'); back.className = 'provider-back';
     back.addEventListener('click', () => { if (currentMaximizedPlatform === platform) setMaximizedPlatform(platform, { toggle: true }); }); wrapper.querySelector('.iframe-header')?.append(back);
   });
-  if (localStorage.getItem(DEMAND_VIEW_KEY) === 'true') showComparePanel();
+  const startInCompare = localStorage.getItem(DEMAND_VIEW_KEY) === 'true';
+  if (startInCompare) showComparePanel();
   syncProviderResources();
+  if (startInCompare) loadSavedConversationsForCompare();
   setInterval(() => providerResources.sweep(), 5000);
 }
 
@@ -2792,6 +2794,7 @@ function renderCompareHistory(platform, history, pendingMessage = '', options = 
   const messages = Array.isArray(history) ? history.filter(m => m && m.content) : [];
   const visibleMessages = filterPendingPlaceholderMessages(platform, messages, pendingMessage);
   if (options.cache !== false) compareLatestHistories[platform] = visibleMessages;
+  if (visibleMessages.length && typeof providerResources !== 'undefined' && providerResources?.state(platform).reading) providerResources.update(platform, { reading: false });
   if (messages.length === 0 && !pendingMessage) {
     const emptyText = t('platformNoConversation', 'This platform has no conversation content yet.');
     if (colTextEl.textContent !== emptyText || colTextEl.children.length > 0) {
@@ -3711,8 +3714,30 @@ function startCompareWatch(question, options = {}) {
   ensureComparePollTimer();
 }
 
+// The answers view reads each provider's own page. After a restart none is
+// loaded, so load the ones that have a conversation to show.
+function loadSavedConversationsForCompare() {
+  if (!providerResources) return;
+  const loading = [];
+  platforms.forEach(platform => {
+    if (!isPlatformEnabled(platform) || providerResources.state(platform).loaded) return;
+    if (compareLatestHistories[platform]?.length) return;
+    const savedUrl = normalizePlatformUrl(platform, localStorage.getItem(`ai-chat-url-${platform}`));
+    if (!savedUrl || savedUrl === defaultUrls[platform]) return;
+    useProvider(platform);
+    // A hidden page has no size, and Grok draws only what is on screen, so
+    // the page stays drawn (behind the answers) until it has been read.
+    providerResources.update(platform, { reading: true });
+    loading.push(platform);
+  });
+  if (!loading.length) return;
+  scheduleCompareOpenRefresh();
+  setTimeout(() => loading.forEach(platform => providerResources.update(platform, { reading: false })), 45000);
+}
+
 function openComparePanel() {
   showComparePanel();
+  loadSavedConversationsForCompare();
   ensureComparePollTimer();
   resetComparePrompt();
 

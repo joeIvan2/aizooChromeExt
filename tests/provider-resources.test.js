@@ -181,3 +181,16 @@ test('an idle provider is released automatically only after thirty minutes by de
   now = 29 * 60 * 1000; c.sweep(); assert.deepEqual(calls, ['load']);
   now = 30 * 60 * 1000; c.sweep(); assert.deepEqual(calls, ['load', 'unload']);
 });
+
+test('a page that still has to be read is not hidden, and unloading forgets that', () => {
+  const { createController } = require('../provider-resources');
+  const controller = createController(['grok'], {});
+  controller.update('grok', { enabled: true });
+  controller.use('grok');
+  controller.update('grok', { network: true, reading: true });
+  assert.equal(controller.state('grok').suspended, false);
+  controller.update('grok', { reading: false });
+  assert.equal(controller.state('grok').suspended, true);
+  controller.update('grok', { reading: true, enabled: false });
+  assert.equal(controller.state('grok').reading, false);
+});

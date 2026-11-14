@@ -127,9 +127,29 @@
       document.documentElement.style.removeProperty('overflow');
       document.body?.style?.removeProperty('overflow');
     }
+
+    // Grok's own notice. Embedded here the page cannot read the cookie that
+    // says it was answered, so it would return on every open. It is hidden
+    // only once a choice (accept or reject) is on record.
+    if (window.AIZooUtils.readCookieChoice(localStorage)) {
+      document.querySelectorAll(GROK_COOKIE_NOTICE_SELECTOR).forEach((node) => {
+        node.style.setProperty('display', 'none', 'important');
+      });
+    }
+  }
+
+  const GROK_COOKIE_NOTICE_SELECTOR = '[data-cookie-banner="true"]';
+
+  function rememberCookieChoice(event) {
+    const button = event.target?.closest?.('button');
+    if (!button?.closest(GROK_COOKIE_NOTICE_SELECTOR)) return;
+    const choice = window.AIZooUtils.classifyCookieChoice(button.textContent);
+    if (!choice) return;
+    try { localStorage.setItem(window.AIZooUtils.COOKIE_CHOICE_KEY, choice); } catch {}
   }
 
   if (location.hostname === 'grok.com' && window.self !== window.top) {
+    document.addEventListener('click', rememberCookieChoice, true);
     ensureCookieBannerHidden();
 
     const cookieBannerObserver = new MutationObserver(() => {
