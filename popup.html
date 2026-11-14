@@ -122,7 +122,7 @@
           </div>
           <span class="status" id="grok-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
-        <iframe id="grok-iframe" src="https://grok.com/" allow="clipboard-write; clipboard-read"></iframe>
+        <iframe id="grok-iframe" data-default-src="https://grok.com/" allow="clipboard-write; clipboard-read"></iframe>
       </div>
 
       <div class="iframe-wrapper" data-platform="gemini">
@@ -141,7 +141,7 @@
           </div>
           <span class="status" id="gemini-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
-        <iframe id="gemini-iframe" src="https://gemini.google.com/app" allow="clipboard-write; clipboard-read"></iframe>
+        <iframe id="gemini-iframe" data-default-src="https://gemini.google.com/app" allow="clipboard-write; clipboard-read"></iframe>
       </div>
 
       <div class="iframe-wrapper" data-platform="claude">
@@ -163,7 +163,7 @@
           </div>
           <span class="status" id="claude-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
-        <iframe id="claude-iframe" src="https://claude.ai/new" allow="clipboard-write; clipboard-read"></iframe>
+        <iframe id="claude-iframe" data-default-src="https://claude.ai/new" allow="clipboard-write; clipboard-read"></iframe>
       </div>
 
       <div class="iframe-wrapper" data-platform="chatgpt">
@@ -182,7 +182,7 @@
           </div>
           <span class="status" id="chatgpt-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
-        <iframe id="chatgpt-iframe" src="https://chatgpt.com/" allow="clipboard-write; clipboard-read"></iframe>
+        <iframe id="chatgpt-iframe" data-default-src="https://chatgpt.com/" allow="clipboard-write; clipboard-read"></iframe>
       </div>
 
       <div class="iframe-wrapper" data-platform="meta">
@@ -201,7 +201,7 @@
           </div>
           <span class="status" id="meta-status" role="status" aria-live="polite" aria-atomic="true" data-i18n-title="loadingTitle">⏳</span>
         </div>
-        <iframe id="meta-iframe" src="https://www.meta.ai/" allow="clipboard-write; clipboard-read"></iframe>
+        <iframe id="meta-iframe" data-default-src="https://www.meta.ai/" allow="clipboard-write; clipboard-read"></iframe>
       </div>
     </div>
 
@@ -491,6 +491,7 @@
 
   <script src="pin-guide.js"></script>
   <script src="content-scripts/shared-utils.js"></script>
+  <script src="provider-resources.js"></script>
   <script src="popup.js"></script>
 </body>
 </html>

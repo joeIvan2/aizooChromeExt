@@ -253,8 +253,7 @@
           platform: 'claude',
           requestId: data.requestId,
           navigationEpoch: data.navigationEpoch,
-          history: history,
-          isGenerating: window.InjectionCore.isGenerating(config),
+          ...window.InjectionCore.buildHistoryResponse(config, history),
           source: 'content-script'
         }, '*');
       }
@@ -405,6 +404,23 @@
     } catch (error) {}
 
     return '';
+  }
+
+  // The page no longer keeps the organization in localStorage, and the
+  // resource log holds only the first 250 entries (static files), so ask the
+  // same endpoint the page itself uses. Remembered for this document only.
+  let claudeOrganizationId = '';
+  async function resolveClaudeOrganizationId() {
+    if (claudeOrganizationId) return claudeOrganizationId;
+    claudeOrganizationId = getClaudeOrganizationId();
+    if (claudeOrganizationId) return claudeOrganizationId;
+    try {
+      const response = await fetch('/api/organizations', { credentials: 'include', headers: { Accept: 'application/json' } });
+      if (response.ok) claudeOrganizationId = window.AIZooUtils.pickClaudeChatOrganization(await response.json());
+    } catch (error) {
+      console.warn('[Claude] Could not look up the organization', error);
+    }
+    return claudeOrganizationId;
   }
 
   function getCurrentClaudeConversationId() {
@@ -673,7 +689,7 @@
   async function loadClaudeHistory() {
     setClaudeHistoryStatus(claudeT('claudeHistoryLoading', 'Loading conversations...'));
 
-    const organizationId = getClaudeOrganizationId();
+    const organizationId = await resolveClaudeOrganizationId();
     if (!organizationId) {
       setClaudeHistoryStatus(claudeT('claudeHistoryNotReady', 'Claude history is not ready yet. Please try again.'));
       return;
@@ -1550,7 +1566,9 @@
         signal: controller.signal
       });
 
-      if (response.status === 401 || response.status === 403) {
+      const blocker = await window.AIZooProviderAttention?.reportResponse?.(response);
+      if (blocker && blocker.kind !== 'login') return;
+      if (response.status === 401) {
         reportLoginState(false, forceReport);
         return;
       }

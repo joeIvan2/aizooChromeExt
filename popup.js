@@ -20,6 +20,9 @@ function getPlatformDisplayName(platform) {
   return platformDisplayNames[platform] || platform;
 }
 const iframes = {};
+let providerResources = null;
+const providerRuntime = {};
+const DEMAND_VIEW_KEY = 'ai-zoo-demand-view-v1';
 const statusElements = {};
 let currentMaximizedPlatform = null; // 當前放大的平台
 const platformEnabledState = {};
@@ -149,7 +152,7 @@ const conversationUrlPatterns = {
   grok: /^https:\/\/grok\.com\/(?:chat|c)\//,
   gemini: /^https:\/\/gemini\.google\.com\/app\/[^/?#]+/,
   claude: /^https:\/\/claude\.ai\/chat\/[^/?#]+/,
-  chatgpt: /^https:\/\/chatgpt\.com\/c\/[^/?#]+/,
+  chatgpt: /^https:\/\/chatgpt\.com\/(?:c|local)\/[^/?#]+/,
   meta: /^https:\/\/(?:www\.)?meta\.ai\/prompt\/[^/?#]+/
 };
 
@@ -267,6 +270,7 @@ function applyPlatformLayout(nextLayout, options = {}) {
   }
 
   console.log('[AI Multi-Chat] Platform layout applied:', normalized.join(', '));
+  window.syncProviderResources?.();
 }
 
 function setLayoutDraftCount(count) {
@@ -606,6 +610,12 @@ function requestPlatformReadyState(platform) {
 }
 
 function handleProviderFrameLoad(platform) {
+  if (providerResources && !providerResources.state(platform).loaded) return;
+  if (providerResources) {
+    watchProviderStartup(platform);
+    providerResources.update(platform, { network: false });
+    requestPlatformReadyState(platform);
+  }
   console.log(`[${platform}] iframe loaded`);
   updateStatus(platform, '⏳', t('statusWaitingReady', 'Waiting for readiness...'));
 
@@ -617,7 +627,7 @@ function handleProviderFrameLoad(platform) {
     const state = compareWatchState[platform];
     if (!state || state.complete) {
       const textEl = document.getElementById(`compare-text-${platform}`);
-      if (textEl) textEl.textContent = t('loadingConversationHistory', 'Loading conversation history...');
+      if (textEl && !compareLatestHistories[platform]?.length) textEl.textContent = t('loadingConversationHistory', 'Loading conversation history...');
       const navigationEpoch = Number(iframes[platform]?.dataset.navigationEpoch || compareNavigationEpoch);
       setTimeout(() => requestPlatformHistory(platform, {
         force: true,
@@ -625,6 +635,117 @@ function handleProviderFrameLoad(platform) {
       }), 800);
     }
   }
+}
+
+function syncProviderResources() {
+  if (!providerResources) return;
+  platforms.forEach(platform => providerResources.update(platform, {
+    enabled: isPlatformEnabled(platform), viewed: !isComparePanelVisible() || currentMaximizedPlatform === platform
+  }));
+}
+
+function useProvider(platform) {
+  if (!providerResources) return;
+  if (providerRuntime[platform]) providerRuntime[platform].retainHistory = false;
+  providerResources.update(platform, { enabled: isPlatformEnabled(platform) });
+  providerResources.use(platform);
+}
+
+function navigateProvider(platform, url) {
+  if (providerResources) {
+    const runtime = providerRuntime[platform];
+    runtime.ready = false; runtime.delivering = false; runtime.retainHistory = false;
+    providerResources.update(platform, { network: false });
+    if (!providerResources.state(platform).loaded || !isPlatformEnabled(platform)) return;
+  }
+  iframes[platform].src = url;
+}
+
+function watchProviderStartup(platform) {
+  const runtime = providerRuntime[platform]; runtime.ready = false;
+  const generation = ++runtime.generation;
+  setTimeout(() => {
+    const state = providerResources.state(platform);
+    if (runtime.generation !== generation || runtime.ready || !state.loaded || state.attention) return;
+    runtime.notice = t('providerStartupNotice', 'The original site is still loading. You may need to sign in, give consent, or open this view to finish setup. Please check this page.');
+    providerResources.update(platform, { attention: 'startup' });
+    updateStatus(platform, '⚠️', runtime.notice);
+  }, 20000);
+}
+
+function initializeProviderResources() {
+  platforms.forEach(platform => { providerRuntime[platform] = { ready: false, generation: 0, pending: [], delivering: false }; });
+  providerResources = window.AIZooProviderResources.createController(platforms, {
+    load(platform) {
+      watchProviderStartup(platform);
+      iframes[platform].src = normalizePlatformUrl(platform, localStorage.getItem(`ai-chat-url-${platform}`)) || defaultUrls[platform];
+    },
+    unload(platform) {
+      const runtime = providerRuntime[platform];
+      runtime.generation++; runtime.ready = false; runtime.pending = []; runtime.delivering = false;
+      runtime.retainHistory = true;
+      cancelPlatformOperation(platform);
+      // Destroy the browsing context, including old document messages and timers.
+      // A blank placeholder can later create a fresh document / DevTools target.
+      const previous = iframes[platform], replacement = previous.cloneNode(false);
+      replacement.removeAttribute('src'); previous.replaceWith(replacement);
+      iframes[platform] = replacement;
+      replacement.addEventListener('load', () => handleProviderFrameLoad(platform));
+      updateStatus(platform, '💤', t('providerUnloadedStatus', 'Not loaded; loads when you send a question or open the original site'));
+    },
+    render(platform, state) {
+      const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
+      wrapper.classList.toggle('provider-suspended', state.suspended);
+      wrapper.classList.toggle('provider-unloaded', !state.loaded);
+      wrapper.classList.toggle('provider-attention', !!state.attention);
+      const label = wrapper.querySelector('.provider-notice');
+      if (label) { label.hidden = !state.attention; label.textContent = state.attention ? providerRuntime[platform].notice || '' : ''; }
+    }
+  });
+  platforms.forEach(platform => {
+    const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
+    const notice = document.createElement('div'); notice.className = 'provider-notice'; notice.hidden = true; notice.setAttribute('role', 'status'); wrapper.prepend(notice);
+    const back = document.createElement('button'); back.type = 'button'; back.textContent = t('providerBackToAnswers', 'Back to answers'); back.setAttribute('data-i18n', 'providerBackToAnswers'); back.className = 'provider-back';
+    back.addEventListener('click', () => { if (currentMaximizedPlatform === platform) setMaximizedPlatform(platform, { toggle: true }); }); wrapper.querySelector('.iframe-header')?.append(back);
+  });
+  if (localStorage.getItem(DEMAND_VIEW_KEY) === 'true') showComparePanel();
+  syncProviderResources();
+  setInterval(() => providerResources.sweep(), 5000);
+}
+
+function onProviderResourceMessage(event) {
+  const data = event.data, platform = data.platform, runtime = providerRuntime[platform];
+  const resourceMessage = ['AI_NETWORK_STATE', 'AI_PROVIDER_ATTENTION'].includes(data.type);
+  if (!providerResources || !runtime) return resourceMessage;
+  if (event.source !== iframes[platform]?.contentWindow) return resourceMessage;
+  if (!providerResources.state(platform).loaded) return resourceMessage;
+  if (data.type === 'AI_SCRAPE_HISTORY_RESPONSE' && runtime.delivering) { clearCompareHistoryRequest(platform); return true; }
+  if (data.type === 'AI_NETWORK_STATE') {
+    if (platform === 'chatgpt' && /^\/local\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(data.resumePath || '')) {
+      const resumeURL = 'https://chatgpt.com' + data.resumePath;
+      localStorage.setItem('ai-chat-url-chatgpt', resumeURL); captureSessionUrl(platform, resumeURL);
+    }
+    runtime.delivering = !!data.delivering;
+    providerResources.update(platform, { network: !!data.available });
+    if (!data.delivering && compareWatchState[platform] && !compareWatchState[platform].complete) {
+      requestPlatformHistory(platform, { force: true }); ensureComparePollTimer();
+    }
+    return true;
+  }
+  if (data.type === 'AI_PROVIDER_ATTENTION' || data.type === 'AI_BLOCKED') {
+    const kind = data.type === 'AI_BLOCKED' ? 'challenge' : data.kind;
+    runtime.notice = data.message; providerResources.update(platform, { attention: kind || null });
+    if (kind) updateStatus(platform, '⚠️', data.message);
+    return true;
+  }
+  if (data.type === 'AI_READY') {
+    runtime.ready = true;
+    if (providerResources.state(platform).attention === 'startup') providerResources.update(platform, { attention: null });
+    const pending = runtime.pending; runtime.pending = [];
+    pending.forEach(message => iframes[platform].contentWindow.postMessage(message, '*'));
+  }
+  if (['AI_RESPONSE_RECEIVED', 'AI_ERROR'].includes(data.type) && isCurrentSubmissionEvent(platform, data)) providerResources.update(platform, { busy: false });
+  return false;
 }
 
 // 初始化
@@ -642,6 +763,7 @@ document.addEventListener('DOMContentLoaded', () => {
   initI18n().catch(error => console.warn('[AI Multi-Chat] i18n initialization failed:', error));
   applyPlatformLayout(activePlatformLayout, { persist: false, refreshAdded: false });
   bindLayoutConfigurator();
+  initializeProviderResources();
 
   const storedGrokUrl = normalizePlatformUrl('grok', localStorage.getItem('ai-chat-url-grok'));
   const restoreEpoch = compareNavigationEpoch;
@@ -650,7 +772,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (storedGrokUrl !== normalizePlatformUrl('grok', localStorage.getItem('ai-chat-url-grok'))) return;
     if (storedGrokUrl && !restorableGrokUrl) localStorage.removeItem('ai-chat-url-grok');
     if (restorableGrokUrl && restorableGrokUrl !== defaultUrls.grok && iframes.grok) {
-      iframes.grok.src = restorableGrokUrl;
+      if (providerResources.state('grok').loaded && iframes.grok.src !== restorableGrokUrl) iframes.grok.src = restorableGrokUrl;
     }
   }).catch(error => console.warn('[Grok] Saved URL validation failed:', error));
 
@@ -661,7 +783,7 @@ document.addEventListener('DOMContentLoaded', () => {
     const savedUrl = normalizePlatformUrl(platform, localStorage.getItem(`ai-chat-url-${platform}`));
     if (savedUrl && savedUrl !== defaultUrls[platform]) {
       console.log(`[${platform}] Restoring saved URL:`, savedUrl);
-      iframes[platform].src = savedUrl;
+      if (providerResources.state(platform).loaded && iframes[platform].src !== savedUrl) iframes[platform].src = savedUrl;
     }
   });
 
@@ -1232,6 +1354,8 @@ function setMaximizedPlatform(platform, options = {}) {
 
   currentMaximizedPlatform = shouldRestore ? null : platform;
   document.body.classList.toggle('iframe-maximized', !!currentMaximizedPlatform);
+  if (!shouldRestore) window.useProvider?.(platform);
+  window.syncProviderResources?.();
 }
 
 function clearSentQuestionInputs(sourceInput, question) {
@@ -1249,6 +1373,11 @@ function createSubmissionId(platform) {
 
 function cancelPlatformOperation(platform) {
   delete activeSubmissionIds[platform];
+  if (typeof providerRuntime !== 'undefined' && providerRuntime[platform]) {
+    providerRuntime[platform].pending = [];
+    providerRuntime[platform].generation++;
+    if (typeof providerResources !== 'undefined') providerResources?.update(platform, { busy: false });
+  }
   const iframe = iframes[platform];
   if (!iframe?.contentWindow) return;
   try {
@@ -1413,6 +1542,7 @@ function sendQuestionToPlatform(platform, question, options = {}) {
   console.log(`[${platform}] Sending question...`);
   const submissionId = options.submissionId || createSubmissionId(platform);
   activeSubmissionIds[platform] = submissionId;
+  window.useProvider?.(platform);
   if (compareWatchState[platform]) {
     compareWatchState[platform].submissionId = submissionId;
   }
@@ -1423,6 +1553,16 @@ function sendQuestionToPlatform(platform, question, options = {}) {
 
   try {
     // 直接通過 iframe 的 contentWindow 發送消息
+    if (typeof providerResources !== 'undefined' && providerResources) {
+      providerResources.update(platform, { busy: true });
+      const runtime = providerRuntime[platform];
+      runtime.retainHistory = false;
+      if (!runtime.ready) {
+        runtime.pending.push({ type: 'AI_SUBMIT_QUESTION', question, platform, submissionId, source: 'popup' });
+        updateStatus(platform, '⏳', t('providerLoadingBeforeSend', 'Sending once the original site loads…')); requestPlatformReadyState(platform);
+        return submissionId;
+      }
+    }
     iframe.contentWindow.postMessage({
       type: 'AI_SUBMIT_QUESTION',
       question: question,
@@ -1463,6 +1603,7 @@ function handleMessage(event) {
   }
 
   const platform = data.platform;
+  if (typeof window !== 'undefined' && window.onProviderResourceMessage?.(event)) return;
   console.log(`[popup] Received message from ${platform}:`, data.type);
 
   if (SUBMISSION_LIFECYCLE_TYPES.has(data.type) && !isCurrentSubmissionEvent(platform, data)) {
@@ -1498,7 +1639,7 @@ function handleMessage(event) {
       if (compareWatchState[platform]) compareWatchState[platform].sent = true;
       updateStatus(platform, '🔄', t('statusResponding', 'Responding...'));
       if (Array.isArray(data.history)) {
-        updateCompareFromHistory(platform, data.history, !!data.isGenerating, { explicitComplete: !!data.isComplete });
+        updateCompareFromHistory(platform, data.history, !!data.isGenerating, { explicitComplete: !!data.isComplete, protocolComplete: data.sourceKind === 'network' && !!data.isComplete });
       }
       markComparePlatformPending(platform, t('compareResponding', 'Responding...'));
       break;
@@ -1511,7 +1652,7 @@ function handleMessage(event) {
         // Content scripts can briefly lose ChatGPT's generating indicator between
         // tool/reasoning phases. Treat this as a completion hint and let the popup
         // confirm a quiet, stable tail instead of stopping immediately.
-        updateCompareFromHistory(platform, data.history, false, { completionHint: true, explicitComplete: !!data.isComplete });
+        updateCompareFromHistory(platform, data.history, false, { completionHint: true, explicitComplete: !!data.isComplete, protocolComplete: data.sourceKind === 'network' && !!data.isComplete });
       } else if (compareWatchState[platform] && !compareWatchState[platform].complete) {
         updateStatus(platform, '🔄', t('statusSyncingResponse', 'Syncing response...'));
         requestPlatformHistory(platform);
@@ -1530,6 +1671,10 @@ function handleMessage(event) {
 
     case 'AI_NETWORK_DIAGNOSTIC_ERROR':
       console.warn(`[${platform}] Ignored network diagnostic error:`, data.message);
+      break;
+
+    case 'AI_BLOCKED':
+      updateStatus(platform, '⚠️', data.message);
       break;
 
     case 'AI_ERROR':
@@ -1583,7 +1728,7 @@ function handleMessage(event) {
 
       clearCompareHistoryRequest(platform);
       const history = data.history || [];
-      updateCompareFromHistory(platform, history, !!data.isGenerating, { explicitComplete: !!data.isComplete });
+      updateCompareFromHistory(platform, history, !!data.isGenerating, { explicitComplete: !!data.isComplete, protocolComplete: data.sourceKind === 'network' && !!data.isComplete });
       break;
 
     default:
@@ -1901,7 +2046,7 @@ async function loadSelectedSession() {
         // iframe on an unrelated current conversation makes the group look
         // mixed, so reset only the missing pane to its clean start page.
         localStorage.removeItem(`ai-chat-url-${platform}`);
-        iframe.src = defaultUrls[platform];
+        navigateProvider(platform, defaultUrls[platform]);
         updateStatus(platform, '⏳', t('statusResetting', 'Resetting...'));
         continue;
       }
@@ -1912,14 +2057,14 @@ async function loadSelectedSession() {
         if (navigationEpoch !== compareNavigationEpoch) return;
         if (!normalizedUrl) {
           localStorage.removeItem('ai-chat-url-grok');
-          iframe.src = defaultUrls.grok;
+          navigateProvider(platform, defaultUrls.grok);
           updateStatus(platform, '⏳', t('loadingTitle', 'Loading...'));
           continue;
         }
       }
 
       localStorage.setItem(`ai-chat-url-${platform}`, normalizedUrl);
-      iframe.src = normalizedUrl;
+      navigateProvider(platform, normalizedUrl);
       updateStatus(platform, '⏳', t('switchingConversation', 'Switching conversation...'));
     }
 
@@ -1998,7 +2143,7 @@ function refreshIframe(platform) {
   const iframe = iframes[platform];
   const btn = document.querySelector(`.refresh-btn[data-platform="${platform}"]`);
 
-  if (!iframe) return;
+  if (!iframe || !isPlatformEnabled(platform)) return;
   clearPlatformRuntimeState(platform, { clearHistory: false, cancelRemote: true });
 
   // 添加旋轉動畫
@@ -2010,15 +2155,10 @@ function refreshIframe(platform) {
   }
 
   // 刷新 iframe：完整重新載入（包括 cookies）
-  const currentSrc = iframe.src;
-  iframe.src = '';
-  setTimeout(() => {
-    iframe.src = currentSrc;
-    console.log(`[${platform}] iframe refreshed`);
-
-    // 更新狀態為載入中
-    updateStatus(platform, '⏳', t('loadingTitle', 'Loading...'));
-  }, 50);
+  if (providerResources && !providerResources.state(platform).loaded) { useProvider(platform); return; }
+  const currentSrc = localStorage.getItem(`ai-chat-url-${platform}`) || iframe.src || defaultUrls[platform];
+  navigateProvider(platform, currentSrc);
+  updateStatus(platform, '⏳', t('loadingTitle', 'Loading...'));
 }
 
 function requestPlatformDiagnostics(platform, timeoutMs = 6000) {
@@ -2189,6 +2329,7 @@ function setPlatformEnabled(platform, enabled) {
   renderPlatformToggle(platform);
   syncSummaryPlatformMenu();
   syncSendOnePlatformMenu();
+  window.syncProviderResources?.();
 }
 
 function renderPlatformToggle(platform, options = {}) {
@@ -2605,6 +2746,8 @@ function showComparePanel() {
 
   panel.classList.remove('hidden');
   setCompareInputDocked(true);
+  localStorage.setItem('ai-zoo-demand-view-v1', 'true');
+  window.syncProviderResources?.();
 }
 
 function buildCompareBubble(message, options = {}) {
@@ -3113,6 +3256,8 @@ async function nativeShareCompareText() {
 
 function requestPlatformHistory(platform, options = {}) {
   if (!isPlatformEnabled(platform)) return false;
+  if (typeof providerResources !== 'undefined' && providerResources && (!providerResources.state(platform).loaded || providerRuntime[platform]?.delivering)) return false;
+  if (typeof providerRuntime !== 'undefined' && providerRuntime[platform]?.retainHistory && compareLatestHistories[platform]?.length) return false;
   const now = Date.now();
   const requestState = compareHistoryRequestState[platform];
   if (requestState && !options.force) {
@@ -3248,6 +3393,11 @@ function failComparePlatform(platform, message) {
 function updateCompareFromHistory(platform, history, isGenerating = false, options = {}) {
   const state = compareWatchState[platform];
   const messages = Array.isArray(history) ? history : [];
+  if (state?.protocolComplete && !options.protocolComplete) {
+    const current = findQuestionAnswer(messages, state.question, state.baselineOccurrences);
+    if (current.questionIndex < 0 || !current.answer || String(current.answer.content || '').trim().length < state.lastAnswerText.length) return;
+  }
+  if (state && options.protocolComplete) state.protocolComplete = true;
 
   if (!state) {
     renderCompareHistory(platform, messages);
@@ -3318,7 +3468,7 @@ function updateCompareFromHistory(platform, history, isGenerating = false, optio
     return;
   }
 
-  if (isLikelyIncompleteAssistantAnswer(platform, answerText)) {
+  if (!options.protocolComplete && isLikelyIncompleteAssistantAnswer(platform, answerText)) {
     state.complete = false;
     state.lastAnswerText = answerText;
     state.lastAnswerChangedAt = now;
@@ -3595,6 +3745,8 @@ function openComparePanel() {
 function closeComparePanel() {
   const panel = document.getElementById('compare-panel');
   if (panel) panel.classList.add('hidden');
+  localStorage.setItem('ai-zoo-demand-view-v1', 'false');
+  window.syncProviderResources?.();
   setCompareInputDocked(false);
   closeSummaryPlatformMenu();
   clearCompareOpenRefreshTimers();

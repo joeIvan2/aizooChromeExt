@@ -720,5 +720,50 @@
   },
   "claudeHistoryPastLabel": {
     "message": "Past Claude conversations"
+  },
+  "providerStartupNotice": {
+    "message": "The original site is still loading. You may need to sign in, give consent, or open this view to finish setup. Please check this page."
+  },
+  "providerUnloadedStatus": {
+    "message": "Not loaded; loads when you send a question or open the original site"
+  },
+  "providerBackToAnswers": {
+    "message": "Back to answers"
+  },
+  "providerLoadingBeforeSend": {
+    "message": "Sending once the original site loads…"
+  },
+  "providerAttentionChallenge": {
+    "message": "Security verification required. Please complete it on the original site."
+  },
+  "providerAttentionLogin": {
+    "message": "Sign-in required. Please sign in on the original site."
+  },
+  "providerAttentionConsent": {
+    "message": "Consent required. Please review it on the original site."
+  },
+  "providerAttentionRateLimit": {
+    "message": "Usage limit reached. Please check the original site for details."
+  },
+  "providerAttentionError": {
+    "message": "An error occurred on the original site. Please check the page."
+  },
+  "providerAttentionStartup": {
+    "message": "The page is still initializing. Please open it to finish loading."
+  },
+  "grokBlockedNotice": {
+    "message": "Grok access is blocked or security verification is required. Please complete verification in the Grok view. Sign-in status cannot be confirmed yet."
+  },
+  "grokLoginTitle": {
+    "message": "Sign in to Grok"
+  },
+  "grokLoginInstructions": {
+    "message": "For security reasons, use the button below to sign in in a new window. When finished, click “I have signed in”."
+  },
+  "grokLoginOpenWindow": {
+    "message": "Sign in in a new window"
+  },
+  "grokLoginDone": {
+    "message": "I have signed in"
   }
 }

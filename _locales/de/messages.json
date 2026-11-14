@@ -720,5 +720,50 @@
   },
   "claudeHistoryPastLabel": {
     "message": "Frühere Claude-Unterhaltungen"
+  },
+  "providerStartupNotice": {
+    "message": "Die ursprüngliche Website wird noch geladen. Möglicherweise musst du dich anmelden, deine Zustimmung geben oder diese Ansicht öffnen, um die Einrichtung abzuschließen. Bitte prüfe die Seite."
+  },
+  "providerUnloadedStatus": {
+    "message": "Nicht geladen; wird geladen, wenn du eine Frage sendest oder die ursprüngliche Website öffnest"
+  },
+  "providerBackToAnswers": {
+    "message": "Zurück zu den Antworten"
+  },
+  "providerLoadingBeforeSend": {
+    "message": "Wird gesendet, sobald die ursprüngliche Website geladen ist…"
+  },
+  "providerAttentionChallenge": {
+    "message": "Eine Sicherheitsüberprüfung ist erforderlich. Bitte schließe sie auf der ursprünglichen Website ab."
+  },
+  "providerAttentionLogin": {
+    "message": "Eine Anmeldung ist erforderlich. Bitte melde dich auf der ursprünglichen Website an."
+  },
+  "providerAttentionConsent": {
+    "message": "Deine Zustimmung ist erforderlich. Bitte prüfe die Anfrage auf der ursprünglichen Website."
+  },
+  "providerAttentionRateLimit": {
+    "message": "Das Nutzungslimit wurde erreicht. Weitere Informationen findest du auf der ursprünglichen Website."
+  },
+  "providerAttentionError": {
+    "message": "Auf der ursprünglichen Website ist ein Fehler aufgetreten. Bitte prüfe die Seite."
+  },
+  "providerAttentionStartup": {
+    "message": "Die Seite wird noch initialisiert. Bitte öffne sie, um den Ladevorgang abzuschließen."
+  },
+  "grokBlockedNotice": {
+    "message": "Der Zugriff auf Grok ist blockiert oder eine Sicherheitsüberprüfung ist erforderlich. Bitte schließe die Überprüfung in der Grok-Ansicht ab. Der Anmeldestatus kann noch nicht bestätigt werden."
+  },
+  "grokLoginTitle": {
+    "message": "Bei Grok anmelden"
+  },
+  "grokLoginInstructions": {
+    "message": "Melde dich aus Sicherheitsgründen über die Schaltfläche unten in einem neuen Fenster an. Klicke anschließend auf „Ich bin angemeldet“."
+  },
+  "grokLoginOpenWindow": {
+    "message": "In neuem Fenster anmelden"
+  },
+  "grokLoginDone": {
+    "message": "Ich bin angemeldet"
   }
 }

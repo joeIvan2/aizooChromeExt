@@ -55,8 +55,7 @@
           platform: 'gemini',
           requestId: data.requestId,
           navigationEpoch: data.navigationEpoch,
-          history: history,
-          isGenerating: window.InjectionCore.isGenerating(config),
+          ...window.InjectionCore.buildHistoryResponse(config, history),
           source: 'content-script'
         }, '*');
       }

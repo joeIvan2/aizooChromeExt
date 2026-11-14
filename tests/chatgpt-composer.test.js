@@ -163,3 +163,109 @@ test('ChatGPT does not submit an unrelated form when its composer is absent', ()
   assert.equal(config.clickButton(), false);
   assert.equal(unrelatedSend.clicks, 0);
 });
+
+// 2026-11 ChatGPT home composer: no <form>, send button is type="button" with
+// only a localized aria-label, sitting in [data-composer-trailing-controls].
+function formlessFixture({ sendLabel = '傳送' } = {}) {
+  const composer = element('div', {
+    contenteditable: 'true', class: 'ProseMirror', 'data-composer-markdown': '', role: 'textbox'
+  });
+  const model = element('button', { type: 'button', 'aria-label': '選擇模型', 'aria-haspopup': 'menu' });
+  const dictation = element('button', { type: 'button', 'aria-label': '聽寫', 'data-dictation-button': 'idle' });
+  const send = element('button', { type: 'button', 'aria-label': sendLabel });
+  const trailing = element('div', { 'data-composer-trailing-controls': 'true' }, [model, dictation, send]);
+  const root = element('div', { 'data-composer-layout': 'multiline' }, [
+    element('div', { 'data-composer-input': '' }, [composer]), trailing
+  ]);
+  const sidebar = element('button', { type: 'button', 'aria-label': '顯示側邊欄' });
+  const body = element('body', {}, [sidebar, root]);
+  let selected;
+  const document = {
+    body,
+    querySelector: selector => body.querySelector(selector),
+    querySelectorAll: selector => body.querySelectorAll(selector),
+    createRange: () => ({ selectNodeContents(node) { this.node = node; } }),
+    execCommand(command, unused, text) {
+      selected.innerText = selected.textContent = command === 'delete' ? '' : text;
+      return true;
+    }
+  };
+  const window = {
+    HTMLTextAreaElement: class {},
+    getSelection: () => ({ removeAllRanges() {}, addRange(range) { selected = range.node; } })
+  };
+  vm.runInNewContext(source, {
+    document, window, InputEvent: class {}, URL, location: { href: 'https://chatgpt.com/' },
+    console: { log() {}, warn() {}, error() {} }
+  });
+  return { config: window.PLATFORM_CONFIGS.chatgpt, composer, send, model, dictation, sidebar };
+}
+
+test('ChatGPT submits through the form-less composer send button', () => {
+  const { config, send, model, dictation, sidebar } = formlessFixture();
+  assert.equal(config.fillQuestion('hi'), true);
+  assert.equal(config.detectButton(), true);
+  assert.equal(config.clickButton(), true);
+  assert.equal(send.clicks, 1);
+  assert.equal(model.clicks + dictation.clicks + sidebar.clicks, 0);
+});
+
+test('ChatGPT form-less send button is found without relying on its localized label', () => {
+  const { config, send, dictation } = formlessFixture({ sendLabel: 'Envoyer' });
+  assert.equal(config.fillQuestion('hi'), true);
+  assert.equal(config.clickButton(), true);
+  assert.equal(send.clicks, 1);
+  assert.equal(dictation.clicks, 0);
+});
+
+test('ChatGPT form-less composer never clicks an unrecognized trailing control while empty', () => {
+  const { config, send } = formlessFixture({ sendLabel: 'Voice' });
+  assert.equal(config.detectButton(), false);
+  assert.equal(config.clickButton(), false);
+  assert.equal(send.clicks, 0);
+});
+
+// The 2026-11 thread is a virtualized list that only renders turns near the
+// viewport and does not follow a new turn unless it is already at the bottom.
+test('ChatGPT scrolls the thread to the newest turn after submitting', () => {
+  const composer = element('div', {
+    contenteditable: 'true', class: 'ProseMirror', 'data-composer-markdown': '', role: 'textbox'
+  });
+  const send = element('button', { type: 'button', 'aria-label': '傳送' });
+  const composerRoot = element('div', { 'data-composer-layout': 'multiline' }, [
+    composer, element('div', { 'data-composer-trailing-controls': 'true' }, [send])
+  ]);
+  const turn = element('div', { 'data-turn-key': 'history-content:turn:1' });
+  const scroller = element('div', { class: 'thread-scroller' }, [element('div', {}, [turn])]);
+  Object.assign(scroller, { scrollHeight: 4912, clientHeight: 614, scrollTop: 3264, overflowY: 'auto' });
+  const body = element('body', {}, [scroller, composerRoot]);
+  const timers = [];
+  let selected;
+  const document = {
+    body,
+    querySelector: selector => body.querySelector(selector),
+    querySelectorAll: selector => body.querySelectorAll(selector),
+    createRange: () => ({ selectNodeContents(node) { this.node = node; } }),
+    execCommand(command, unused, text) { selected.innerText = selected.textContent = text; return true; }
+  };
+  const window = {
+    HTMLTextAreaElement: class {},
+    getSelection: () => ({ removeAllRanges() {}, addRange(range) { selected = range.node; } }),
+    getComputedStyle: node => ({ overflowY: node.overflowY || 'visible' })
+  };
+  vm.runInNewContext(source, {
+    document, window, InputEvent: class {}, URL, location: { href: 'https://chatgpt.com/local/1' },
+    setTimeout: (callback, delay) => { timers.push({ callback, delay }); },
+    console: { log() {}, warn() {}, error() {} }
+  });
+  const config = window.PLATFORM_CONFIGS.chatgpt;
+
+  assert.equal(config.fillQuestion('next question'), true);
+  assert.equal(config.clickButton(), true);
+  assert.equal(send.clicks, 1);
+  assert.equal(scroller.scrollTop, 3264, 'the new turn is not in the DOM yet at click time');
+  assert.ok(timers.length > 0, 'expected follow-up scrolls after the turn is appended');
+  scroller.scrollHeight = 5143;
+  timers.forEach(timer => timer.callback());
+  assert.equal(scroller.scrollTop, 5143);
+});

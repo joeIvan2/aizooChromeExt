@@ -6,6 +6,9 @@
   if (location.hostname !== 'claude.ai') return;
   if (window.__AI_MULTICHAT_CLAUDE_PAGE_HOOK__) return;
 
+  // Shared network observer composes with the existing bootstrap shim below.
+  window.AIZooPageCapture?.install('claude');
+
   const BREAKPOINT_KEY = 'ai-multichat-claude-sidebar-breakpoint';
   const PROTECT_KEY = 'ai-multichat-claude-protect-sidebar';
   const PROTECT_UNTIL_KEY = 'ai-multichat-claude-protect-sidebar-until';

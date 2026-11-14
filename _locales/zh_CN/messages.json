@@ -720,5 +720,50 @@
   },
   "claudeHistoryPastLabel": {
     "message": "以往 Claude 对话"
+  },
+  "providerStartupNotice": {
+    "message": "原网站尚未加载完成，可能需要登录、同意相关事项或在前台完成初始化；请查看此页面。"
+  },
+  "providerUnloadedStatus": {
+    "message": "尚未加载；发送问题或打开原网站时加载"
+  },
+  "providerBackToAnswers": {
+    "message": "返回回答"
+  },
+  "providerLoadingBeforeSend": {
+    "message": "原网站加载后发送…"
+  },
+  "providerAttentionChallenge": {
+    "message": "需要安全验证，请在原网站完成验证。"
+  },
+  "providerAttentionLogin": {
+    "message": "需要登录，请在原网站登录。"
+  },
+  "providerAttentionConsent": {
+    "message": "需要确认同意事项，请在原网站处理。"
+  },
+  "providerAttentionRateLimit": {
+    "message": "已达到使用限制，请查看原网站说明。"
+  },
+  "providerAttentionError": {
+    "message": "原网站发生错误，请查看页面。"
+  },
+  "providerAttentionStartup": {
+    "message": "页面尚未完成初始化，请打开此页面完成加载。"
+  },
+  "grokBlockedNotice": {
+    "message": "Grok 访问受阻或需要安全验证，请在 Grok 页面完成验证；目前无法确认登录状态。"
+  },
+  "grokLoginTitle": {
+    "message": "需要登录 Grok"
+  },
+  "grokLoginInstructions": {
+    "message": "由于安全限制，请点击下方按钮在新窗口中登录，登录完成后点击“我已登录”。"
+  },
+  "grokLoginOpenWindow": {
+    "message": "在新窗口登录"
+  },
+  "grokLoginDone": {
+    "message": "我已登录"
   }
 }

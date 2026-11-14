@@ -129,3 +129,46 @@ test('ChatGPT retains legacy conversation-turn and author-role history support',
   const history = loadConfig([legacyTurn('user', 'old question', 0), legacyTurn('assistant', 'old answer', 1)]).scrapeHistory();
   assert.deepEqual(plain(history), [{ role: 'user', content: 'old question' }, { role: 'assistant', content: 'old answer' }]);
 });
+
+// 2026-11 "local" conversations: the search-unit key is "<turn>:<message id>"
+// with no role suffix; the role is only on the heading's data-conversation-role.
+const localUnit = (role, id, ...parts) => element('div', {
+  'data-history-message-id': id,
+  'data-content-search-unit-key': `01a1d594-d9b7:${id}`
+}, element('h4', { class: 'sr-only', 'data-conversation-role': role }, role === 'user' ? '你說：' : 'ChatGPT 說：'),
+...parts);
+const localUser = (text, id = '434f4a73') => localUnit('user', id,
+  element('div', { 'data-user-message-bubble': 'true' }, element('div', { class: 'whitespace-pre-wrap' }, text)),
+  element('span', {}, '下午11:44'));
+const localAnswer = (text, id = 'msg_0a31', done = true) => localUnit('assistant', id,
+  element('div', { 'data-markdown-text-style': 'assistant-message' }, text),
+  ...(done ? [element('span', { 'data-assistant-message-sent-time': 'true' }, '下午11:44')] : []));
+
+test('ChatGPT reads local-conversation units whose key has no role suffix', () => {
+  const config = loadConfig([localUser('say "hi" only'), localAnswer('hi')]);
+  assert.deepEqual(plain(config.scrapeHistory()), [
+    { role: 'user', content: 'say "hi" only' },
+    { role: 'assistant', content: 'hi' }
+  ]);
+  assert.equal(utils.findAnswerAfterQuestion(config.scrapeHistory(), 'say "hi" only', 0).answer.content, 'hi');
+});
+
+test('ChatGPT ignores search units that carry neither a role suffix nor a role heading', () => {
+  const stray = element('div', { 'data-content-search-unit-key': 'turn:unknown' }, 'sidebar text');
+  const config = loadConfig([stray, localUser('question'), localAnswer('answer')]);
+  assert.deepEqual(plain(config.scrapeHistory()).map(item => item.role), ['user', 'assistant']);
+});
+
+test('ChatGPT local conversations report completion once the reply shows its sent time', () => {
+  const pending = loadConfig([localUser('long question'), localAnswer('partial', 'msg_1', false)]);
+  assert.equal(pending.detectResponseComplete(), false);
+
+  const done = loadConfig([localUser('long question'), localAnswer('full answer', 'msg_1', true)]);
+  assert.equal(done.detectGenerating(), false);
+  assert.equal(done.detectResponseComplete(), true);
+});
+
+test('ChatGPT local conversations are not complete while the newest unit is still the question', () => {
+  const config = loadConfig([localUser('first'), localAnswer('done'), localUser('second', 'u2')]);
+  assert.equal(config.detectResponseComplete(), false);
+});

@@ -165,6 +165,8 @@ const InjectionCore = {
    * 監聽 URL 變化並回報
    */
   setupUrlMonitor(config) {
+    window.AIZooNetworkSource?.install(config);
+    window.AIZooProviderAttention?.install(config);
     if (window.__urlMonitorInitialized) return;
     window.__urlMonitorInitialized = true;
 
@@ -173,6 +175,7 @@ const InjectionCore = {
     const reportUrlChange = () => {
       const currentUrl = location.href;
       if (currentUrl !== lastUrl) {
+        window.__aiNetworkSources?.[config.id]?.navigate(currentUrl, lastUrl);
         lastUrl = currentUrl;
         console.log(`[${config.id}] URL changed to:`, currentUrl);
         sendMessageToPopup({
@@ -182,6 +185,14 @@ const InjectionCore = {
         });
       }
     };
+
+    // MAIN sends metadata-free navigation pulses; read this document's URL in
+    // ISOLATED so saving it never waits for a background-throttled timer.
+    window.addEventListener('message', event => {
+      if (event.source !== window || event.origin !== location.origin) return;
+      if ((event.data?.source === 'ai-zoo-page-state-v1' && event.data.provider === config.id && event.data.kind === 'navigation') ||
+          (event.data?.source === 'ai-zoo-network-v1' && event.data.provider === config.id)) reportUrlChange();
+    });
 
     // 1. 攔截 History API
     const origPushState = history.pushState;
@@ -212,6 +223,19 @@ const InjectionCore = {
   /**
    * 提交問題（帶重試機制）
    */
+  // True while a saved conversation's earlier turns have not loaded yet.
+  // Bounded so a conversation that really is empty can still be used.
+  isWaitingForConversation(config, waitedMs) {
+    if (waitedMs >= 10000 || typeof config.isConversationHydrated !== 'function') return false;
+    try { return !config.isConversationHydrated(); } catch { return false; }
+  },
+
+  buildHistoryResponse(config, history) {
+    const network = window.__aiNetworkSources?.[config.id]?.snapshot();
+    if (network) return { history: config.scrapeHistory(), sourceKind: 'network', isComplete: network.complete, isGenerating: !network.complete };
+    return { history, sourceKind: 'dom', isComplete: this.isResponseComplete(config), isGenerating: this.isGenerating(config) };
+  },
+
   async scrapeHistory(config, timeoutMs = 7000) {
     const start = Date.now();
     let lastHistory = [];
@@ -235,6 +259,8 @@ const InjectionCore = {
   // 平台自己標記的「已完成」訊號（例如 ChatGPT 的 turn-state、Meta 的 streaming-state）。
   // 沒有提供時回傳 false，改由「文字穩定 + 安靜期」判定。
   isResponseComplete(config) {
+    const network = window.__aiNetworkSources?.[config.id]?.snapshot();
+    if (network) return network.complete;
     try {
       return !!(config.detectResponseComplete && config.detectResponseComplete());
     } catch (error) {
@@ -243,7 +269,13 @@ const InjectionCore = {
     }
   },
 
+  responseSource(config) {
+    return window.__aiNetworkSources?.[config.id]?.snapshot() ? 'network' : 'dom';
+  },
+
   isGenerating(config) {
+    const network = window.__aiNetworkSources?.[config.id]?.snapshot();
+    if (network) return !network.complete;
     try {
       if (config.detectGenerating) {
         return !!config.detectGenerating();
@@ -310,6 +342,7 @@ const InjectionCore = {
     window.__aiOperationEpochs = window.__aiOperationEpochs || {};
     window.__aiOperationEpochs[platform] = this.getOperationEpoch(platform) + 1;
     this.stopResponseLifecycleWatcher(platform);
+    window.__aiNetworkSources?.[platform]?.cancel();
     console.log(`[${platform}] Pending operations cancelled`);
   },
 
@@ -371,11 +404,35 @@ const InjectionCore = {
     };
 
     const checkResponse = (countStablePoll = true) => {
-      if (window.__aiResponseLifecycleWatchers[config.id] !== watcher || watcher.completedNotified) return;
+      if (window.__aiResponseLifecycleWatchers[config.id] !== watcher) return;
       if (!this.isOperationCurrent(config.id, operationEpoch)) {
         this.stopResponseLifecycleWatcher(config.id);
         return;
       }
+
+      const network = window.__aiNetworkSources?.[config.id]?.snapshot();
+      if (network && network.submissionId === submissionId) {
+        pauseDOM();
+        const history = config.scrapeHistory();
+        const changed = network.text !== lastAnswerText || !hasStarted;
+        const metadata = {
+          platform: config.id, submissionId, baselineOccurrences, history,
+          sourceKind: 'network', isGenerating: !network.complete, isComplete: network.complete
+        };
+        if (changed || lastGenerating !== !network.complete) {
+          sendMessageToPopup({ ...metadata, type: hasStarted ? 'AI_RESPONSE_UPDATE' : 'AI_RESPONSE_START' });
+        }
+        hasStarted = true; lastAnswerText = network.text; lastGenerating = !network.complete;
+        if (network.complete && !watcher.networkCompleted) {
+          watcher.networkCompleted = true;
+          completedNotified = true; watcher.completedNotified = true;
+          sendMessageToPopup({ ...metadata, type: 'AI_RESPONSE_RECEIVED', response: network.text });
+          clearInterval(watcher.timer); watcher.timer = null; watcher.observer?.disconnect();
+        }
+        return;
+      }
+      if (watcher.completedNotified) return;
+      resumeDOM();
 
       let history = [];
       let generating = false;
@@ -476,31 +533,34 @@ const InjectionCore = {
         });
         // The popup keeps a low-frequency recheck alive while Smart Compare is
         // open. Stop this fast DOM scan once the turn has settled.
-        clearInterval(timer);
+        clearInterval(watcher.timer);
         watcher.timer = null;
         watcher.observer?.disconnect();
       }
     };
 
-    const timer = setInterval(checkResponse, pollMs);
-    watcher.timer = timer;
+    const pauseDOM = () => {
+      if (watcher.timer !== null) clearInterval(watcher.timer);
+      watcher.timer = null; watcher.observer?.disconnect();
+    };
+    const resumeDOM = () => {
+      if (watcher.timer !== null || watcher.completedNotified) return;
+      watcher.timer = setInterval(checkResponse, pollMs);
+      watcher.observer?.observe(document.body, {
+        subtree: true, childList: true, characterData: true, attributes: true,
+        attributeFilter: ['aria-busy', 'aria-label', 'data-message-streaming', 'data-is-streaming', 'data-chatgpt-search-unit-key', 'data-content-search-unit-key', 'data-markdown-text-style']
+      });
+    };
+    watcher.checkResponse = checkResponse;
     window.__aiResponseLifecycleWatchers[config.id] = watcher;
     if (config.responseObserveMutations && typeof MutationObserver !== 'undefined' && document.body) {
       // DOM changes run even when Chrome delays interval timers in a hidden tab.
       // They publish text immediately but do not count as stable polling samples.
-      watcher.observer = new MutationObserver(() => checkResponse(false));
-      watcher.observer.observe(document.body, {
-        subtree: true,
-        childList: true,
-        characterData: true,
-        attributes: true,
-        attributeFilter: [
-          'aria-busy', 'aria-label', 'data-message-streaming', 'data-is-streaming',
-          'data-chatgpt-search-unit-key', 'data-content-search-unit-key',
-          'data-markdown-text-style'
-        ]
-      });
+      watcher.observer = new MutationObserver(() => { if (watcher.timer !== null) checkResponse(false); });
     }
+    resumeDOM();
+    // A synchronous page send can produce network data before this watcher exists.
+    if (window.__aiNetworkSources?.[config.id]?.snapshot()) checkResponse(false);
   },
 
   /**
@@ -516,12 +576,13 @@ const InjectionCore = {
       submissionId
     });
     let retryCount = 0;
+    const waitStarted = Date.now();
 
     // Step 1: 等待 textarea
     while (this.isOperationCurrent(config.id, operationEpoch)) {
       try {
         const textareaFound = config.detectTextarea();
-        if (textareaFound) {
+        if (textareaFound && !this.isWaitingForConversation(config, Date.now() - waitStarted)) {
           console.log(`[${config.id}] Textarea found`);
           break;
         }
@@ -549,6 +610,12 @@ const InjectionCore = {
       console.warn(`[${config.id}] Could not capture the pre-send turn boundary:`, error);
     }
     const baselineOccurrences = window.AIZooUtils.countExactUserQuestions(historyBeforeSubmit, question);
+
+    const attention = window.AIZooProviderAttention?.check?.() || window.__aiProviderAttention;
+    if (attention) {
+      emit({ type: 'AI_ERROR', message: attention.message });
+      return false;
+    }
 
     // Step 2: 填入問題
     try {
@@ -625,7 +692,7 @@ const InjectionCore = {
           console.log(`  Actual   (${normalizedContent.length} chars): "${normalizedContent.substring(0, 80)}..."`);
         }
 
-        if (normalizedContent === normalizedQuestion) {
+        if (window.AIZooUtils.sameTextIgnoringWhitespace(currentContent, question)) {
           console.log(`[${config.id}] ✅ Content verified successfully`);
           contentVerified = true;
           break;
@@ -660,6 +727,9 @@ const InjectionCore = {
 
     while (this.isOperationCurrent(config.id, operationEpoch)) {
       try {
+        if (window.AIZooProviderAttention?.check?.() || window.__aiProviderAttention) {
+          emit({ type: 'AI_ERROR', message: window.__aiProviderAttention.message }); return false;
+        }
         const buttonFound = config.detectButton();
         if (!buttonFound) {
           if (!hasShownWaitingMessage) {
@@ -675,6 +745,7 @@ const InjectionCore = {
         }
 
         // 按鈕找到，嘗試點擊
+        window.__aiNetworkSources?.[config.id]?.begin(question, { submissionId, baselineOccurrences });
         const clickSuccess = config.clickButton();
         if (clickSuccess) {
           console.log(`[${config.id}] Button clicked successfully`);

@@ -55,9 +55,7 @@
           platform: 'chatgpt',
           requestId: data.requestId,
           navigationEpoch: data.navigationEpoch,
-          history: history,
-          isGenerating: window.InjectionCore.isGenerating(config),
-          isComplete: window.InjectionCore.isResponseComplete(config),
+          ...window.InjectionCore.buildHistoryResponse(config, history),
           source: 'content-script'
         }, '*');
       }
@@ -221,7 +219,9 @@
         signal: controller.signal
       });
 
-      if (response.status === 401 || response.status === 403) {
+      const blocker = await window.AIZooProviderAttention?.reportResponse?.(response);
+      if (blocker && blocker.kind !== 'login') return;
+      if (response.status === 401) {
         reportLoginState(false, forceReport);
         return;
       }

@@ -172,3 +172,30 @@ test('Meta thinking controls alone are not an assistant answer', () => {
     element('div', { 'data-testid': 'thinking-status' }, 'Show thinking')))]);
   assert.equal(config.scrapeHistory().length, 0);
 });
+
+// Meta's "which response do you prefer?" test renders both candidates twice in
+// one assistant message: a wide side-by-side layout and a tabbed layout.
+function sideBySide(first, second, selected = 0) {
+  return answer(
+    element('span', {}, '你偏好哪一則回覆？'),
+    element('div', { class: 'hidden' },
+      element('div', {}, element('span', {}, '回覆 1'), prose(first)),
+      element('div', {}, element('span', {}, '回覆 2'), prose(second))),
+    element('div', { class: 'md:hidden' },
+      element('div', { role: 'tablist' },
+        element('button', { role: 'tab' }, '回覆 1'), element('button', { role: 'tab' }, '回覆 2')),
+      element('div', { role: 'tabpanel', 'aria-hidden': selected === 0 ? 'false' : 'true' }, prose(first)),
+      element('div', { role: 'tabpanel', 'aria-hidden': selected === 1 ? 'false' : 'true' }, prose(second)))
+  );
+}
+
+test('Meta reads a side-by-side response comparison once, not every rendered copy', () => {
+  const history = loadConfig([user('say "hi" only'), sideBySide('hi', 'hi')]).scrapeHistory();
+  assert.equal(history.length, 2);
+  assert.equal(history[1].content, 'hi');
+});
+
+test('Meta side-by-side comparison follows the selected response tab', () => {
+  const history = loadConfig([user('pick'), sideBySide('first candidate', 'second candidate', 1)]).scrapeHistory();
+  assert.equal(history[1].content, 'second candidate');
+});

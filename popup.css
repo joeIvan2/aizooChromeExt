@@ -691,6 +691,26 @@ body.resize-restore-unseen.iframe-maximized .iframe-wrapper.maximized .maximize-
 }
 
 /* iframe 區域 */
+.iframe-wrapper.provider-suspended {
+  content-visibility: hidden;
+  contain-intrinsic-size: auto 666px;
+}
+/* These composers also pass short/long live checks with no layout box.
+   ChatGPT needs focus; Meta requires positive composer geometry. */
+.iframe-wrapper.provider-suspended[data-platform="grok"],
+.iframe-wrapper.provider-suspended[data-platform="gemini"],
+.iframe-wrapper.provider-suspended[data-platform="claude"] { display: none; }
+.iframe-wrapper.provider-attention {
+  content-visibility: visible;
+  position: fixed;
+  inset: 12px;
+  z-index: 10002;
+}
+.provider-notice { padding: 10px 16px; background: #51360b; color: #fff2c6; }
+.provider-back { padding: 5px 9px; border-radius: 7px; cursor: pointer; }
+.provider-back { display: none; }
+.iframe-wrapper.maximized .provider-back { display: inline-block; }
+.provider-unloaded iframe { visibility: hidden; }
 .iframes-container {
   flex: 1;
   display: grid;

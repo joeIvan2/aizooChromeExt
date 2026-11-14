@@ -20,8 +20,7 @@
 
   const config = window.PLATFORM_CONFIGS.grok;
 
-  // DOM scraping is authoritative. Isolated-world fetch hooks cannot observe
-  // the provider page's requests, so only monitor iframe navigation here.
+  // Installs the isolated network bridge and keeps the original DOM fallback.
   if (window.parent !== window) window.InjectionCore.setupUrlMonitor(config);
 
   // 監聽來自 popup 的消息
@@ -69,8 +68,7 @@
           platform: 'grok',
           requestId: data.requestId,
           navigationEpoch: data.navigationEpoch,
-          history: history,
-          isGenerating: window.InjectionCore.isGenerating(config),
+          ...window.InjectionCore.buildHistoryResponse(config, history),
           source: 'content-script'
         }, '*');
       }
@@ -208,8 +206,8 @@
 
     overlay.innerHTML = `
       <div style="background: #2d3748; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; position: relative; z-index: 1;">
-        <h2 style="margin-bottom: 20px; font-size: 24px;">需登入 Grok</h2>
-        <p style="margin-bottom: 20px; color: #cbd5e0;">由於安全限制，請點擊下方按鈕在新視窗中登入，登入完成後點擊「我已登入」。</p>
+        <h2 style="margin-bottom: 20px; font-size: 24px;">${chrome.i18n.getMessage('grokLoginTitle') || 'Sign in to Grok'}</h2>
+        <p style="margin-bottom: 20px; color: #cbd5e0;">${chrome.i18n.getMessage('grokLoginInstructions') || 'For security reasons, use the button below to sign in in a new window. When finished, click “I have signed in”.'}</p>
         <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
           <button id="ai-login-btn" style="
             background: #e74c3c;
@@ -223,7 +221,7 @@
             position: relative;
             z-index: 2;
             pointer-events: auto;
-          ">在新視窗登入</button>
+          ">${chrome.i18n.getMessage('grokLoginOpenWindow') || 'Sign in in a new window'}</button>
           <button id="ai-close-btn" style="
             background: #27ae60;
             color: white;
@@ -236,7 +234,7 @@
             position: relative;
             z-index: 2;
             pointer-events: auto;
-          ">我已登入</button>
+          ">${chrome.i18n.getMessage('grokLoginDone') || 'I have signed in'}</button>
         </div>
       </div>
     `;
@@ -276,6 +274,16 @@
     notifyLoginRequired();
   }
 
+  function reportBlocked(forceReport = false) {
+    document.getElementById(LOGIN_OVERLAY_ID)?.remove();
+    if (lastAuthenticatedState === 'blocked' && !forceReport) return;
+    lastAuthenticatedState = 'blocked';
+    sendMessageToPopup({
+      type: 'AI_BLOCKED', platform: 'grok',
+      message: chrome.i18n.getMessage('grokBlockedNotice') || 'Grok access is blocked or security verification is required. Please complete verification in the Grok view. Sign-in status cannot be confirmed yet.'
+    });
+  }
+
   async function checkLoginState(forceReport = false) {
     // Only run this logic if we are inside an iframe
     if (window.self === window.top) return;
@@ -305,15 +313,20 @@
         signal: controller.signal
       });
 
-      if (response.status === 401 || response.status === 403) {
+      const blocker = await window.AIZooProviderAttention?.reportResponse?.(response);
+      if (blocker && blocker.kind !== 'login') return;
+      const authState = await window.AIZooUtils.classifyGrokAuthResponse(response);
+      if (authState === 'blocked') {
+        reportBlocked(forceReport);
+        return;
+      }
+      if (authState === 'logged-out') {
         reportLoginState(false, forceReport);
         return;
       }
 
-      if (response.ok) {
-        const data = await response.json();
-        const isAuthenticated = data?.status === 'authenticated' && !!data.session;
-        reportLoginState(isAuthenticated, forceReport);
+      if (authState === 'authenticated') {
+        reportLoginState(true, forceReport);
         return;
       }
 

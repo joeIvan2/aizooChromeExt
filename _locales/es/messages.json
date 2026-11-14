@@ -720,5 +720,50 @@
   },
   "claudeHistoryPastLabel": {
     "message": "Conversaciones anteriores de Claude"
+  },
+  "providerStartupNotice": {
+    "message": "El sitio original aún se está cargando. Puede que debas iniciar sesión, dar tu consentimiento o abrir esta vista para completar la configuración. Revisa la página."
+  },
+  "providerUnloadedStatus": {
+    "message": "Sin cargar; se carga al enviar una pregunta o abrir el sitio original"
+  },
+  "providerBackToAnswers": {
+    "message": "Volver a las respuestas"
+  },
+  "providerLoadingBeforeSend": {
+    "message": "Se enviará cuando se cargue el sitio original…"
+  },
+  "providerAttentionChallenge": {
+    "message": "Se requiere una verificación de seguridad. Complétala en el sitio original."
+  },
+  "providerAttentionLogin": {
+    "message": "Es necesario iniciar sesión. Inicia sesión en el sitio original."
+  },
+  "providerAttentionConsent": {
+    "message": "Se requiere tu consentimiento. Revisa la solicitud en el sitio original."
+  },
+  "providerAttentionRateLimit": {
+    "message": "Has alcanzado el límite de uso. Consulta los detalles en el sitio original."
+  },
+  "providerAttentionError": {
+    "message": "Se ha producido un error en el sitio original. Revisa la página."
+  },
+  "providerAttentionStartup": {
+    "message": "La página aún se está inicializando. Ábrela para terminar de cargarla."
+  },
+  "grokBlockedNotice": {
+    "message": "El acceso a Grok está bloqueado o requiere una verificación de seguridad. Complétala en la vista de Grok. Aún no se puede confirmar si has iniciado sesión."
+  },
+  "grokLoginTitle": {
+    "message": "Inicia sesión en Grok"
+  },
+  "grokLoginInstructions": {
+    "message": "Por motivos de seguridad, usa el botón de abajo para iniciar sesión en una ventana nueva. Cuando termines, haz clic en «Ya he iniciado sesión»."
+  },
+  "grokLoginOpenWindow": {
+    "message": "Iniciar sesión en una ventana nueva"
+  },
+  "grokLoginDone": {
+    "message": "Ya he iniciado sesión"
   }
 }

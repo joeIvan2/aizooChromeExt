@@ -720,5 +720,50 @@
   },
   "claudeHistoryPastLabel": {
     "message": "Conversations Claude précédentes"
+  },
+  "providerStartupNotice": {
+    "message": "Le site d’origine est en cours de chargement. Vous devrez peut-être vous connecter, donner votre consentement ou ouvrir cette vue pour terminer la configuration. Veuillez vérifier la page."
+  },
+  "providerUnloadedStatus": {
+    "message": "Non chargé ; se charge à l’envoi d’une question ou à l’ouverture du site d’origine"
+  },
+  "providerBackToAnswers": {
+    "message": "Retour aux réponses"
+  },
+  "providerLoadingBeforeSend": {
+    "message": "Envoi dès que le site d’origine sera chargé…"
+  },
+  "providerAttentionChallenge": {
+    "message": "Une vérification de sécurité est requise. Veuillez l’effectuer sur le site d’origine."
+  },
+  "providerAttentionLogin": {
+    "message": "Une connexion est requise. Veuillez vous connecter sur le site d’origine."
+  },
+  "providerAttentionConsent": {
+    "message": "Votre consentement est requis. Veuillez consulter la demande sur le site d’origine."
+  },
+  "providerAttentionRateLimit": {
+    "message": "La limite d’utilisation a été atteinte. Consultez le site d’origine pour plus de détails."
+  },
+  "providerAttentionError": {
+    "message": "Une erreur est survenue sur le site d’origine. Veuillez vérifier la page."
+  },
+  "providerAttentionStartup": {
+    "message": "La page est en cours d’initialisation. Ouvrez-la pour terminer le chargement."
+  },
+  "grokBlockedNotice": {
+    "message": "L’accès à Grok est bloqué ou nécessite une vérification de sécurité. Effectuez-la dans la vue Grok. L’état de connexion ne peut pas encore être confirmé."
+  },
+  "grokLoginTitle": {
+    "message": "Connexion à Grok"
+  },
+  "grokLoginInstructions": {
+    "message": "Pour des raisons de sécurité, utilisez le bouton ci-dessous pour vous connecter dans une nouvelle fenêtre. Une fois connecté, cliquez sur « Je suis connecté »."
+  },
+  "grokLoginOpenWindow": {
+    "message": "Se connecter dans une nouvelle fenêtre"
+  },
+  "grokLoginDone": {
+    "message": "Je suis connecté"
   }
 }

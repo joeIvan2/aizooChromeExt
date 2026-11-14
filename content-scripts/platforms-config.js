@@ -218,10 +218,27 @@ function readClaudeAssistantContent(element) {
   return raw;
 }
 
+function readTextWithoutSpeakerHeading(element) {
+  // Grok 每則訊息開頭有螢幕閱讀器用的發話者標題（「您」、「Grok」），不屬於訊息內容。
+  var raw = (element.innerText || element.textContent || '').trim();
+  var heading = element.querySelector('h1.sr-only, h2.sr-only');
+  var headingText = heading ? (heading.innerText || heading.textContent || '').trim() : '';
+  if (headingText && raw.indexOf(headingText) === 0) raw = raw.slice(headingText.length).trim();
+  return raw;
+}
+
 function readGrokAssistantContent(element) {
   // 正文在 .response-content-markdown；.thinking-container 是「運作了 5s」之類的思考標籤。
   return readTopLevelBlocksText(element, '.response-content-markdown', '.thinking-container') ||
-    element.innerText || element.textContent || '';
+    readTextWithoutSpeakerHeading(element);
+}
+
+function readGrokUserContent(element) {
+  // 提問本文在 [data-bubble-text]；沒有時退回整塊文字並去掉發話者標題。
+  var parts = Array.from(element.querySelectorAll('[data-bubble-text]')).map(function(part) {
+    return part.innerText || part.textContent || '';
+  }).filter(function(text) { return text.trim(); });
+  return parts.length > 0 ? parts.join('\n') : readTextWithoutSpeakerHeading(element);
 }
 
 function scrapeClaudeArticleHistory() {
@@ -502,6 +519,16 @@ function readMetaAssistantContent(messageElement) {
   // Meta renders prose, tables and code in separate sibling blocks. Selecting
   // just the first .ur-markdown (or the longest block) truncates the response.
   var selectors = '.markdown-content, .ur-markdown, table, pre';
+
+  // 「你偏好哪一則回覆？」並排比較會把兩則候選回覆各渲染兩份（寬版並排 + 分頁版），
+  // 整塊讀會重複三四次；只讀目前選中的那個分頁。
+  var panels = Array.from(messageElement.querySelectorAll('[role="tabpanel"]'));
+  if (panels.length > 1) {
+    messageElement = panels.filter(function(panel) {
+      return panel.getAttribute('aria-hidden') !== 'true';
+    })[0] || panels[0];
+  }
+
   var candidates = messageElement.matches(selectors)
     ? [messageElement]
     : Array.from(messageElement.querySelectorAll(selectors));
@@ -526,10 +553,41 @@ function readMetaAssistantContent(messageElement) {
   return { content: parts.join('\n\n'), links: links };
 }
 
+// Text of a rich editor with its line breaks. textContent drops <br> and
+// paragraph boundaries, and innerText does the same when the frame is not rendered.
+function readEditorText(root) {
+  var out = '';
+  (function walk(node) {
+    Array.prototype.forEach.call(node.childNodes || [], function(child) {
+      if (child.nodeType === 3) { out += child.textContent; return; }
+      if (child.nodeType !== 1) return;
+      if (child.tagName === 'BR') { out += '\n'; return; }
+      var block = /^(P|DIV|LI|PRE|BLOCKQUOTE|H[1-6])$/.test(child.tagName);
+      if (block && out && !/\n$/.test(out)) out += '\n';
+      walk(child);
+      if (block && !/\n$/.test(out)) out += '\n';
+    });
+  })(root);
+  return out.replace(/\n$/, '');
+}
+
+function isInsideHiddenContainer(element) {
+  if (typeof getComputedStyle !== 'function') return false;
+  for (var node = element; node; node = node.parentElement) {
+    try { if (getComputedStyle(node).display === 'none') return true; } catch (e) { return false; }
+  }
+  return false;
+}
+
 function getChatGPTComposer() {
-  return document.querySelector(
-    '#prompt-textarea, [data-composer-markdown][contenteditable="true"], form .ProseMirror[contenteditable="true"]'
-  );
+  var selector = '#prompt-textarea, [data-composer-markdown][contenteditable="true"], form .ProseMirror[contenteditable="true"]';
+  // After the first question the home page's composer stays in the page inside a
+  // display:none container. It matches first, but it cannot be filled.
+  var matches = Array.prototype.slice.call(document.querySelectorAll(selector));
+  for (var i = 0; i < matches.length; i++) {
+    if (!isInsideHiddenContainer(matches[i])) return matches[i];
+  }
+  return matches[0] || document.querySelector(selector);
 }
 
 function getChatGPTSendButton() {
@@ -540,7 +598,34 @@ function getChatGPTSendButton() {
   var selectors = 'button[data-testid="send-button"], button[data-testid="composer-submit-button"], button#composer-submit-button';
   // 新版移除了 send-button test ID；只在此輸入框的表單內尋找 submit。
   if (form) selectors += ', button[type="submit"]';
-  return (form || document).querySelector(selectors);
+  var button = (form || document).querySelector(selectors);
+  if (button || form) return button;
+  return getChatGPTFormlessSendButton(composer);
+}
+
+function getChatGPTFormlessSendButton(composer) {
+  // 2026-11 新版首頁輸入區沒有 <form>，送出鈕是 type="button"、沒有 data-testid，
+  // 只能從輸入框所屬輸入區的 [data-composer-trailing-controls] 裡找。
+  var root = composer.parentElement;
+  while (root && !root.querySelector('[data-composer-trailing-controls]')) root = root.parentElement;
+  if (!root) return null;
+
+  var trailing = root.querySelector('[data-composer-trailing-controls]');
+  var candidates = Array.from(trailing.querySelectorAll('button')).filter(function(button) {
+    // 排除聽寫鈕與會開選單的控制項（模型、權限等）。
+    return button.getAttribute('data-dictation-button') === null &&
+      button.getAttribute('aria-haspopup') === null &&
+      button.getAttribute('aria-expanded') === null;
+  });
+  var labelled = candidates.filter(function(button) {
+    return /send|submit|傳送|发送|送出|送信/i.test(button.getAttribute('aria-label') || '');
+  });
+  if (labelled.length > 0) return labelled[labelled.length - 1];
+
+  // 其他介面語言認不出 aria-label 時：輸入框有內容，最後一個控制項才會是送出鈕
+  // （空白時同一位置可能是語音鈕，不能按）。
+  var text = composer.innerText || composer.textContent || '';
+  return text.trim() ? (candidates[candidates.length - 1] || null) : null;
 }
 
 // 以下送出 / 停止鈕都優先用不分語言的屬性（data-testid、圖示名稱、表單 submit），
@@ -581,6 +666,21 @@ function getChatGPTStopButton() {
   );
 }
 
+function scrollChatGPTThreadToLatest() {
+  // 2026-11 對話是虛擬清單：只渲染畫面附近的輪次，而且頁面不在底部時送出新問題不會自動跟上，
+  // 新的一輪不在 DOM 裡就讀不到回覆。找到包住對話的捲動容器並捲到底。
+  var turn = document.querySelector('[data-turn-key], [data-content-search-unit-key]');
+  var getStyle = typeof window !== 'undefined' && window.getComputedStyle;
+  for (var node = turn && turn.parentElement; node && getStyle; node = node.parentElement) {
+    if (node.scrollHeight > node.clientHeight + 1 &&
+        /auto|scroll/.test(getStyle.call(window, node).overflowY || '')) {
+      node.scrollTop = node.scrollHeight;
+      return true;
+    }
+  }
+  return false;
+}
+
 function getChatGPTLatestTurnState() {
   var turns = document.querySelectorAll('[data-talvt-turn-state]');
   var latest = turns[turns.length - 1];
@@ -594,8 +694,14 @@ function getChatGPTSearchUnits() {
   )).map(function(element) {
     var key = element.getAttribute('data-chatgpt-search-unit-key') ||
       element.getAttribute('data-content-search-unit-key') || '';
-    var role = key.match(/:(user|assistant)$/);
-    return role ? { element: element, role: role[1] } : null;
+    var suffix = key.match(/:(user|assistant)$/);
+    if (suffix) return { element: element, role: suffix[1] };
+
+    // 2026-11「local」對話的 key 是「<turn>:<訊息 ID>」，不含角色；
+    // 角色只標在訊息標題的 data-conversation-role 上。
+    var heading = element.querySelector('[data-conversation-role]');
+    var role = heading ? heading.getAttribute('data-conversation-role') : '';
+    return role === 'user' || role === 'assistant' ? { element: element, role: role } : null;
   }).filter(Boolean);
 
   // 同一則訊息的外層與內容層都有 search key，只讀最外層一次。
@@ -724,7 +830,7 @@ const PLATFORM_CONFIGS = {
         );
         return {
           role: isUser ? 'user' : 'assistant',
-          content: (isUser ? el.innerText : readGrokAssistantContent(el)).trim(),
+          content: (isUser ? readGrokUserContent(el) : readGrokAssistantContent(el)).trim(),
           links: collectScrapedLinks(el)
         };
       }));
@@ -740,6 +846,12 @@ const PLATFORM_CONFIGS = {
     // userAgent: ANDROID_USER_AGENT,
     detectTextarea: function() {
       return !!document.querySelector('.ql-editor[contenteditable="true"]');
+    },
+    // A reloaded conversation shows its composer before the earlier turns.
+    // Sending in that gap is answered without the earlier context.
+    isConversationHydrated: function() {
+      if (!/^\/app\/[^/]+/.test(location.pathname)) return true;
+      return !!document.querySelector('user-query, message-content');
     },
     detectButton: function() {
       if (this.detectGenerating()) return false;
@@ -866,7 +978,7 @@ const PLATFORM_CONFIGS = {
     getContent: function() {
       var inputArea = document.querySelector('div[contenteditable="true"][data-testid="chat-input"]');
       if (!inputArea) return '';
-      return inputArea.textContent || '';
+      return readEditorText(inputArea);
     },
     fillQuestion: function(q) {
       var inputArea = document.querySelector('div[contenteditable="true"][data-testid="chat-input"]');
@@ -1015,7 +1127,14 @@ const PLATFORM_CONFIGS = {
     },
     // 明確完成訊號：ChatGPT 在每一輪標記 data-talvt-turn-state，完成時為 "complete"。
     detectResponseComplete: function() {
-      return !getChatGPTStopButton() && getChatGPTLatestTurnState() === 'complete';
+      if (getChatGPTStopButton()) return false;
+      if (getChatGPTLatestTurnState() === 'complete') return true;
+
+      // 2026-11「local」對話沒有 turn-state；回覆結束後，最新一則回覆才會出現傳送時間。
+      var units = getChatGPTSearchUnits();
+      var latest = units[units.length - 1];
+      return !!(latest && latest.role === 'assistant' &&
+        latest.element.querySelector('[data-assistant-message-sent-time]'));
     },
     getContent: function() {
       var composer = getChatGPTComposer();
@@ -1053,6 +1172,12 @@ const PLATFORM_CONFIGS = {
       var button = getChatGPTSendButton();
       if (!button) return false;
       button.click();
+      // 新的一輪要等送出後才加進對話，分幾次把對話捲到最新。
+      if (typeof setTimeout === 'function') {
+        [400, 1200, 2500, 5000].forEach(function(delay) {
+          setTimeout(scrollChatGPTThreadToLatest, delay);
+        });
+      }
       return true;
     },
     responseType: 'fetch_stream',

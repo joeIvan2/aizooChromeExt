@@ -49,9 +49,7 @@
           platform: 'meta',
           requestId: data.requestId,
           navigationEpoch: data.navigationEpoch,
-          history,
-          isGenerating: window.InjectionCore.isGenerating(config),
-          isComplete: window.InjectionCore.isResponseComplete(config),
+          ...window.InjectionCore.buildHistoryResponse(config, history),
           source: 'content-script'
         }, '*');
       }

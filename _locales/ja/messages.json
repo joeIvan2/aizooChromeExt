@@ -720,5 +720,50 @@
   },
   "claudeHistoryPastLabel": {
     "message": "過去の Claude 会話"
+  },
+  "providerStartupNotice": {
+    "message": "元のサイトを読み込み中です。ログインや同意、またはこの画面を開いて初期設定を完了する必要があるかもしれません。ページを確認してください。"
+  },
+  "providerUnloadedStatus": {
+    "message": "未読み込み：質問を送信するか、元のサイトを開くと読み込まれます"
+  },
+  "providerBackToAnswers": {
+    "message": "回答に戻る"
+  },
+  "providerLoadingBeforeSend": {
+    "message": "元のサイトの読み込み後に送信します…"
+  },
+  "providerAttentionChallenge": {
+    "message": "セキュリティ認証が必要です。元のサイトで認証を完了してください。"
+  },
+  "providerAttentionLogin": {
+    "message": "ログインが必要です。元のサイトでログインしてください。"
+  },
+  "providerAttentionConsent": {
+    "message": "同意が必要な項目があります。元のサイトで確認してください。"
+  },
+  "providerAttentionRateLimit": {
+    "message": "利用上限に達しました。詳細は元のサイトで確認してください。"
+  },
+  "providerAttentionError": {
+    "message": "元のサイトでエラーが発生しました。ページを確認してください。"
+  },
+  "providerAttentionStartup": {
+    "message": "ページを初期化中です。このページを開いて読み込みを完了してください。"
+  },
+  "grokBlockedNotice": {
+    "message": "Grok へのアクセスがブロックされているか、セキュリティ認証が必要です。Grok の画面で認証を完了してください。現在、ログイン状態を確認できません。"
+  },
+  "grokLoginTitle": {
+    "message": "Grok にログイン"
+  },
+  "grokLoginInstructions": {
+    "message": "セキュリティ上の理由により、下のボタンから新しいウィンドウでログインしてください。完了したら「ログインしました」をクリックしてください。"
+  },
+  "grokLoginOpenWindow": {
+    "message": "新しいウィンドウでログイン"
+  },
+  "grokLoginDone": {
+    "message": "ログインしました"
   }
 }
