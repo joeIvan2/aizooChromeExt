@@ -719,7 +719,7 @@ function onProviderResourceMessage(event) {
   if (!providerResources || !runtime) return resourceMessage;
   if (event.source !== iframes[platform]?.contentWindow) return resourceMessage;
   if (!providerResources.state(platform).loaded) return resourceMessage;
-  if (data.type === 'AI_SCRAPE_HISTORY_RESPONSE' && runtime.delivering) { clearCompareHistoryRequest(platform); return true; }
+  if (data.type === 'AI_SCRAPE_HISTORY_RESPONSE' && isNetworkAnswerInProgress(platform)) { clearCompareHistoryRequest(platform); return true; }
   if (data.type === 'AI_NETWORK_STATE') {
     if (platform === 'chatgpt' && /^\/local\/[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/i.test(data.resumePath || '')) {
       const resumeURL = 'https://chatgpt.com' + data.resumePath;
@@ -3254,9 +3254,16 @@ async function nativeShareCompareText() {
   }
 }
 
+// The network source keeps a finished answer, so "delivering" alone does not
+// mean an answer is still arriving. Only an unfinished one makes DOM reads stale.
+function isNetworkAnswerInProgress(platform) {
+  const watch = compareWatchState[platform];
+  return !!(providerRuntime[platform]?.delivering && watch && !watch.complete);
+}
+
 function requestPlatformHistory(platform, options = {}) {
   if (!isPlatformEnabled(platform)) return false;
-  if (typeof providerResources !== 'undefined' && providerResources && (!providerResources.state(platform).loaded || providerRuntime[platform]?.delivering)) return false;
+  if (typeof providerResources !== 'undefined' && providerResources && (!providerResources.state(platform).loaded || isNetworkAnswerInProgress(platform))) return false;
   if (typeof providerRuntime !== 'undefined' && providerRuntime[platform]?.retainHistory && compareLatestHistories[platform]?.length) return false;
   const now = Date.now();
   const requestState = compareHistoryRequestState[platform];
