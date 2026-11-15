@@ -8,7 +8,7 @@
       const s = states[p];
       if (!s.enabled && s.loaded) unload(p);
       if (s.enabled && s.viewed && !s.loaded) load(p);
-      s.suspended = !!(s.loaded && s.network && !s.viewed && !s.attention && !s.reading);
+      s.suspended = !!(s.loaded && s.network && !s.viewed && !s.busy && !s.attention && !s.reading);
       options.render?.(p, { ...s });
     }
     function load(p) { const s = states[p]; if (s.loaded || !s.enabled) return; s.loaded = true; s.lastUsed = now(); options.load?.(p); }

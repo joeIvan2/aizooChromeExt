@@ -194,3 +194,16 @@ test('a page that still has to be read is not hidden, and unloading forgets that
   controller.update('grok', { reading: true, enabled: false });
   assert.equal(controller.state('grok').reading, false);
 });
+
+// Claude's send button finishes an animation after a cold load. A page that is
+// not drawn runs no animation, so the button never became usable.
+test('a provider that is sending a question stays drawn until it has answered', () => {
+  const { createController } = require('../provider-resources');
+  const controller = createController(['claude'], {});
+  controller.update('claude', { enabled: true });
+  controller.use('claude');
+  controller.update('claude', { network: true, busy: true });
+  assert.equal(controller.state('claude').suspended, false);
+  controller.update('claude', { busy: false });
+  assert.equal(controller.state('claude').suspended, true);
+});
