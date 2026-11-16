@@ -727,6 +727,9 @@
   "providerUnloadedStatus": {
     "message": "尚未載入；送出問題或開啟原網站時載入"
   },
+  "providerSignIn": {
+    "message": "在新分頁登入"
+  },
   "providerBackToAnswers": {
     "message": "返回答案"
   },
@@ -753,17 +756,5 @@
   },
   "grokBlockedNotice": {
     "message": "Grok 存取受阻或需要安全驗證，請在 Grok 畫面完成驗證；目前無法確認登入狀態。"
-  },
-  "grokLoginTitle": {
-    "message": "需登入 Grok"
-  },
-  "grokLoginInstructions": {
-    "message": "由於安全限制，請點擊下方按鈕在新視窗中登入，登入完成後點擊「我已登入」。"
-  },
-  "grokLoginOpenWindow": {
-    "message": "在新視窗登入"
-  },
-  "grokLoginDone": {
-    "message": "我已登入"
   }
 }

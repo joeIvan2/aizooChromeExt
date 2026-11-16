@@ -13,6 +13,7 @@ const english = {
   providerStartupNotice: 'The original site is still loading. You may need to sign in, give consent, or open this view to finish setup. Please check this page.',
   providerUnloadedStatus: 'Not loaded; loads when you send a question or open the original site',
   providerBackToAnswers: 'Back to answers',
+  providerSignIn: 'Sign in in a new tab',
   providerLoadingBeforeSend: 'Sending once the original site loads…',
   providerAttentionChallenge: 'Security verification required. Please complete it on the original site.',
   providerAttentionLogin: 'Sign-in required. Please sign in on the original site.',
@@ -20,11 +21,7 @@ const english = {
   providerAttentionRateLimit: 'Usage limit reached. Please check the original site for details.',
   providerAttentionError: 'An error occurred on the original site. Please check the page.',
   providerAttentionStartup: 'The page is still initializing. Please open it to finish loading.',
-  grokBlockedNotice: 'Grok access is blocked or security verification is required. Please complete verification in the Grok view. Sign-in status cannot be confirmed yet.',
-  grokLoginTitle: 'Sign in to Grok',
-  grokLoginInstructions: 'For security reasons, use the button below to sign in in a new window. When finished, click “I have signed in”.',
-  grokLoginOpenWindow: 'Sign in in a new window',
-  grokLoginDone: 'I have signed in'
+  grokBlockedNotice: 'Grok access is blocked or security verification is required. Please complete verification in the Grok view. Sign-in status cannot be confirmed yet.'
 };
 const reasonKeys = {
   challenge: 'providerAttentionChallenge', login: 'providerAttentionLogin',
@@ -122,27 +119,6 @@ test('Grok blocked notice uses Chrome i18n with an English fallback', () => {
     vm.runInNewContext(fn, context);
     context.reportBlocked();
     assert.equal(sent.message, locale ? messages[locale].grokBlockedNotice.message : english.grokBlockedNotice);
-  }
-});
-
-test('Grok login overlay uses Chrome i18n with English defaults and retains its controls', () => {
-  const source = read('content-scripts/grok-script.js');
-  const start = source.indexOf('  function createLoginOverlay(');
-  const fn = source.slice(start, source.indexOf('\n  }', start) + 4);
-  for (const locale of [...locales, null]) {
-    const overlay = {style:{}};
-    let shown;
-    const context = {
-      window: {grokLoginCheckDisabled:false}, LOGIN_OVERLAY_ID:'fixture', console:{log(){}},
-      chrome:{i18n:{getMessage:key=>locale?messages[locale][key]?.message||'':''}},
-      document:{createElement:()=>overlay,body:{appendChild:el=>{shown=el;}},getElementById:id=>id==='fixture'?null:{addEventListener(){},remove(){}}}
-    };
-    vm.runInNewContext(fn, context);context.createLoginOverlay();
-    assert.equal(shown,overlay);
-    for(const key of ['grokLoginTitle','grokLoginInstructions','grokLoginOpenWindow','grokLoginDone']) {
-      assert.ok(overlay.innerHTML.includes(locale?messages[locale][key].message:english[key]), `${locale}/${key}`);
-    }
-    assert.match(overlay.innerHTML,/id="ai-login-btn"/);assert.match(overlay.innerHTML,/id="ai-close-btn"/);
   }
 });
 

@@ -73,7 +73,6 @@
   }
 
   // --- Login Monitoring & Overlay Logic ---
-  const LOGIN_OVERLAY_ID = 'ai-multichat-login-overlay';
   const LOGIN_CHECK_INTERVAL_MS = 30000;
   let loginCheckInFlight = false;
   let lastAuthenticatedState = null;
@@ -97,104 +96,22 @@
     }
   }
 
-  function createLoginOverlay() {
-    if (document.getElementById(LOGIN_OVERLAY_ID)) return;
-    if (!document.body) return;
-
-    const overlay = document.createElement('div');
-    overlay.id = LOGIN_OVERLAY_ID;
-    overlay.style.cssText = `
-      position: fixed;
-      top: 0;
-      left: 0;
-      width: 100%;
-      height: 100%;
-      background: rgba(0, 0, 0, 0.85);
-      z-index: 2147483647;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      color: white;
-      font-family: sans-serif;
-      text-align: center;
-      pointer-events: auto;
-    `;
-
-    overlay.innerHTML = `
-      <div style="background: #2d3748; padding: 30px; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.1); max-width: 400px; position: relative; z-index: 1;">
-        <h2 style="margin-bottom: 20px; font-size: 24px;">需登入 ChatGPT</h2>
-        <p style="margin-bottom: 20px; color: #cbd5e0;">由於安全限制，請點擊下方按鈕在新視窗中登入，登入完成後點擊「我已登入」。</p>
-        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
-          <button id="ai-login-btn" style="
-            background: #10a37f;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-            position: relative;
-            z-index: 2;
-            pointer-events: auto;
-          ">在新視窗登入</button>
-          <button id="ai-close-btn" style="
-            background: #27ae60;
-            color: white;
-            border: none;
-            padding: 12px 24px;
-            border-radius: 6px;
-            font-size: 16px;
-            cursor: pointer;
-            transition: background 0.3s;
-            position: relative;
-            z-index: 2;
-            pointer-events: auto;
-          ">我已登入</button>
-        </div>
-      </div>
-    `;
-
-    document.body.appendChild(overlay);
-
-    document.getElementById('ai-login-btn').addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      console.log('[ChatGPT] Login button clicked, opening new window...');
-      window.open('https://chatgpt.com/auth/login', '_blank', 'width=500,height=700');
-    }, { capture: true });
-
-    document.getElementById('ai-close-btn').addEventListener('click', () => {
-      console.log('[ChatGPT] User clicked "I am logged in", navigating to chat page...');
-      overlay.remove();
-      window.chatgptLoginCheckDisabled = true;
-      window.location.href = 'https://chatgpt.com/';
-    });
-  }
-
   function reportLoginState(isAuthenticated, forceReport = false) {
     if (lastAuthenticatedState === isAuthenticated && !forceReport) return;
     lastAuthenticatedState = isAuthenticated;
 
     if (isAuthenticated) {
-      const overlay = document.getElementById(LOGIN_OVERLAY_ID);
-      if (overlay) {
-        console.log('[ChatGPT] Authenticated session detected, removing login overlay...');
-        overlay.remove();
-      }
+      window.AIZooProviderAttention?.reportStatus?.(200);
       notifyReady();
       return;
     }
 
-    createLoginOverlay();
+    window.AIZooProviderAttention?.reportStatus?.(401);
     notifyLoginRequired();
   }
 
   async function checkLoginState(forceReport = false) {
     if (window.self === window.top) return;
-
-    if (window.chatgptLoginCheckDisabled) return;
 
     const isAuthPage = location.hostname === 'auth.openai.com' ||
                        location.pathname.includes('/auth/login') ||

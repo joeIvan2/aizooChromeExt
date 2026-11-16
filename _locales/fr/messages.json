@@ -727,6 +727,9 @@
   "providerUnloadedStatus": {
     "message": "Non chargé ; se charge à l’envoi d’une question ou à l’ouverture du site d’origine"
   },
+  "providerSignIn": {
+    "message": "Se connecter dans un nouvel onglet"
+  },
   "providerBackToAnswers": {
     "message": "Retour aux réponses"
   },
@@ -753,17 +756,5 @@
   },
   "grokBlockedNotice": {
     "message": "L’accès à Grok est bloqué ou nécessite une vérification de sécurité. Effectuez-la dans la vue Grok. L’état de connexion ne peut pas encore être confirmé."
-  },
-  "grokLoginTitle": {
-    "message": "Connexion à Grok"
-  },
-  "grokLoginInstructions": {
-    "message": "Pour des raisons de sécurité, utilisez le bouton ci-dessous pour vous connecter dans une nouvelle fenêtre. Une fois connecté, cliquez sur « Je suis connecté »."
-  },
-  "grokLoginOpenWindow": {
-    "message": "Se connecter dans une nouvelle fenêtre"
-  },
-  "grokLoginDone": {
-    "message": "Je suis connecté"
   }
 }

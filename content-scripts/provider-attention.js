@@ -33,8 +33,11 @@
     }
     return fromStatus(response.status, challenge);
   }
+  function isLoginControl(text) {
+    return /^(?:log in|sign in|登入|登录|ログイン|iniciar sesión|se connecter|anmelden)$/i.test(String(text ?? '').trim());
+  }
   function isVisible(el, doc, styleOf) {
-    if (!el || el.closest?.('[hidden], [aria-hidden="true"], #ai-multichat-login-overlay')) return false;
+    if (!el || el.closest?.('[hidden], [aria-hidden="true"]')) return false;
     for (let node = el; node; node = node.parentElement) {
       const style = styleOf.call(root, node);
       if (style.display === 'none' || style.visibility === 'hidden' || Number(style.opacity) === 0 || style.contentVisibility === 'hidden' || /inset\(50%\)|rect\(0px,? 0px,? 0px,? 0px\)/.test(style.clipPath || style.clip || '')) return false;
@@ -48,7 +51,7 @@
   }
   function install(config) {
     if (root.parent === root || root.parent !== root.top || !root.document) return;
-    const doc = root.document; let last = '', scheduled = false, httpAttention = null;
+    const doc = root.document; let last = null, scheduled = false, httpAttention = null;
     const visible = el => isVisible(el, doc, getComputedStyle);
     const text = selector => Array.from(doc.querySelectorAll(selector)).filter(visible).slice(0, 8).map(el => el.textContent.slice(0, 1800)).join('\n');
     function check() {
@@ -74,6 +77,14 @@
       root.__aiProviderAttention = next;
       return next;
     }
+    // The page's own sign-in button: sign-in is done in a normal tab instead.
+    doc.addEventListener('click', event => {
+      const control = event.target?.closest?.('a, button, [role="button"]');
+      if (!control || !isLoginControl(control.textContent)) return;
+      if (control.closest('form')?.querySelector('input[type="password"]')) return;
+      event.preventDefault(); event.stopImmediatePropagation();
+      root.parent.postMessage({ type: 'AI_OPEN_LOGIN', source: 'content-script', platform: config.id }, '*');
+    }, true);
     const schedule = () => { if (!scheduled) { scheduled = true; queueMicrotask(check); } };
     const observer = new MutationObserver(schedule);
     const start = () => { check(); observer.observe(doc.documentElement, { subtree: true, childList: true, characterData: true, attributes: true, attributeFilter: ['hidden', 'aria-hidden', 'class', 'style'] }); };
@@ -84,11 +95,10 @@
     root.AIZooProviderAttention.check = check;
     root.AIZooProviderAttention.reportResponse = async response => {
       httpAttention = await classifyResponse(response);
-      if (httpAttention) doc.getElementById('ai-multichat-login-overlay')?.remove();
       check(); return httpAttention;
     };
     root.AIZooProviderAttention.reportStatus = (status, challenge) => { httpAttention = fromStatus(status, challenge); check(); };
   }
-  root.AIZooProviderAttention = { classify, classifyResponse, isVisible, install, reasons };
+  root.AIZooProviderAttention = { classify, classifyResponse, isLoginControl, isVisible, install, reasons };
   if (typeof module === 'object' && module.exports) module.exports = root.AIZooProviderAttention;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -727,6 +727,9 @@
   "providerUnloadedStatus": {
     "message": "Not loaded; loads when you send a question or open the original site"
   },
+  "providerSignIn": {
+    "message": "Sign in in a new tab"
+  },
   "providerBackToAnswers": {
     "message": "Back to answers"
   },
@@ -753,17 +756,5 @@
   },
   "grokBlockedNotice": {
     "message": "Grok access is blocked or security verification is required. Please complete verification in the Grok view. Sign-in status cannot be confirmed yet."
-  },
-  "grokLoginTitle": {
-    "message": "Sign in to Grok"
-  },
-  "grokLoginInstructions": {
-    "message": "For security reasons, use the button below to sign in in a new window. When finished, click “I have signed in”."
-  },
-  "grokLoginOpenWindow": {
-    "message": "Sign in in a new window"
-  },
-  "grokLoginDone": {
-    "message": "I have signed in"
   }
 }

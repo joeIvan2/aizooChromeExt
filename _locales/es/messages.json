@@ -727,6 +727,9 @@
   "providerUnloadedStatus": {
     "message": "Sin cargar; se carga al enviar una pregunta o abrir el sitio original"
   },
+  "providerSignIn": {
+    "message": "Iniciar sesión en una pestaña nueva"
+  },
   "providerBackToAnswers": {
     "message": "Volver a las respuestas"
   },
@@ -753,17 +756,5 @@
   },
   "grokBlockedNotice": {
     "message": "El acceso a Grok está bloqueado o requiere una verificación de seguridad. Complétala en la vista de Grok. Aún no se puede confirmar si has iniciado sesión."
-  },
-  "grokLoginTitle": {
-    "message": "Inicia sesión en Grok"
-  },
-  "grokLoginInstructions": {
-    "message": "Por motivos de seguridad, usa el botón de abajo para iniciar sesión en una ventana nueva. Cuando termines, haz clic en «Ya he iniciado sesión»."
-  },
-  "grokLoginOpenWindow": {
-    "message": "Iniciar sesión en una ventana nueva"
-  },
-  "grokLoginDone": {
-    "message": "Ya he iniciado sesión"
   }
 }

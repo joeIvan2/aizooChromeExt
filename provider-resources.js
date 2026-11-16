@@ -3,13 +3,21 @@
   'use strict';
   function createController(providers, options = {}) {
     const now = options.now || Date.now, idleMs = options.idleMs ?? 30 * 60 * 1000;
-    const states = Object.fromEntries(providers.map(p => [p, { enabled: false, loaded: false, viewed: false, busy: false, network: false, attention: null, reading: false, lastUsed: now(), suspended: false }]));
+    const states = Object.fromEntries(providers.map(p => [p, { enabled: false, loaded: false, viewed: false, busy: false, network: false, attention: null, reading: false, lastUsed: now(), suspended: false, overlay: false }]));
     function sync(p) {
       const s = states[p];
       if (!s.enabled && s.loaded) unload(p);
       if (s.enabled && s.viewed && !s.loaded) load(p);
       s.suspended = !!(s.loaded && s.network && !s.viewed && !s.busy && !s.attention && !s.reading);
-      options.render?.(p, { ...s });
+      // A provider that needs the user covers the window only when its own
+      // column is not on screen, and only one provider does so at a time.
+      // Sign-in is done in a normal tab, so it never covers the window.
+      const front = providers.find(q => states[q].loaded && states[q].attention && states[q].attention !== 'login' && !states[q].viewed);
+      providers.forEach(q => {
+        const overlay = q === front;
+        if (q !== p && states[q].overlay === overlay) return;
+        states[q].overlay = overlay; options.render?.(q, { ...states[q] });
+      });
     }
     function load(p) { const s = states[p]; if (s.loaded || !s.enabled) return; s.loaded = true; s.lastUsed = now(); options.load?.(p); }
     function unload(p) { const s = states[p]; s.loaded = false; s.network = false; s.busy = false; s.attention = null; s.reading = false; options.unload?.(p); }

@@ -727,6 +727,9 @@
   "providerUnloadedStatus": {
     "message": "尚未加载；发送问题或打开原网站时加载"
   },
+  "providerSignIn": {
+    "message": "在新标签页登录"
+  },
   "providerBackToAnswers": {
     "message": "返回回答"
   },
@@ -753,17 +756,5 @@
   },
   "grokBlockedNotice": {
     "message": "Grok 访问受阻或需要安全验证，请在 Grok 页面完成验证；目前无法确认登录状态。"
-  },
-  "grokLoginTitle": {
-    "message": "需要登录 Grok"
-  },
-  "grokLoginInstructions": {
-    "message": "由于安全限制，请点击下方按钮在新窗口中登录，登录完成后点击“我已登录”。"
-  },
-  "grokLoginOpenWindow": {
-    "message": "在新窗口登录"
-  },
-  "grokLoginDone": {
-    "message": "我已登录"
   }
 }

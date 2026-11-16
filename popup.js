@@ -135,11 +135,13 @@ const defaultUrls = {
 };
 
 function normalizePlatformUrl(platform, url) {
-  if (platform !== 'claude' || !url) return url;
+  if (!url) return url;
 
   try {
     const parsed = new URL(url);
-    if (parsed.hostname === 'claude.ai' && parsed.pathname === '/new') {
+    // Sign-in, sign-out and terms pages are not conversations to come back to.
+    if (/^(?:accounts|auth)\./.test(parsed.hostname) || /^\/(?:login|logout|log-in|sign-in|signin|auth|oauth|tos-gate)(?:\/|$)/.test(parsed.pathname)) return '';
+    if (platform === 'claude' && parsed.hostname === 'claude.ai' && parsed.pathname === '/new') {
       parsed.searchParams.delete('model');
       return parsed.toString();
     }
@@ -611,6 +613,7 @@ function requestPlatformReadyState(platform) {
 
 function handleProviderFrameLoad(platform) {
   if (providerResources && !providerResources.state(platform).loaded) return;
+  loginWatches[platform]?.pageLoaded();
   if (providerResources) {
     watchProviderStartup(platform);
     providerResources.update(platform, { network: false });
@@ -661,6 +664,34 @@ function navigateProvider(platform, url) {
   iframes[platform].src = url;
 }
 
+// Sign-in opens the provider in a normal tab; the session is then re-read for
+// a while and the embedded page reloaded once it has changed.
+const loginWatches = {};
+async function readProviderSession(platform) {
+  const cookies = await chrome.cookies.getAll({ url: defaultUrls[platform] });
+  return cookies.map(cookie => cookie.name).sort().join(',');
+}
+function recheckProviderLogins() { Object.values(loginWatches).forEach(watch => watch.returned()); }
+window.addEventListener('focus', recheckProviderLogins);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) recheckProviderLogins(); });
+function openProviderLogin(platform) {
+  if (!defaultUrls[platform]) return;
+  loginWatches[platform]?.stop();
+  const watch = loginWatches[platform] = window.AIZooLoginWatch.createLoginWatch({
+    read: () => readProviderSession(platform),
+    reload: () => { if (providerResources.state(platform).loaded) { updateStatus(platform, '🔄', t('statusReloading', 'Reloading...')); iframes[platform].src = defaultUrls[platform]; } },
+    needsLogin: () => providerResources.state(platform).attention === 'login',
+    done: result => { if (result === 'timeout' && providerResources.state(platform).attention === 'login') updateStatus(platform, '🔐', t('statusLoginRequired', 'Login verification required')); }
+  });
+  watch.start();
+  updateStatus(platform, '🔐', t('statusCompleteLoginInNewTab', 'Complete login in the new tab'));
+  chrome.tabs.create({ url: defaultUrls[platform], active: true }, tab => {
+    if (!tab) return;
+    const closed = id => { if (id !== tab.id) return; chrome.tabs.onRemoved.removeListener(closed); watch.tabClosed(); };
+    chrome.tabs.onRemoved.addListener(closed);
+  });
+}
+
 function watchProviderStartup(platform) {
   const runtime = providerRuntime[platform]; runtime.ready = false;
   const generation = ++runtime.generation;
@@ -697,14 +728,18 @@ function initializeProviderResources() {
       const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
       wrapper.classList.toggle('provider-suspended', state.suspended);
       wrapper.classList.toggle('provider-unloaded', !state.loaded);
-      wrapper.classList.toggle('provider-attention', !!state.attention);
+      wrapper.classList.toggle('provider-attention', state.overlay);
       const label = wrapper.querySelector('.provider-notice');
       if (label) { label.hidden = !state.attention; label.textContent = state.attention ? providerRuntime[platform].notice || '' : ''; }
+      const signIn = wrapper.querySelector('.provider-sign-in');
+      if (signIn) signIn.hidden = state.attention !== 'login';
     }
   });
   platforms.forEach(platform => {
     const wrapper = document.querySelector(`.iframe-wrapper[data-platform="${platform}"]`);
     const notice = document.createElement('div'); notice.className = 'provider-notice'; notice.hidden = true; notice.setAttribute('role', 'status'); wrapper.prepend(notice);
+    const signIn = document.createElement('button'); signIn.type = 'button'; signIn.className = 'provider-sign-in'; signIn.hidden = true; signIn.textContent = t('providerSignIn', 'Sign in in a new tab'); signIn.setAttribute('data-i18n', 'providerSignIn');
+    signIn.addEventListener('click', () => openProviderLogin(platform)); notice.after(signIn);
     const back = document.createElement('button'); back.type = 'button'; back.textContent = t('providerBackToAnswers', 'Back to answers'); back.setAttribute('data-i18n', 'providerBackToAnswers'); back.className = 'provider-back';
     back.addEventListener('click', () => { if (currentMaximizedPlatform === platform) setMaximizedPlatform(platform, { toggle: true }); }); wrapper.querySelector('.iframe-header')?.append(back);
   });
@@ -740,8 +775,9 @@ function onProviderResourceMessage(event) {
     if (kind) updateStatus(platform, '⚠️', data.message);
     return true;
   }
+  if (data.type === 'AI_OPEN_LOGIN') { openProviderLogin(platform); return true; }
   if (data.type === 'AI_READY') {
-    runtime.ready = true;
+    runtime.ready = true; loginWatches[platform]?.pageReady();
     if (providerResources.state(platform).attention === 'startup') providerResources.update(platform, { attention: null });
     const pending = runtime.pending; runtime.pending = [];
     pending.forEach(message => iframes[platform].contentWindow.postMessage(message, '*'));

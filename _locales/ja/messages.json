@@ -727,6 +727,9 @@
   "providerUnloadedStatus": {
     "message": "未読み込み：質問を送信するか、元のサイトを開くと読み込まれます"
   },
+  "providerSignIn": {
+    "message": "新しいタブでログイン"
+  },
   "providerBackToAnswers": {
     "message": "回答に戻る"
   },
@@ -753,17 +756,5 @@
   },
   "grokBlockedNotice": {
     "message": "Grok へのアクセスがブロックされているか、セキュリティ認証が必要です。Grok の画面で認証を完了してください。現在、ログイン状態を確認できません。"
-  },
-  "grokLoginTitle": {
-    "message": "Grok にログイン"
-  },
-  "grokLoginInstructions": {
-    "message": "セキュリティ上の理由により、下のボタンから新しいウィンドウでログインしてください。完了したら「ログインしました」をクリックしてください。"
-  },
-  "grokLoginOpenWindow": {
-    "message": "新しいウィンドウでログイン"
-  },
-  "grokLoginDone": {
-    "message": "ログインしました"
   }
 }

@@ -104,7 +104,7 @@ test('cold submissions retain FIFO until READY and cancel removes pending sends'
     window: {}, console: { log() {}, warn() {} }, document: {},
     providerResources: { state: () => ({ loaded: true }), update() {} },
     providerRuntime: { grok: { ready: false, pending: [], generation: 0 } },
-    iframes: { grok: frame }, activeSubmissionIds: {}, compareWatchState: {},
+    iframes: { grok: frame }, activeSubmissionIds: {}, compareWatchState: {}, loginWatches: {},
     isPlatformEnabled: () => true, isCurrentSubmissionEvent: () => true, createSubmissionId: () => 's', updateStatus() {}, t: (_, s) => s, requestPlatformReadyState() {}
   };
   vm.runInNewContext(['sendQuestionToPlatform', 'onProviderResourceMessage', 'cancelPlatformOperation'].map(extract).join('\n'), context);
@@ -129,7 +129,7 @@ test('restoring a session never navigates an unloaded or disabled provider', () 
 });
 test('a loaded iframe navigating outside permitted origins loses READY and remains rendered', () => {
   const source = fs.readFileSync(require.resolve('../popup.js'), 'utf8'), start = source.indexOf('function handleProviderFrameLoad('), patches = [];
-  const context = { providerResources: { state: () => ({ loaded: true }), update: (_, patch) => patches.push(patch) }, providerRuntime: { gemini: { ready: true } },
+  const context = { loginWatches: {}, providerResources: { state: () => ({ loaded: true }), update: (_, patch) => patches.push(patch) }, providerRuntime: { gemini: { ready: true } },
     watchProviderStartup(p) { context.providerRuntime[p].ready = false; }, requestPlatformReadyState() {}, updateStatus() {}, t: (_, text) => text,
     isComparePanelVisible: () => false, console: { log() {} }, setTimeout() {} };
   vm.runInNewContext(source.slice(start, source.indexOf('\n}', start) + 2), context);
@@ -206,4 +206,37 @@ test('a provider that is sending a question stays drawn until it has answered', 
   assert.equal(controller.state('claude').suspended, false);
   controller.update('claude', { busy: false });
   assert.equal(controller.state('claude').suspended, true);
+});
+
+// Three logged-out providers each covered the whole window, stacked on top of
+// each other: only the last one could be seen and nothing else could be used.
+test('a provider that needs the user stays in its own column while that column is on screen', () => {
+  const { createController } = require('../provider-resources');
+  const controller = createController(['claude', 'chatgpt', 'meta'], {});
+  for (const p of ['claude', 'chatgpt', 'meta']) { controller.update(p, { enabled: true, viewed: true }); controller.update(p, { attention: 'login' }); }
+  assert.deepEqual(['claude', 'chatgpt', 'meta'].map(p => controller.state(p).overlay), [false, false, false]);
+});
+
+test('when the columns are not on screen, only one provider at a time covers the window', () => {
+  const { createController } = require('../provider-resources');
+  const shown = {};
+  const controller = createController(['claude', 'chatgpt', 'meta'], { render: (p, s) => { shown[p] = s.overlay; } });
+  for (const p of ['claude', 'chatgpt', 'meta']) { controller.update(p, { enabled: true }); controller.use(p); }
+  controller.update('chatgpt', { attention: 'challenge' });
+  controller.update('meta', { attention: 'challenge' });
+  assert.deepEqual(shown, { claude: false, chatgpt: true, meta: false });
+  controller.update('chatgpt', { attention: null });
+  assert.deepEqual(shown, { claude: false, chatgpt: false, meta: true }, 'the next one takes its place');
+  controller.update('meta', { viewed: true });
+  assert.deepEqual(shown, { claude: false, chatgpt: false, meta: false });
+});
+
+test('a provider that only needs sign-in never covers the window', () => {
+  const { createController } = require('../provider-resources');
+  const controller = createController(['claude', 'meta'], {});
+  for (const p of ['claude', 'meta']) { controller.update(p, { enabled: true }); controller.use(p); }
+  controller.update('claude', { attention: 'login' });
+  controller.update('meta', { attention: 'challenge' });
+  assert.equal(controller.state('claude').overlay, false);
+  assert.equal(controller.state('meta').overlay, true);
 });

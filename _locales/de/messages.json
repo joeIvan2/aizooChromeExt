@@ -727,6 +727,9 @@
   "providerUnloadedStatus": {
     "message": "Nicht geladen; wird geladen, wenn du eine Frage sendest oder die ursprüngliche Website öffnest"
   },
+  "providerSignIn": {
+    "message": "In neuem Tab anmelden"
+  },
   "providerBackToAnswers": {
     "message": "Zurück zu den Antworten"
   },
@@ -753,17 +756,5 @@
   },
   "grokBlockedNotice": {
     "message": "Der Zugriff auf Grok ist blockiert oder eine Sicherheitsüberprüfung ist erforderlich. Bitte schließe die Überprüfung in der Grok-Ansicht ab. Der Anmeldestatus kann noch nicht bestätigt werden."
-  },
-  "grokLoginTitle": {
-    "message": "Bei Grok anmelden"
-  },
-  "grokLoginInstructions": {
-    "message": "Melde dich aus Sicherheitsgründen über die Schaltfläche unten in einem neuen Fenster an. Klicke anschließend auf „Ich bin angemeldet“."
-  },
-  "grokLoginOpenWindow": {
-    "message": "In neuem Fenster anmelden"
-  },
-  "grokLoginDone": {
-    "message": "Ich bin angemeldet"
   }
 }
