@@ -75,7 +75,15 @@
       }
       return turns.get(id);
     }
+    // ChatGPT wraps citations and entities in private-use markers that its own page turns into chips.
+    function plain(value) {
+      return value.replace(/([^-]*)([^]*)/g, (all, kind, body) => {
+        if (kind !== 'entity') return '';
+        try { const name = JSON.parse(body)[1]; return typeof name === 'string' ? name : ''; } catch { return ''; }
+      }).replace(/[^]*$/, '').replace(/[-]/g, '');
+    }
     function publish(t, value = t?.text, complete = false) {
+      if (provider === 'chatgpt' && typeof value === 'string') value = plain(value);
       if (!t || typeof value !== 'string' || value.length > MAX_BUFFER) return;
       // Cumulative snapshots can be retransmitted after newer deltas.
       if (value.length < t.text.length) return;

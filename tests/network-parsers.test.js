@@ -109,3 +109,24 @@ test('claude: a reloaded conversation with a searched answer gives the whole ans
   const last = events.filter(e => e.text).at(-1);
   assert.equal(last.text, '我先查證。\n\n完整內容。'); assert.equal(last.complete, true);
 });
+
+test('ChatGPT citation markers never reach the panel, including a half-received one', async () => {
+  for (const transport of ['chatgpt-ws', 'chatgpt-sse']) {
+    const events = [], p = createParser('chatgpt', e => events.push(e));
+    const pieces = ['營業到 22:00。', '\ue200cite\ue202turn1', 'search2\ue202turn1search3\ue201', '\n請看', '\ue200entity\ue202["place","晴空塔","東京"]\ue201', '官網。'];
+    if (transport === 'chatgpt-ws') {
+      const send = x => p.push({ transport, streamId: 'ws', data: JSON.stringify(x) });
+      await send({ method: 'turn/started', params: { turn: { id: 't' } } });
+      for (const delta of pieces) await send({ method: 'item/agentMessage/delta', params: { turnId: 't', itemId: 'a', delta } });
+      await send({ method: 'turn/completed', params: { turn: { id: 't', status: 'completed' } } });
+    } else {
+      const send = x => p.push({ transport, streamId: 's', data: 'data: ' + JSON.stringify(x) + '\n\n' });
+      await send({ v: { message: { id: 'm', author: { role: 'assistant' }, content: { content_type: 'text', parts: [''] } } } });
+      for (const v of pieces) await send({ p: '/message/content/parts/0', o: 'append', v });
+      await send({ type: 'message_stream_complete' });
+    }
+    assert.ok(events.every(e => !/[\ue200-\ue202]|turn1|search/.test(e.text)), transport + ' leaked a marker');
+    assert.equal(events.at(-1).text, '營業到 22:00。\n請看晴空塔官網。');
+    assert.equal(events.at(-1).complete, true);
+  }
+});
