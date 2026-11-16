@@ -256,3 +256,13 @@ test("only the provider's own page can ask for a sign-in tab", () => {
   context.onProviderResourceMessage({ source: frame.contentWindow, origin: 'https://meta.ai', data: { type: 'AI_OPEN_LOGIN', platform: 'meta' } });
   assert.deepEqual(opened, ['grok', 'grok', 'meta']);
 });
+
+test('a provider notice that replaced the answer is reported instead of waiting forever', () => {
+  const { classify } = require('../content-scripts/provider-attention.js');
+  assert.equal(classify({ composer: true, noticeText: '此模型無法使用選擇其他模型' })?.kind, 'error');
+  assert.equal(classify({ composer: true, noticeText: 'This model is not available. Choose another model' })?.kind, 'error');
+  assert.equal(classify({ composer: true, noticeText: "You've reached your limit. Try again later." })?.kind, 'rate-limit');
+  // Unrelated side notes and an ordinary page stay quiet.
+  assert.equal(classify({ composer: true, noticeText: '記憶已更新' }), null);
+  assert.equal(classify({ composer: true, noticeText: '' }), null);
+});

@@ -16,10 +16,10 @@
     const ui = [s.dialogText, s.alertText, !s.composer ? s.pageText : ''].filter(Boolean).join('\n');
     let kind;
     if (s.challengeVisible || /^(?:just a moment[.!…]*|請稍候[.!。…]*)$/i.test((s.title || '').trim()) || /正在執行安全驗證|verify (?:that )?you are human|驗證您是人類|確認你是人類|checking your browser/i.test(ui)) kind = 'challenge';
-    else if (/too many requests|rate limit|usage limit|you.ve reached.*limit|使用上限|達到.*限制|稍後再試|请求过于频繁/i.test([s.alertText, s.dialogText, !s.composer ? s.pageText : ''].join('\n'))) kind = 'rate-limit';
+    else if (/too many requests|rate limit|usage limit|you.ve reached.*limit|使用上限|達到.*限制|稍後再試|请求过于频繁/i.test([s.alertText, s.dialogText, s.noticeText, !s.composer ? s.pageText : ''].join('\n'))) kind = 'rate-limit';
     else if (s.loginForm || (!s.composer && s.loginAction) || /https:\/\/(?:accounts\.google\.com\/(?:ServiceLogin|signin)|accounts\.x\.ai\/sign-in|auth\.openai\.com\/|(?:www\.)?(?:claude\.ai|meta\.ai)\/(?:login|logout|auth)(?:[/?#]|$)|chatgpt\.com\/(?:auth\/login|log-in-or-create-account))/.test(s.url || '') || (!s.composer && /sign in to (?:continue|use)|log in to (?:continue|use)|登入以繼續|登录以继续/i.test(ui))) kind = 'login';
     else if ((!s.composer || s.consentAction) && /before you continue|accept.{0,100}(?:terms|cookies)|consent required|同意.{0,100}(?:條款|隱私)|繼續之前/i.test(s.dialogText || '')) kind = 'consent';
-    else if (/something went wrong|temporarily unavailable|service unavailable|an error (?:has )?occurred|發生錯誤|出了點問題|服務暫時無法/i.test([s.alertText, !s.composer ? s.pageText : ''].join('\n'))) kind = 'error';
+    else if (/something went wrong|temporarily unavailable|service unavailable|an error (?:has )?occurred|發生錯誤|出了點問題|服務暫時無法/i.test([s.alertText, !s.composer ? s.pageText : ''].join('\n')) || /model (?:is )?(?:not available|unavailable)|(?:choose|select) (?:a different|another) model|此模型無法使用|選擇其他模型|此模型无法使用|选择其他模型/i.test(s.noticeText || '')) kind = 'error';
     return kind ? { kind, message: reasons[kind] } : null;
   }
   function fromStatus(status, challenge = false) {
@@ -54,6 +54,12 @@
     const doc = root.document; let last = null, scheduled = false, httpAttention = null;
     const visible = el => isVisible(el, doc, getComputedStyle);
     const text = selector => Array.from(doc.querySelectorAll(selector)).filter(visible).slice(0, 8).map(el => el.textContent.slice(0, 1800)).join('\n');
+    // ChatGPT puts "model unavailable" style notices in the thread where the answer would be.
+    function lastTurnNotice() {
+      const turn = Array.from(doc.querySelectorAll('[data-turn-key]')).pop();
+      if (!turn || turn.querySelector('[data-markdown-text-style="assistant-message"]')) return '';
+      return Array.from(turn.querySelectorAll('aside')).filter(visible).map(el => el.textContent.slice(0, 300)).join('\n');
+    }
     function check() {
       scheduled = false; let composer = false;
       try { composer = !!config.detectTextarea(); } catch {}
@@ -71,6 +77,7 @@
         consentAction: Array.from(doc.querySelectorAll('[role="dialog"] button, dialog[open] button, [aria-modal="true"] button')).some(el => visible(el) && /^(?:accept(?: all)?|i agree|agree|continue|同意|接受|全部接受|繼續)$/i.test(el.textContent.trim())),
         loginForm: Array.from(doc.querySelectorAll('input[type="password"], form[action*="login"], form[action*="signin"]')).some(visible),
         dialogText: text('[role="dialog"], dialog[open], [aria-modal="true"]'),
+        noticeText: lastTurnNotice(),
         alertText: text('[role="alert"], [data-testid="error-message"], [data-testid="rate-limit-message"]'),
         pageText: !composer ? (doc.body?.textContent || '').slice(0, 5000) : '' }) || httpAttention;
       const key = next?.kind || '';
