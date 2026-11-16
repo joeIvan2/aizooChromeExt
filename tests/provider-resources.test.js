@@ -107,7 +107,7 @@ test('cold submissions retain FIFO until READY and cancel removes pending sends'
     iframes: { grok: frame }, activeSubmissionIds: {}, compareWatchState: {}, loginWatches: {},
     isPlatformEnabled: () => true, isCurrentSubmissionEvent: () => true, createSubmissionId: () => 's', updateStatus() {}, t: (_, s) => s, requestPlatformReadyState() {}
   };
-  vm.runInNewContext(['sendQuestionToPlatform', 'onProviderResourceMessage', 'cancelPlatformOperation'].map(extract).join('\n'), context);
+  vm.runInNewContext(['sendQuestionToPlatform', 'releasePendingQuestions', 'onProviderResourceMessage', 'cancelPlatformOperation'].map(extract).join('\n'), context);
   context.sendQuestionToPlatform('grok', 'first'); context.sendQuestionToPlatform('grok', 'second');
   assert.equal(context.providerRuntime.grok.pending.length, 2); assert.equal(sent.length, 0);
   context.onProviderResourceMessage({ source: frame.contentWindow, data: { type: 'AI_READY', platform: 'grok' } });

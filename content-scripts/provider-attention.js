@@ -17,7 +17,7 @@
     let kind;
     if (s.challengeVisible || /^(?:just a moment[.!…]*|請稍候[.!。…]*)$/i.test((s.title || '').trim()) || /正在執行安全驗證|verify (?:that )?you are human|驗證您是人類|確認你是人類|checking your browser/i.test(ui)) kind = 'challenge';
     else if (/too many requests|rate limit|usage limit|you.ve reached.*limit|使用上限|達到.*限制|稍後再試|请求过于频繁/i.test([s.alertText, s.dialogText, !s.composer ? s.pageText : ''].join('\n'))) kind = 'rate-limit';
-    else if (s.loginForm || (!s.composer && s.loginAction) || /https:\/\/(?:accounts\.google\.com\/(?:ServiceLogin|signin)|accounts\.x\.ai\/sign-in|auth\.openai\.com\/|(?:www\.)?(?:claude\.ai|meta\.ai)\/(?:login|auth))/.test(s.url || '') || (!s.composer && /sign in to (?:continue|use)|log in to (?:continue|use)|登入以繼續|登录以继续/i.test(ui))) kind = 'login';
+    else if (s.loginForm || (!s.composer && s.loginAction) || /https:\/\/(?:accounts\.google\.com\/(?:ServiceLogin|signin)|accounts\.x\.ai\/sign-in|auth\.openai\.com\/|(?:www\.)?(?:claude\.ai|meta\.ai)\/(?:login|logout|auth)(?:[/?#]|$)|chatgpt\.com\/(?:auth\/login|log-in-or-create-account))/.test(s.url || '') || (!s.composer && /sign in to (?:continue|use)|log in to (?:continue|use)|登入以繼續|登录以继续/i.test(ui))) kind = 'login';
     else if ((!s.composer || s.consentAction) && /before you continue|accept.{0,100}(?:terms|cookies)|consent required|同意.{0,100}(?:條款|隱私)|繼續之前/i.test(s.dialogText || '')) kind = 'consent';
     else if (/something went wrong|temporarily unavailable|service unavailable|an error (?:has )?occurred|發生錯誤|出了點問題|服務暫時無法/i.test([s.alertText, !s.composer ? s.pageText : ''].join('\n'))) kind = 'error';
     return kind ? { kind, message: reasons[kind] } : null;
@@ -62,8 +62,12 @@
         const height = el.getBoundingClientRect().height || parseFloat(getComputedStyle(el).height) || Number(el.getAttribute('height')) || 0;
         return height > 24;
       });
+      const loginAction = Array.from(doc.querySelectorAll('a[href*="login"], a[href*="signin"], button, [role="button"]')).some(el => visible(el) && /^(?:log in|sign in|登入|登录|ログイン|iniciar sesión|se connecter|anmelden)(?:\s|$)/i.test(el.textContent.trim()));
+      // A working composer with no sign-in button is newer evidence than an
+      // earlier 401. Rate limits, challenges and errors are kept.
+      if (composer && !loginAction && httpAttention?.kind === 'login') httpAttention = null;
       const next = classify({ url: location.href, composer, title: doc.title, challengeVisible,
-        loginAction: !composer && Array.from(doc.querySelectorAll('a[href*="login"], a[href*="signin"], button')).some(el => visible(el) && /^(?:log in|sign in|登入|登录)(?:\s|$)/i.test(el.textContent.trim())),
+        loginAction: !composer && loginAction,
         consentAction: Array.from(doc.querySelectorAll('[role="dialog"] button, dialog[open] button, [aria-modal="true"] button')).some(el => visible(el) && /^(?:accept(?: all)?|i agree|agree|continue|同意|接受|全部接受|繼續)$/i.test(el.textContent.trim())),
         loginForm: Array.from(doc.querySelectorAll('input[type="password"], form[action*="login"], form[action*="signin"]')).some(visible),
         dialogText: text('[role="dialog"], dialog[open], [aria-modal="true"]'),

@@ -140,7 +140,7 @@ function normalizePlatformUrl(platform, url) {
   try {
     const parsed = new URL(url);
     // Sign-in, sign-out and terms pages are not conversations to come back to.
-    if (/^(?:accounts|auth)\./.test(parsed.hostname) || /^\/(?:login|logout|log-in|sign-in|signin|auth|oauth|tos-gate)(?:\/|$)/.test(parsed.pathname)) return '';
+    if (/^(?:accounts|auth)\./.test(parsed.hostname) || /^\/(?:login|logout|log-in|log-in-or-create-account|sign-in|signin|signup|sign-up|auth|oauth|tos-gate|consent)(?:\/|$)/.test(parsed.pathname)) return '';
     if (platform === 'claude' && parsed.hostname === 'claude.ai' && parsed.pathname === '/new') {
       parsed.searchParams.delete('model');
       return parsed.toString();
@@ -148,6 +148,20 @@ function normalizePlatformUrl(platform, url) {
   } catch (error) {}
 
   return url;
+}
+
+// A sign-in or sign-out page must not replace the conversation that was open.
+function rememberPlatformUrl(platform, url) {
+  const normalized = normalizePlatformUrl(platform, url);
+  if (!normalized) return;
+  localStorage.setItem(`ai-chat-url-${platform}`, normalized);
+  captureSessionUrl(platform, normalized);
+}
+
+// Only the provider's own page (or its sign-in host) may ask for a sign-in tab.
+function isProviderOrigin(platform, origin) {
+  const extra = { grok: ['https://accounts.x.ai'], chatgpt: ['https://auth.openai.com'], meta: ['https://meta.ai'] };
+  try { return !!defaultUrls[platform] && [new URL(defaultUrls[platform]).origin, ...(extra[platform] || [])].includes(new URL(origin).origin); } catch (error) { return false; }
 }
 
 const conversationUrlPatterns = {
@@ -750,6 +764,15 @@ function initializeProviderResources() {
   setInterval(() => providerResources.sweep(), 5000);
 }
 
+// Questions typed before the page was ready wait here; a page that still
+// needs sign-in cannot take them.
+function releasePendingQuestions(platform) {
+  const runtime = providerRuntime[platform];
+  if (!runtime.ready || providerResources.state(platform).attention === 'login') return;
+  const pending = runtime.pending; runtime.pending = [];
+  pending.forEach(message => iframes[platform].contentWindow.postMessage(message, '*'));
+}
+
 function onProviderResourceMessage(event) {
   const data = event.data, platform = data.platform, runtime = providerRuntime[platform];
   const resourceMessage = ['AI_NETWORK_STATE', 'AI_PROVIDER_ATTENTION'].includes(data.type);
@@ -772,15 +795,14 @@ function onProviderResourceMessage(event) {
   if (data.type === 'AI_PROVIDER_ATTENTION' || data.type === 'AI_BLOCKED') {
     const kind = data.type === 'AI_BLOCKED' ? 'challenge' : data.kind;
     runtime.notice = data.message; providerResources.update(platform, { attention: kind || null });
-    if (kind) updateStatus(platform, '⚠️', data.message);
+    if (kind) updateStatus(platform, '⚠️', data.message); else releasePendingQuestions(platform);
     return true;
   }
-  if (data.type === 'AI_OPEN_LOGIN') { openProviderLogin(platform); return true; }
+  if (data.type === 'AI_OPEN_LOGIN') { if (isProviderOrigin(platform, event.origin)) openProviderLogin(platform); return true; }
   if (data.type === 'AI_READY') {
     runtime.ready = true; loginWatches[platform]?.pageReady();
     if (providerResources.state(platform).attention === 'startup') providerResources.update(platform, { attention: null });
-    const pending = runtime.pending; runtime.pending = [];
-    pending.forEach(message => iframes[platform].contentWindow.postMessage(message, '*'));
+    releasePendingQuestions(platform);
   }
   if (['AI_RESPONSE_RECEIVED', 'AI_ERROR'].includes(data.type) && isCurrentSubmissionEvent(platform, data)) providerResources.update(platform, { busy: false });
   return false;
@@ -1731,9 +1753,7 @@ function handleMessage(event) {
 
     case 'AI_URL_CHANGED':
       console.log(`[${platform}] URL changed:`, data.url);
-      const normalizedUrl = normalizePlatformUrl(platform, data.url);
-      localStorage.setItem(`ai-chat-url-${platform}`, normalizedUrl);
-      captureSessionUrl(platform, normalizedUrl);
+      rememberPlatformUrl(platform, data.url);
       break;
 
     case 'AI_REFRESH_IFRAME':

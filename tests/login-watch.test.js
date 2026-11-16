@@ -128,3 +128,131 @@ test('sign-in, sign-out and terms pages are never remembered as a conversation',
   assert.equal(keep('claude', 'https://claude.ai/new?model=x'), 'https://claude.ai/new');
   assert.equal(keep('meta', null), null);
 });
+
+// ---- Edge cases found by reviewing a second implementation of this fix ----
+function attentionPage({ composer = true, buttons = [], href = 'https://example.test/' } = {}) {
+  const posted = [], page = { composer, buttons };
+  const el = text => ({ textContent: text, closest: () => null, parentElement: null, getAttribute: () => null, getBoundingClientRect: () => ({ width: 10, height: 10 }) });
+  const doc = { documentElement: { clientWidth: 300, clientHeight: 300 }, title: '', body: { textContent: '' }, addEventListener() {}, getElementById: () => null,
+    querySelectorAll: selector => /button/.test(selector) && !/dialog/.test(selector) ? page.buttons.map(el) : [] };
+  const root = { document: doc, location: { href }, addEventListener() {}, queueMicrotask, setInterval: () => 0, clearInterval() {},
+    MutationObserver: class { observe() {} disconnect() {} }, getComputedStyle: () => ({}) };
+  root.parent = { postMessage: message => posted.push(message) }; root.top = root.parent;
+  const vm = require('node:vm'), fs = require('node:fs');
+  const context = vm.createContext({ window: root, globalThis: root, location: root.location, getComputedStyle: root.getComputedStyle, MutationObserver: root.MutationObserver, setInterval: root.setInterval, clearInterval() {}, queueMicrotask });
+  vm.runInContext('(function(){' + fs.readFileSync(require.resolve('../content-scripts/provider-attention.js'), 'utf8').replace("typeof window !== 'undefined' ? window : globalThis", 'window') + '})()', context);
+  root.AIZooProviderAttention.install({ id: 'gemini', detectTextarea: () => page.composer });
+  return { page, api: root.AIZooProviderAttention, kinds: () => posted.filter(m => m.type === 'AI_PROVIDER_ATTENTION').map(m => m.kind) };
+}
+
+// The page had answered 401 once; later it showed a working composer, but the
+// old answer was still being reported as "sign-in required".
+test('an old 401 is dropped once the page shows a composer and no sign-in button', () => {
+  const { page, api, kinds } = attentionPage({ composer: false });
+  api.reportStatus(401);
+  assert.deepEqual(kinds(), [null, 'login']);
+  page.composer = true; api.check();
+  assert.deepEqual(kinds(), [null, 'login', null]);
+  api.check();
+  assert.deepEqual(kinds(), [null, 'login', null], 'and it does not come back');
+});
+
+test('a 401 stays while the page still offers its own sign-in button, composer or not', () => {
+  const { api, kinds } = attentionPage({ composer: true, buttons: ['Log in'] });
+  api.reportStatus(401); api.check();
+  assert.deepEqual(kinds(), [null, 'login']);
+});
+
+test('other problems reported by the site are not dropped because a composer is there', () => {
+  const { api, kinds } = attentionPage({ composer: true });
+  api.reportStatus(429); api.check();
+  assert.deepEqual(kinds(), [null, 'rate-limit']);
+});
+
+test('a sign-in wall is recognised in every language the extension ships', () => {
+  for (const label of ['Log in', 'Sign in', '登入', '登录', 'ログイン', 'Iniciar sesión', 'Se connecter', 'Anmelden']) {
+    const { kinds } = attentionPage({ composer: false, buttons: [label] });
+    assert.deepEqual(kinds(), ['login'], label);
+  }
+  assert.deepEqual(attentionPage({ composer: false, buttons: ['Login history', 'Signing in is optional'] }).kinds(), [null]);
+});
+
+test("Claude's signed-out page counts as needing sign-in", () => {
+  const { classify } = require('../content-scripts/provider-attention');
+  assert.equal(classify({ url: 'https://claude.ai/logout?involuntary=1&returnTo=%2Fnew', composer: false })?.kind, 'login');
+  assert.equal(classify({ url: 'https://chatgpt.com/auth/login', composer: false })?.kind, 'login');
+  assert.equal(classify({ url: 'https://claude.ai/chat/logout-notes', composer: true }), null);
+});
+
+function popupFunctions(names, context) {
+  const fs = require('node:fs'), vm = require('node:vm');
+  const source = fs.readFileSync(require.resolve('../popup.js'), 'utf8');
+  const extract = name => { const start = source.indexOf(`function ${name}(`); assert.notEqual(start, -1, name); return source.slice(start, source.indexOf('\n}', start + 1) + 2); };
+  vm.runInNewContext(names.map(extract).join('\n'), context);
+  return context;
+}
+
+// The sign-out page used to wipe the conversation that was open before it.
+test('a sign-in or sign-out page does not replace the remembered conversation', () => {
+  const stored = { 'ai-chat-url-claude': 'https://claude.ai/chat/abc' }, captured = [];
+  const context = popupFunctions(['normalizePlatformUrl', 'rememberPlatformUrl'], { URL,
+    localStorage: { setItem: (key, value) => { stored[key] = value; } }, captureSessionUrl: (platform, url) => captured.push(url) });
+  context.rememberPlatformUrl('claude', 'https://claude.ai/logout?involuntary=1');
+  context.rememberPlatformUrl('claude', 'https://claude.ai/login');
+  assert.equal(stored['ai-chat-url-claude'], 'https://claude.ai/chat/abc'); assert.deepEqual(captured, []);
+  context.rememberPlatformUrl('claude', 'https://claude.ai/chat/def');
+  assert.equal(stored['ai-chat-url-claude'], 'https://claude.ai/chat/def'); assert.deepEqual(captured, ['https://claude.ai/chat/def']);
+});
+
+test('sign-up, consent and create-account pages are not conversations either', () => {
+  const context = popupFunctions(['normalizePlatformUrl'], { URL });
+  for (const url of ['https://chatgpt.com/log-in-or-create-account', 'https://claude.ai/signup', 'https://grok.com/sign-up', 'https://www.meta.ai/consent/'])
+    assert.equal(context.normalizePlatformUrl('x', url), '', url);
+  assert.equal(context.normalizePlatformUrl('claude', 'https://claude.ai/chat/signup-ideas'), 'https://claude.ai/chat/signup-ideas');
+});
+
+function messageHarness(attention) {
+  const sent = [], opened = [], frame = { contentWindow: { postMessage: m => sent.push(m) } };
+  const state = { loaded: true, attention };
+  const context = popupFunctions(['isProviderOrigin', 'releasePendingQuestions', 'onProviderResourceMessage'], { URL, console: { log() {}, warn() {} },
+    defaultUrls: { grok: 'https://grok.com/', meta: 'https://www.meta.ai/' },
+    providerResources: { state: () => ({ ...state }), update: (_, patch) => Object.assign(state, patch) },
+    providerRuntime: { grok: { ready: false, pending: [{ question: 'queued' }], generation: 0 }, meta: { ready: false, pending: [] } },
+    iframes: { grok: frame, meta: frame }, compareWatchState: {}, loginWatches: {}, isCurrentSubmissionEvent: () => true, updateStatus() {},
+    openProviderLogin: platform => opened.push(platform) });
+  const post = (data, origin = 'https://grok.com') => context.onProviderResourceMessage({ source: frame.contentWindow, origin, data: { platform: 'grok', ...data } });
+  return { sent, opened, post, frame, context };
+}
+
+// A question typed while a provider still needs sign-in must wait for the
+// signed-in page; handing it to the sign-in wall loses it.
+test('a queued question is not handed to a page that still needs sign-in', () => {
+  const { sent, post } = messageHarness('login');
+  post({ type: 'AI_READY' });
+  assert.deepEqual(sent, []);
+  post({ type: 'AI_PROVIDER_ATTENTION', kind: null, message: '' });
+  assert.deepEqual(sent.map(m => m.question), ['queued'], 'sent once sign-in is no longer needed');
+  post({ type: 'AI_READY' });
+  assert.equal(sent.length, 1, 'and only once');
+});
+
+test('a queued question still waits for READY when sign-in was never needed', () => {
+  const { sent, post } = messageHarness(null);
+  post({ type: 'AI_PROVIDER_ATTENTION', kind: null, message: '' });
+  assert.deepEqual(sent, []);
+  post({ type: 'AI_READY' });
+  assert.equal(sent.length, 1);
+});
+
+test("only the provider's own page can ask for a sign-in tab", () => {
+  const { opened, post, context, frame } = messageHarness('login');
+  post({ type: 'AI_OPEN_LOGIN' }, 'https://grok.com');
+  post({ type: 'AI_OPEN_LOGIN' }, 'https://accounts.x.ai');
+  assert.deepEqual(opened, ['grok', 'grok']);
+  for (const origin of ['https://evil.example', 'https://grok.com.evil.example', 'null', '', 'about:blank']) post({ type: 'AI_OPEN_LOGIN' }, origin);
+  assert.equal(opened.length, 2);
+  context.onProviderResourceMessage({ source: {}, origin: 'https://grok.com', data: { type: 'AI_OPEN_LOGIN', platform: 'grok' } });
+  assert.equal(opened.length, 2, 'nor can another window');
+  context.onProviderResourceMessage({ source: frame.contentWindow, origin: 'https://meta.ai', data: { type: 'AI_OPEN_LOGIN', platform: 'meta' } });
+  assert.deepEqual(opened, ['grok', 'grok', 'meta']);
+});
