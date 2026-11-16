@@ -64,7 +64,7 @@
   }
 
   function createParser(provider, onEvent, onError = () => {}) {
-    const turns = new Map(), streams = new Map(), blocks = new Map();
+    const turns = new Map(), streams = new Map(), blocks = new Map(), steps = new Map();
     let queue = Promise.resolve();
     function turn(id) {
       if (!id) return null;
@@ -135,9 +135,22 @@
       for (const snapshot of at(b, [1, 1])) {
         const sender = at(snapshot, [3, 3])[0];
         if (sender !== undefined) state.sender = sender;
+        // One answer is written in several steps (text, a web search, text
+        // again) and every step has its own id. Blocks are grouped by the
+        // message their step belongs to; a new step reopens an answer whose
+        // first text block had already ended.
+        for (const step of at(snapshot, [4])) {
+          const id = str(step, [1]), message = str(step, [2]);
+          if (!id || !message || steps.has(id)) continue;
+          steps.set(id, message);
+          if (steps.size > 512) steps.delete(steps.keys().next().value);
+          const t = turns.get(message);
+          if (t?.complete) { t.complete = false; onEvent({ turnId: t.id, text: t.text, complete: false }); }
+        }
         for (const block of at(snapshot, [5])) {
-          const id = str(block, [1]), parent = str(block, [2]);
-          if (!id || !parent) continue;
+          const id = str(block, [1]), step = str(block, [2]);
+          if (!id || !step) continue;
+          const parent = blocks.get(id)?.parent || steps.get(step) || step;
           const old = blocks.get(id) || { parent, text: '', answer: false };
           // Live first snapshots omit f24 (final snapshots add it only AFTER
           // the completion event). Sender=2 identifies the streaming answer.
@@ -148,9 +161,14 @@
           if (old.answer) {
             state.active = parent;
             const t = turn(parent);
-            publish(t, [...blocks.values()].filter(v => v.parent === parent && v.answer).map(v => v.text).join('\n\n'),
+            publish(t, [...blocks.values()].filter(v => v.parent === parent && v.answer && v.text).map(v => v.text).join('\n\n'),
               numberIs(block, [24], 3) && numberIs(block, [4], 1));
           }
+        }
+        // The assistant message itself is marked finished after its last step.
+        for (const message of at(snapshot, [3])) {
+          const t = numberIs(message, [3], 2) && numberIs(message, [7], 1) ? turns.get(str(message, [1])) : null;
+          if (t?.text) publish(t, t.text, true);
         }
       }
       for (const delta of at(b, [1, 2])) {
@@ -158,7 +176,7 @@
         if (!block?.answer) continue;
         block.text += str(delta, [2]);
         const t = turn(block.parent);
-        publish(t, [...blocks.values()].filter(v => v.parent === block.parent && v.answer).map(v => v.text).join('\n\n'));
+        publish(t, [...blocks.values()].filter(v => v.parent === block.parent && v.answer && v.text).map(v => v.text).join('\n\n'));
       }
       // A timeline stays open after this event; HTTP EOF/heartbeat is not completion.
       if (state.active && numberIs(b, [1, 4, 1], 1)) {
